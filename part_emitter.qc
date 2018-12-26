@@ -262,7 +262,7 @@ float(entity pe_ent) misc_particle_style =
 		pe_ent.part_life = 2;				// Long life
 		pe_ent.part_ofs = '0 0 0';			// center of target object
 		// The angle of the particle entity is using the ANGLE key
-		makevectors(pe_ent.angles);
+		makevectors(pe_ent.pemit_source.angles);
 		pe_ent.part_vel = v_forward * 10;	// Slow speed away from skill column
 		pe_ent.part_vol = '4 4 4';			// Volume (X/Y/Z)
 		pe_ent.part_velrand = '4 4 8';		// Volume wobble
@@ -273,7 +273,7 @@ float(entity pe_ent) misc_particle_style =
 		pe_ent.spawn_rand = 0.2;			// Spawn rate randomness
 		pe_ent.dpp_name = DPP_SKILLPILLAR;	// Directional particle stream
 		pe_ent.dpp_rnd = 0;					// NO Random time multiplier
-		pe_ent.dpp_vel = normalize(pe_ent.angles);	// Particle direction
+		pe_ent.dpp_vel = normalize(v_forward);	// Particle direction
 	}
 	//----------------------------------------------------------------------
 	// Particles raising up around an altar
@@ -283,11 +283,13 @@ float(entity pe_ent) misc_particle_style =
 			pe_ent.spr_name1 = PART_DOTMED_GREY;
 			pe_ent.spr_name2 = PART_DOTSML_WHITE;
 			pe_ent.spr_name3 = PART_DOTSML_GOLD;
+			pe_ent.dpp_name = DPP_ALTARGREY;	// floating upwards
 		}
 		else {
 			pe_ent.spr_name1 = PART_DOTMED_RED;
 			pe_ent.spr_name2 = PART_DOTSML_GOLD;
 			pe_ent.spr_name3 = PART_DOTSML_RED;
+			pe_ent.dpp_name = DPP_ALTARRED;		// floating upwards
 		}
 		pe_ent.part_limit = 100;			// Maximum particles
 		pe_ent.part_life = 5;				// Long life

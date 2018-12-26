@@ -1,6 +1,6 @@
 //======================================================================
-// MOD    : AD v1.42 - (Arcane Dimensions)
-// Date   : 24th December 2015
+// MOD    : AD v1.42P1 - (Arcane Dimensions)
+// Date   : 29th December 2015
 // Author : Simon "Sock" OCallaghan
 // Website: www.simonoc.com
 //======================================================================
@@ -250,7 +250,6 @@ entity		fog_control;		// Global fog controller (unique to map)
 float ENG_UNKNOWN = 0;			// Default engine type
 float ENG_FITZ = 1;				// Fitz clone engines
 float ENG_DPEXT = 2;			// Engine with Darkplaces extensions
-float ENG_FTE = 3;				// FTE engine
 
 float DEF_GRAVITY = 800;		// Default gravity for maps
 float DEF_FOGDEN = 0.1;			// Default fog parameter
@@ -495,7 +494,7 @@ float SPEED_LAVASKILL = 50;			// Lava ball skill upgrade
 float SPEED_RLPLAYER = 1000;		// Player rocket speed
 float SPEED_PLAYGRENADE = 600;		// Player speed for Grenades
 float SPEED_MONGRENADE = 500;		// Ogre grenade speed (org 600)
-float SPEED_MONGLSKILL = 50;		// 550=easy, 575=normal, 600=hard, 625=nm
+float SPEED_MONGLSKILL = 50;		// 500=easy, 550=normal, 600=hard, 650=nm
 float SPEED_ZOMBFLESH = 550;		// Zombie flesh speed (org 600)
 float SPEED_ZOMBIESKILL = 25;		// 550=easy, 575=normal, 600=hard, 625=nm
 
@@ -509,14 +508,17 @@ float SPEED_DFURYSPIKE = 400;		// Base speed of Fury magic attacks
 float SPEED_DFURYSKILL = 225;		// 400=easy, 625=normal, 850=hard, 1075=nm
 
 float SPEED_GARGMISSILE = 500;		// Gargoyle rocket speed
-float SPEED_GARGSKILL = 50;			// 500=easy, 550=normal, 600=hard, 650=nm
+float SPEED_GARGSKILL = 150;		// 500=easy, 650=normal, 800=hard, 950=nm
 
 float SPEED_SWIZMISSILE = 525;		// Skull wizard rocket speed
 float SPEED_SWIZSKILL = 75;			// 525=easy, 600=normal, 675=hard, 750=nm
 float DAMAGE_SWIZPOISON = 30;		// Direct damage from Poison Rocket
 
 float SPEED_MINOBOLT = 500;			// Minotaur plasma bolt speed
-float SPEED_MINOSKILL = 100;		// 500=easy, 600=normal, 700=hard, 800nm
+float SPEED_MINOSKILL = 150;		// 500=easy, 650=normal, 800=hard, 950=nm
+
+float SPEED_GAUNTBOLT = 500;		// Gaunt plasma bolt speed
+float SPEED_GAUNTSKILL = 150;		// 500=easy, 650=normal, 800=hard, 950=nm
 
 float SPEED_SHALMISSILE = 200;		// Shalrath intial speed of homing missile
 float SPEED_SHALSKILL = 50;			// 200=easy, 250=normal, 300=hard, 350=nm

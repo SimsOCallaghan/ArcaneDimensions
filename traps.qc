@@ -469,8 +469,7 @@ void() trap_gasshooter_spawn =
 	partemit.angles_z = random() * 360;
 
 	// If DP engine active remove particle shadow
-	if (engine == ENG_DPEXT) 
-		partemit.effects = partemit.effects + EF_NOSHADOW;
+	if (engine == ENG_DPEXT) partemit.effects = partemit.effects + EF_NOSHADOW;
 
 	partemit.nextthink = time + 0.1 + random() * 0.05;
 	partemit.think = trap_gasshooter_think;

@@ -261,8 +261,7 @@ void(vector start_org) wraith_debuff_explode =
 		newmis.frame = rint(random()*2);
 
 		// If DP engine active remove particle shadow
-		if (engine == ENG_DPEXT) 
-			newmis.effects = newmis.effects + EF_NOSHADOW;
+		if (engine == ENG_DPEXT) newmis.effects = newmis.effects + EF_NOSHADOW;
 
 		newmis.think = wraith_fire_think;
 		newmis.touch = wraith_fire_touch;

@@ -311,14 +311,6 @@ void()	spider_idleup12	=[	$idleup12,	spider_idleup13	] {ai_stand();};
 void()	spider_idleup13	=[	$idleup13,	spider_idleup1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	spider_drop1	=[	$drop1,	spider_drop2	] {};
-void()	spider_drop2	=[	$drop2,	spider_drop3	] {};
-void()	spider_drop3	=[	$drop3,	spider_drop4	] {};
-void()	spider_drop4	=[	$drop4,	spider_drop5	] {};
-void()	spider_drop5	=[	$drop5,	spider_drop6	] {};
-void()	spider_drop6	=[	$drop6,	spider_drop6	] {self.movetype = MOVETYPE_STEP;};
-
-//----------------------------------------------------------------------
 void() spider_droptouch =
 {
 	// Check if landed on something that is not the ground?
@@ -327,8 +319,8 @@ void() spider_droptouch =
 		if (self.flags & FL_ONGROUND) {
 			self.flags = self.flags - FL_ONGROUND;
 			self.origin_z = self.origin_z + 8;
-			setorigin(self, self.origin);				// raise up
-			self.movetype = MOVETYPE_TOSS;			// Affected by gravity
+			setorigin(self, self.origin);	// raise up
+			self.attack_timer = time + 1;	// reset timer
 			
 			makevectors (self.angles);
 			self.velocity = v_forward * 100 + '0 0 200';
@@ -337,9 +329,12 @@ void() spider_droptouch =
 	}
 
 	// No more flying, back to running
-	self.movetype = MOVETYPE_STEP;			// Restore landing sound
-	self.touch = SUB_Null;					// No more jump touching
-	FoundHuntTarget(TRUE);					// Setup goals and warn other monsters
+	self.solid = SOLID_SLIDEBOX;
+	self.movetype = MOVETYPE_STEP;
+	setsize(self, self.bbmins, self.bbmaxs);
+
+	self.touch = SUB_Null;			// No more jump touching
+	FoundHuntTarget(TRUE);			// Setup goals and warn other monsters
 	if (self.enemy.flags & FL_CLIENT) monster_sightsound();
 
 	// Restore all think state functions (spider is off the ceiling)
@@ -359,6 +354,16 @@ void() spider_droptouch =
 	self.nextthink = time + 0.1;
 };
 
+//----------------------------------------------------------------------
+void()	spider_drop1 =[	$drop1,	spider_drop2 ] {};
+void()	spider_drop2 =[	$drop2,	spider_drop3 ] {};
+void()	spider_drop3 =[	$drop3,	spider_drop4 ] {};
+void()	spider_drop4 =[	$drop4,	spider_drop5 ] {};
+void()	spider_drop5 =[	$drop5,	spider_drop6 ] {};
+void()	spider_drop6 =[	$drop6,	spider_drop6 ] {
+	if (self.attack_timer < time || self.velocity_z == 0) spider_droptouch();
+};
+
 //----------------------------------------------------------------------------
 void() spider_wakeup =
 {
@@ -369,13 +374,16 @@ void() spider_wakeup =
 	self.th_walk = self.th_run = self.th_slide = SUB_Null;
 
 	// No longer need cling to ceiling spawnflag, remove it
-	if (self.spawnflags & MON_SPIDER_CEILING) 
-		self.spawnflags = self.spawnflags - MON_SPIDER_CEILING;
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_SPIDER_CEILING);
 
 	self.flags = FL_MONSTER;			// reset flags
-	self.origin_z = self.origin_z - 8;	// Unstick from ceiling
+	if (engine == ENG_FITZ) self.origin_z = self.origin_z - 16;
+	else self.origin_z = self.origin_z - 32;	// Unstick from ceiling
 	setorigin(self, self.origin);		// Move down slightly
-	self.movetype = MOVETYPE_TOSS;		// Affected by gravity
+	self.solid = SOLID_SLIDEBOX;
+	self.movetype = MOVETYPE_STEP;
+	self.attack_timer = time + 1;
+
 	self.classmove = MON_MOVEWALK;		// Back to walking/running 
 	self.pain_finished = time + 1.5;	// No pain
 	SUB_AttackFinished(2 + random());	// No attacking

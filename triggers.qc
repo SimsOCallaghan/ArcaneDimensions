@@ -110,7 +110,7 @@ void() trigger_spawn_bubbles =
 		bubble.classname = "misc_bubble";
 		bubble.classtype = CT_BUBBLE;
 		bubble.classgroup = CG_TEMPENT;
-		bubble.movetype = MOVETYPE_FLY;
+		bubble.movetype = MOVETYPE_NOCLIP;
 		bubble.solid = SOLID_TRIGGER;
 		setmodel(bubble, self.mdl);
 		bubble.frame = rint(random() * 3);		// Light/dark colours

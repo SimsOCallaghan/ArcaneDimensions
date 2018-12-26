@@ -247,13 +247,6 @@ void()	voreling_idleup5 =[ $idleup5, voreling_idleup6] {ai_stand();};
 void()	voreling_idleup6 =[ $idleup6, voreling_idleup1] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	voreling_drop1	=[	$drop1,	voreling_drop2	] {};
-void()	voreling_drop2	=[	$drop2,	voreling_drop3	] {};
-void()	voreling_drop3	=[	$drop3,	voreling_drop4	] {};
-void()	voreling_drop4	=[	$drop4,	voreling_drop5	] {};
-void()	voreling_drop5	=[	$drop5,	voreling_drop5	] {self.movetype = MOVETYPE_STEP;};
-
-//----------------------------------------------------------------------
 void() voreling_droptouch =
 {
 	// Check if landed on something that is not the ground?
@@ -262,8 +255,8 @@ void() voreling_droptouch =
 		if (self.flags & FL_ONGROUND) {
 			self.flags = self.flags - FL_ONGROUND;
 			self.origin_z = self.origin_z + 8;
-			setorigin(self, self.origin);			// raise up
-			self.movetype = MOVETYPE_TOSS;			// Affected by gravity
+			setorigin(self, self.origin);	// raise up
+			self.attack_timer = time + 1;	// reset timer
 			
 			makevectors (self.angles);
 			self.velocity = v_forward * 100 + '0 0 200';
@@ -272,7 +265,10 @@ void() voreling_droptouch =
 	}
 
 	// No more flying, back to running
-	self.movetype = MOVETYPE_STEP;	// Restore landing sound
+	self.solid = SOLID_SLIDEBOX;
+	self.movetype = MOVETYPE_STEP;
+	setsize(self, self.bbmins, self.bbmaxs);
+
 	self.touch = SUB_Null;			// No more jump touching
 	FoundHuntTarget(TRUE);			// Setup goals and warn other monsters
 	if (self.enemy.flags & FL_CLIENT) monster_sightsound();
@@ -291,6 +287,15 @@ void() voreling_droptouch =
 	self.nextthink = time + 0.1;
 };
 
+//----------------------------------------------------------------------
+void()	voreling_drop1	=[	$drop1,	voreling_drop2	] {};
+void()	voreling_drop2	=[	$drop2,	voreling_drop3	] {};
+void()	voreling_drop3	=[	$drop3,	voreling_drop4	] {};
+void()	voreling_drop4	=[	$drop4,	voreling_drop5	] {};
+void()	voreling_drop5	=[	$drop5,	voreling_drop5	] {
+	if (self.attack_timer < time || self.velocity_z == 0) voreling_droptouch();
+};
+
 //----------------------------------------------------------------------------
 void() voreling_wakeup =
 {
@@ -301,13 +306,16 @@ void() voreling_wakeup =
 	self.th_walk = self.th_run = self.th_slide = SUB_Null;
 
 	// No longer need cling to ceiling spawnflag, remove it
-	if (self.spawnflags & MON_VORELING_CEILING) 
-		self.spawnflags = self.spawnflags - MON_VORELING_CEILING;
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_VORELING_CEILING);
 
 	self.flags = FL_MONSTER;			// reset flags
-	self.origin_z = self.origin_z - 8;	// Unstick from ceiling
+	if (engine == ENG_FITZ) self.origin_z = self.origin_z - 16;
+	else self.origin_z = self.origin_z - 32;	// Unstick from ceiling
 	setorigin(self, self.origin);		// Move down slightly
-	self.movetype = MOVETYPE_TOSS;		// Affected by gravity
+	self.solid = SOLID_SLIDEBOX;
+	self.movetype = MOVETYPE_STEP;
+	self.attack_timer = time + 1;
+
 	self.classmove = MON_MOVEWALK;		// Back to walking/running 
 	self.pain_finished = time + 1.5;	// No pain
 	SUB_AttackFinished(2 + random());	// No attacking

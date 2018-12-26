@@ -154,8 +154,7 @@ void(vector org, vector dir) pyroflame_spawn =
 	newmis.angles_z = anglemod(roll);
 
 	// If DP engine active remove particle shadow
-	if (engine == ENG_DPEXT) 
-		newmis.effects = newmis.effects + EF_NOSHADOW;
+	if (engine == ENG_DPEXT) newmis.effects = newmis.effects + EF_NOSHADOW;
 
 	newmis.nextthink = time + 0.1;
 	newmis.think = pyroflame_think;

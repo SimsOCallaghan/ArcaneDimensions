@@ -311,10 +311,12 @@ float PARTICLE_STYLE_PIERCE = 260;		// Purple dots from center
 
 // DarkPlaces Particles definition block names
 // defined in effectinfo.txt (location - root of mod directory)
-string DPP_TRBLOOD = "TR_BLOOD";				// Blood TRail for model flag
-string DPP_ITSBLOOD = "TR_ITSBLOOD";			// Blood TRail (extra blood)
-string DPP_TRPLASMA = "TR_PLASMA";				// New plasma particle trail
-string DPP_TEPLASMA = "TE_PLASMA";				// New plasma particle explosion
+string DPP_TRBLOOD = "TR_BLOOD";		// Blood TRail for model flag
+string DPP_ITSBLOOD = "TR_ITSBLOOD";	// Blood TRail (extra blood)
+string DPP_TRPLASMA = "TR_PLASMA";		// New Plasma particle trail
+string DPP_TEPLASMA = "TE_PLASMA";		// New Plasma particle explosion
+string DPP_TELRGPLASMA = "TE_LRGPLASMA";// New Plasma larger explosion
+string DPP_TRLASER = "TR_LASER";		// New Laser particle trail
 
 string DPP_PORTALFRONT = "DPP_ITSPORTALFRONT";	// 0,180 angle
 string DPP_PORTALSIDE = "DPP_ITSPORTALSIDE";	// 90,270 angle
@@ -333,6 +335,8 @@ string DPP_FLAMES = "DPP_ITSSFLAME";
 string DPP_FLAMET = "DPP_ITSTFLAME";
 string DPP_FLAMEL = "DPP_ITSLFLAME";
 string DPP_SKILLPILLAR = "DPP_ITSSKILLPILLAR";
+string DPP_ALTARRED = "DPP_ITSALTARRED";
+string DPP_ALTARGREY = "DPP_ITSALTARGREY";
 string DPP_RESPAWN = "DPP_ITSRESPAWN";
 string DPP_MEGAH = "DPP_ITSMEGAH";
 string DPP_ARMOR1 = "DPP_ITSARMOR1";

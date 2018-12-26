@@ -39,7 +39,7 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions (Arcadim) MOD v1.42\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions (Arcadim) MOD v1.42P1\n");
 };
 
 /*======================================================================
@@ -575,13 +575,13 @@ void() togglepixels =
 	
 	self.impulse = 0;
 	sprint(self, "\b[SETTINGS]\b texture filtering ("); 
-	if (pixelmode == 0) {
-		pixelmode = 1;
+	if (pixelmode == 1) {
+		pixelmode = 0;
 		stuffcmd(self, "\ngl_texturemode GL_LINEAR_MIPMAP_LINEAR\n");
 		sprint(self, "blurry)\n");
 	}
 	else {
-		pixelmode = 0;
+		pixelmode = 1;
 		stuffcmd(self, "\ngl_texturemode GL_NEAREST_MIPMAP_LINEAR\n");
 		sprint(self, "crispy)\n");
 	}

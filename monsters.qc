@@ -595,6 +595,7 @@ void() monster_spawn =
 			self.view_ofs = '0 0 -24';
 			self.yaw_speed = 20;		// Ground yaw speed
 			self.idletimer = time;		// Always start with idle sounds
+			setsize(self, '-16 -16 -24', '16 16 0');
 		}
 		else {
 			dprint("\b[MONSTER]\b Trying to place on ceiling, no space!\n");

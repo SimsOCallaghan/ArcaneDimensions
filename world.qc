@@ -507,11 +507,8 @@ void() worldspawn =
 	engine = ENG_FITZ;						// Default engine type (no extensions)
 	ext_active = cvar("pr_checkextension");	// Check for extra extensions
 	if (ext_active) {
-		// Work out which extension engine is active
-		// Luckily FTE has a command extension to detect that engine
-		if (checkextension("FTE_QC_CHECKCOMMAND")) engine = ENG_FTE;
-		// This could be DQ, RMQ, Qbism etc
-		else engine = ENG_DPEXT;
+		// This could be FTE, DP, DQ, RMQ, Qbism etc
+		engine = ENG_DPEXT;
 
 		// Check for engine feature extensions
 		ext_dpfog = checkextension("DP_GFX_FOG");				// DP extra fog params
@@ -521,7 +518,6 @@ void() worldspawn =
 	
 	dprint("\n\b[ENGINE]\b ");
 	if (engine == ENG_FITZ) dprint("Fitz Compatible\n");
-	else if (engine == ENG_FTE) dprint("FTE\n");
 	else if (engine == ENG_DPEXT) dprint("DP Compatible\n");
 	else dprint("Unknown\n");
 

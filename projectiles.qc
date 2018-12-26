@@ -73,7 +73,7 @@ void(float sprite_type, vector org, string expl_sound) SpawnExplosion =
 	}
 	else if (sprite_type == EXPLODE_BIGP) {
 		if (ext_dppart)
-			pointparticles(particleeffectnum(DPP_TEPLASMA), org, '0 0 0', 1);
+			pointparticles(particleeffectnum(DPP_TELRGPLASMA), org, '0 0 0', 1);
 		else {
 			spr_name = "progs/s_explodbigp.spr";
 			spr_count = 12;
@@ -599,12 +599,14 @@ void(vector org, vector dir, float proj_type, float proj_speed) launch_plasma =
 		
 	//----------------------------------------------------------------------
 	// Is DP engine active for new particle trail?
-	if (ext_dppart) newmis.traileffectnum = particleeffectnum(DPP_TRPLASMA);
+	if (ext_dppart) {
+		newmis.traileffectnum = particleeffectnum(DPP_TRPLASMA);
+		newmis.effects = 0;
+		// Extra glow and light colour (DP mostly)
+		//newmis.effects = EF_BLUE;
+		//newmis.glow_color = 246;	// Blue/gold	
+	}
 
-	// Extra glow and light colour (DP mostly)
-	newmis.effects = newmis.effects | EF_BLUE;
-	newmis.glow_color = 246;	// Blue/gold
-	
 	// Manually generate blue/white particle trail
 	newmis.count = 1 + rint(random()*2);	// Default particles
 	newmis.speed = 0.02;					// Next function interval (very high tick)
@@ -802,7 +804,7 @@ void() Touch_Projectile =
 			WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 			
 			if (self.classtype == CT_PROJ_SNG) WriteByte (MSG_BROADCAST, TE_SUPERSPIKE);
-			else if (self.classtype == CT_PROJ_LASER) WriteByte (MSG_BROADCAST, TE_GUNSHOT);
+			else if (self.classtype == CT_PROJ_LASER) WriteByte (MSG_BROADCAST, TE_KNIGHTSPIKE);
 			else if (self.classtype == CT_PROJ_GROCK) WriteByte (MSG_BROADCAST, TE_GUNSHOT);
 			else if (self.classtype == CT_PROJ_WIZ) WriteByte (MSG_BROADCAST, TE_WIZSPIKE);
 			else if (self.classtype == CT_PROJ_SPID) WriteByte (MSG_BROADCAST, TE_WIZSPIKE);
@@ -867,7 +869,6 @@ void(vector org, vector dir, float proj_type, float proj_speed) launch_projectil
 	//----------------------------------------------------------------------
 	if (proj_type == CT_PROJ_NG) setmodel (newmis, MODEL_PROJ_NG);
 	else if (proj_type == CT_PROJ_SNG) setmodel (newmis, MODEL_PROJ_SNG);
-	else if (proj_type == CT_PROJ_LASER) setmodel (newmis, MODEL_PROJ_LASER);
 	else if (proj_type == CT_PROJ_BOLT1) setmodel (newmis, MODEL_PROJ_BOLT1);
 	else if (proj_type == CT_PROJ_HKN) setmodel (newmis, MODEL_PROJ_HKN);
 	else if (proj_type == CT_PROJ_WIZ) setmodel (newmis, MODEL_PROJ_WIZ);
@@ -876,6 +877,14 @@ void(vector org, vector dir, float proj_type, float proj_speed) launch_projectil
 	else if (proj_type == CT_PROJ_WPOISON) setmodel (newmis, MODEL_PROJ_WPOISON);
 	else if (proj_type == CT_PROJ_SCORP) setmodel (newmis, MODEL_PROJ_SCORP);
 	else if (proj_type == CT_PROJ_FURY2) setmodel (newmis, MODEL_PROJ_FURY2);
+	else if (proj_type == CT_PROJ_LASER) {
+		setmodel (newmis, MODEL_PROJ_LASER);
+		// Is DP engine active for new particle trail?
+		if (ext_dppart) {
+			newmis.traileffectnum = particleeffectnum(DPP_TRLASER);
+			newmis.effects = 0;
+		}
+	}
 	else if (proj_type == CT_PROJ_GROCK) {
 		if (random() < 0.5) setmodel (newmis, MODEL_PROJ_GROCK1);
 		else setmodel (newmis, MODEL_PROJ_GROCK2);

@@ -315,6 +315,10 @@ void() setup_fog_controller =
 		if (world.fog_dpextra != "") fog_control.fog_dpextra = world.fog_dpextra;
 		else fog_control.fog_dpextra = DEF_FOGEXT;
 
+		// This is a horrible hack, it should not be here
+		// This parameter should be in the map file worldspawn
+		if (world.model == "maps/ad_end.bsp") fog_control.fog_dpextra = "1 0 2048 8192 32";
+		
 		fog_control.state = STATE_OFF;	// Not fading atm
 		fog_control.fog_difftime = 0;	// fading fog time (seconds)
 		fog_control.fog_steptime = 0;	// How many steps to fade

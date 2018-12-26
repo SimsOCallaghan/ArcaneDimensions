@@ -53,7 +53,7 @@ void() emitdpp_default = {
 
 	// Generate particles (DP Engine)
 	// DP particles are designed to go at origin, not origin+offset
-	pointparticles(particleeffectnum(self.dpp_name), self.pemit_source.origin, self.dpp_vel, 1);
+	pointparticles(particleeffectnum(self.dpp_name), self.pemit_source.origin, self.pemit_source.dpp_vel, 1);
 	self.think = emitdpp_default;
 	self.nextthink = time + self.dpp_wait + (random() * self.dpp_rnd);
 };

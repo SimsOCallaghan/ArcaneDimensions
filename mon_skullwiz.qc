@@ -407,8 +407,7 @@ void() skullw_guardian =
 		newmis.frame = rint(random()*2);
 
 		// If DP engine active remove particle shadow
-		if (engine == ENG_DPEXT) 
-			newmis.effects = newmis.effects + EF_NOSHADOW;
+		if (engine == ENG_DPEXT) newmis.effects = newmis.effects + EF_NOSHADOW;
 
 		newmis.think = skullw_poison_think;
 		newmis.touch = skullw_poison_touch;

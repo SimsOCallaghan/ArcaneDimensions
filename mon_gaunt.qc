@@ -129,12 +129,13 @@ void() gaunt_plasma =
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "gaunt/plasma_fire.wav", 1, ATTN_NORM);
+	self.attack_speed = SPEED_GAUNTBOLT + (skill * SPEED_GAUNTSKILL);
 
 	makevectors (self.angles);
 	org = self.origin + v_forward * 8 + v_up * -4;
 	vec = normalize(SUB_orgEnemyTarget() - self.origin);
 
-	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
+	launch_plasma(org, vec, CT_PROJ_PLASMA, self.attack_speed);
 };
 
 //----------------------------------------------------------------------

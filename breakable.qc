@@ -880,7 +880,7 @@ void() breakable_cache =
 		if (self.brkobj3 == "") self.brkobj3 = MODEL_EMPTY;
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_EMPTY;
 	}
-	
+
 	precache_model(self.brkobj1);
 	precache_model(self.brkobj2);
 	precache_model(self.brkobj3);

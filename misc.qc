@@ -154,6 +154,7 @@ void() misc_explobox_on =
 	}
 	setmodel (self, self.mdl);
 	self.skin = self.skin_override*2;
+	setsize(self, self.bbmins, self.bbmaxs);
 	
 	self.th_die = misc_explod_fire;
 	self.takedamage = DAMAGE_AIM;
@@ -194,7 +195,13 @@ void() misc_explobox_setup =
 	else self.part_style = PARTICLE_BURST_WHITE;
 
 	// Setup exploding model
-	if (!self.bsporigin) {
+	if (self.bsporigin) {
+		self.mdl = self.model;		// Save model for later
+		setmodel (self, self.mdl);	// set size and link into world
+		self.bbmins = self.mins;	// Save bmodel bounds for later
+		self.bbmaxs = self.maxs;
+	}
+	else {
 		// Query console variable 'temp1' for model upgrade option.
 		// Cannot use global vars because they don't exist at this point
 		// Move the new centered exploding models to match old box origin
@@ -212,6 +219,7 @@ void() misc_explobox_setup =
 		// Finalize box location (check drop to floor)
 		if( !(self.spawnflags & ITEM_FLOATING) ) {
 			setmodel (self, self.mdl);
+			setsize(self, self.bbmins, self.bbmaxs);
 			self.solid = SOLID_BBOX;
 			self.movetype = MOVETYPE_TOSS;	
 			self.origin_z = self.origin_z + 6;
@@ -240,6 +248,8 @@ void() misc_explobox =
 {
 	self.mdl = "progs/explode_box1.mdl";	// maps/b_explob.bsp
 	precache_model (self.mdl);
+	self.bbmins = '-16 -16 0';
+	self.bbmaxs = '16 16 64';
 	misc_explobox_setup();
 };
 
@@ -247,6 +257,8 @@ void() misc_explobox2 =
 {
 	self.mdl = "progs/explode_box2.mdl";	// maps/b_explob2.bsp
 	precache_model (self.mdl);
+	self.bbmins = '-16 -16 0';
+	self.bbmaxs = '16 16 32';
 	misc_explobox_setup();
 };
 
@@ -256,6 +268,8 @@ void () func_explobox =
 	self.mdl = self.model;					// Brushwork version
 	self.bsporigin = TRUE;					// bmodel object
 	self.angles = '0 0 0';					// Make sure no angle twist
+	// Cannot be setup floating (always remove flag)
+	self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_FLOATING);
 	misc_explobox_setup();
 };
 
@@ -565,8 +579,10 @@ void() misc_drip_spawn =
 	setorigin (self, self.oldorigin);
 	setmodel (self, self.mdl);
 	self.solid = SOLID_TRIGGER;
-	self.movetype = MOVETYPE_BOUNCE;
+	if (self.cnt) self.movetype = MOVETYPE_NOCLIP;
+	else self.movetype = MOVETYPE_FLY;
 	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
+	self.velocity_z = -map_gravity;
 
 	// Drip only lasts 3s, don't want to travel forever
 	self.think = misc_drip_reset;
@@ -766,7 +782,8 @@ void() misc_smoke =
 	if (self.wait < 0.1) self.wait = 0.1;
 	if (self.delay <= 0) self.delay = 0.1;
 	if (self.height <= 0) self.height = 0.25 + random()*0.75;
-	self.effects = self.effects + EF_NOSHADOW + EF_ADDITIVE;
+	// If DP engine active remove particle shadow
+	if (engine == ENG_DPEXT) self.effects = self.effects + EF_NOSHADOW + EF_ADDITIVE;
 	self.spawnflags = self.spawnflags | MISC_SMOKENODPFX;
 
 	// Calculate smoke particle movedir from angles
@@ -869,7 +886,7 @@ void() misc_spark_spawn =
 		spark.think = misc_sparks_fade1;
 		
 		// If DP engine active remove particle shadow
-		if (engine == ENG_DPEXT) part.effects = part.effects + EF_NOSHADOW;
+		if (engine == ENG_DPEXT) spark.effects = spark.effects + EF_NOSHADOW;
 
 			// Some brightness variety
 		if (random() < 0.33) spark.skin = 0;

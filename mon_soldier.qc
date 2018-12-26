@@ -101,7 +101,7 @@ void() army_fire =
 	sound (self, CHAN_WEAPON, "soldier/sattck1.wav", 1, ATTN_NORM);	
 	
 	// Choose between a projectile or hit-scan system
-	if (query_configflag(SVR_PROJSHOTG))
+	if (query_configflag(SVR_SHOTGPROJ))
 		FireBullets (QUANTITY_GRUNT, SPREAD_GRUNT);
 	else {
 		Launch_Shells(QUANTITY_GRUNT, SPREAD_GRUNT, CT_PROJ_SG);
@@ -136,7 +136,7 @@ void() army_fire_rocket =
 
 	self.attack_speed = 250;
 	makevectors (self.angles);
-	org = self.origin + '0 0 8';
+	org = self.origin + attack_vector(self.attack_offset);
 	dir = normalize(self.attack_track - org);
 	
 	Launch_Missile (org, dir, '0 0 0', CT_PROJ_ARMY, self.attack_speed);
@@ -199,7 +199,10 @@ void()	army_grenade_atk3 =[	$shoot3, army_grenade_atk4	] {ai_face();
 void()	army_grenade_atk4 =[	$shoot4, army_grenade_atk5	] {ai_face();
 	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed);};
 void()	army_grenade_atk5 =[	$shoot5, army_grenade_atk6	] {ai_face();
-	MonsterFireGrenade(self.origin, self.enemy.origin);};
+	makevectors(self.angles);
+	self.pos1 = self.origin + attack_vector(self.attack_offset);
+	MonsterFireGrenade(self.pos1, self.enemy.origin);
+};
 void()	army_grenade_atk6 =[	$shoot6, army_grenade_atk7	] {};
 void()	army_grenade_atk7 =[	$shoot7, army_grenade_atk8	] {ai_face();};
 void()	army_grenade_atk8 =[	$shoot8, army_grenade_atk9	] {};
@@ -217,7 +220,7 @@ void() army_plasma_fire =
 	sound (self, CHAN_WEAPON, "weapons/plasma_fire.wav", 1, ATTN_NORM);
 
 	makevectors (self.angles);
-	org = self.origin + v_forward * 10 + v_right * 15 + '0 0 10';
+	org = self.origin + attack_vector(self.attack_offset);
 	vec = normalize(self.enemy.origin - self.origin);
 
 	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
@@ -283,11 +286,9 @@ void(entity inflictor, entity attacker, float damage) army_pain =
 
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
-		self.lip = random ();
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			// Randomly pick which pain animation to play
 			self.lip = random();
-		
 			if (self.lip < 0.2) {
 				self.pain_finished = time + 0.6;
 				sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
@@ -304,6 +305,17 @@ void(entity inflictor, entity attacker, float damage) army_pain =
 				army_painc1();
 			}
 		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 1.3;
+			self.axhitme = 0;
+			// Pick a random pain sound
+			if (random() < 0.5) sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
+			else sound (self, CHAN_VOICE, self.pain_sound2, 1, ATTN_NORM);
+			// Pick a random long pain animation
+			if (random() < 0.5) army_painb1();
+			else army_painc1();
+		}
 	}
 };
 
@@ -318,7 +330,7 @@ void()	army_die6	=[	$death6,	army_die7	] {};
 void()	army_die7	=[	$death7,	army_die8	] {};
 void()	army_die8	=[	$death8,	army_die9	] {};
 void()	army_die9	=[	$death9,	army_die10	] {monster_death_postcheck();};
-void()	army_die10	=[	$death10,	army_die10	] {};
+void()	army_die10	=[	$death10,	army_die10	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	army_cdie1	=[	$deathc1,	army_cdie2	] {};
@@ -332,7 +344,7 @@ void()	army_cdie7	=[	$deathc7,	army_cdie8	] {};
 void()	army_cdie8	=[	$deathc8,	army_cdie9	] {};
 void()	army_cdie9	=[	$deathc9,	army_cdie10	] {};
 void()	army_cdie10	=[	$deathc10,	army_cdie11	] {monster_death_postcheck();};
-void()	army_cdie11	=[	$deathc11,	army_cdie11	] {};
+void()	army_cdie11	=[	$deathc11,	army_cdie11	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() army_die =
@@ -381,7 +393,7 @@ void() monster_army =
 	precache_sound (self.pain_sound);
 	precache_sound (self.pain_sound2);
 
-	precache_sound ("player/udeath.wav");		// gib death
+	precache_sound ("player/udeath.wav");	// gib death
 
 	self.sight_sound = "soldier/sight1.wav";
 	precache_sound (self.sight_sound);
@@ -390,10 +402,12 @@ void() monster_army =
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
 	if (self.health < 1) self.health = 30;
-	self.gibhealth = -35;
-	self.gibbed = FALSE;
-	self.pain_flinch = 20;
-	self.steptype = FS_TYPEMEDIUM;
+	self.gibhealth = -35;				// Easy to gib
+	self.gibbed = FALSE;				// Still together
+	self.pain_flinch = 20;				// Easy to pain
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
+	self.steptype = FS_TYPEMEDIUM;		// Average feet
+	self.attack_offset = '12 8 12';		// End of Gun
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -460,6 +474,8 @@ void() monster_army_grenade =
 
 	self.th_missile = army_grenade_atk1;
 	self.th_melee = army_runback1;
+	// Grenade bounce off body
+	self.bouncegrenade = TRUE;
 	
 	monster_army();
 };
@@ -480,8 +496,8 @@ void() monster_army_plasma =
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("enforcer/elim_pg_load.wav");
-	precache_sound ("weapons/plasma_fire.wav");
-	precache_sound ("weapons/plasma_hit.wav");
+	precache_sound (SOUND_PLASMA_FIRE);
+	precache_sound (SOUND_PLASMA_HIT);
 	
 	self.th_missile = army_plasma_atk1;
 	

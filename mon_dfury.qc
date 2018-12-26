@@ -333,7 +333,7 @@ void()	dfury_lunge6	=[	$lunge6,	dfury_lunge7	] {};
 void()	dfury_lunge7	=[	$lunge7,	dfury_lunge8	] {};
 void()	dfury_lunge8	=[	$lunge8,	dfury_lunge8	] {
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; 	//random jump angle
 		self.think = dfury_lunge4;			// Keep jumping
 	}
@@ -412,7 +412,7 @@ void() dfury_melee =
 void(float offset) dfury_magica_shot =
 {
 	local float shotcount;
-	local	vector	soffset, dir, offang;
+	local vector soffset, dir, offang;
 
 	if (!self.enemy) return;
 	if (self.health < 1) return;
@@ -454,7 +454,7 @@ void(float offset) dfury_magica_shot =
 void() dfury_magicb_shot =
 {
 	local float offset, shotcount;
-	local	vector	soffset, dir, offang, avel;
+	local vector soffset, dir, offang, avel;
 
 	if (!self.enemy) return;
 	if (self.health < 1) return;
@@ -608,13 +608,19 @@ void(entity inflictor, entity attacker, float damage)	dfury_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			// Randomly pick which pain animation to play
 			if (random() < 0.9) dfury_painA1 ();		// classic, body recoil
 			else {
 				dfury_painD1 ();						// Cool stumble
 				self.pain_finished = time + 2;			// long animation
 			}
+		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 1.1;
+			self.axhitme = 0;
+			dfury_painD1 ();
 		}
 	}
 };
@@ -638,7 +644,7 @@ void()	dfury_die13	=[	$death14,	dfury_die14	] {};
 void()	dfury_die14	=[	$death15,	dfury_die15	] {
 	sound (self, CHAN_WEAPON, GIB_SOUND_METALA, 1, ATTN_NORM);};
 void()	dfury_die15	=[	$death16,	dfury_die16	] {monster_death_postcheck();};
-void()	dfury_die16	=[	$death17,	dfury_die16	] {};
+void()	dfury_die16	=[	$death17,	dfury_die16	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	dfury_dieb1	=[	$deathb1,	dfury_dieb2	] {};
@@ -656,7 +662,7 @@ void()	dfury_dieb10=[	$deathb10,	dfury_dieb11] {};
 void()	dfury_dieb11=[	$deathb11,	dfury_dieb12] {};
 void()	dfury_dieb12=[	$deathb12,	dfury_dieb13] {};
 void()	dfury_dieb13=[	$deathb13,	dfury_dieb14] {monster_death_postcheck();};
-void()	dfury_dieb14=[	$deathb14,	dfury_dieb14] {};
+void()	dfury_dieb14=[	$deathb14,	dfury_dieb14] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() dfury_die =
@@ -666,7 +672,7 @@ void() dfury_die =
 
 	// regular death
 	if (!self.gibbed) {
-	sound (self, CHAN_VOICE, "hknight/death1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "hknight/death1.wav", 1, ATTN_NORM);
 		if (random() > 0.5) dfury_die1 ();
 		else dfury_dieb1 ();
 	}
@@ -769,12 +775,14 @@ void() monster_dfury =
 	self.gibhealth = -50;
 	self.gibbed = FALSE;
 	self.pain_flinch = 80;
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// High pain level
-	self.infightextra = 2;				// Double damage to other monsters
+	if (!self.infightextra) self.infightextra = 2;	// 2x infighting dmg
 	self.steptype = FS_TYPEMEDIUM;
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
 	self.meleeoffset = '24 0 16';		// Jump attack offset
+	self.attack_offset = '20 0 10';		// Average of both attacks
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

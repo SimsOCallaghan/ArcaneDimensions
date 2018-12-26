@@ -1,5 +1,5 @@
 /*==============================================================================
-The Pinch (Scorpion - Hexen 2 model)
+Scorpion (Hexen2 model by Raven Software)
 ==============================================================================*/
 $frame attackA1 attackA2 attackA3 attackA4 attackA5 attackA6 attackA7
 $frame attackA8 attackA9 attackA10 attackA11 attackA12 attackA13 attackA14
@@ -138,7 +138,7 @@ void(vector tailofs) pinch_tailspike =
 	makevectors(self.angles);
 
 	// Generate spike at final animation position
-	org = self.origin + v_forward*tailofs_x + v_right*tailofs_y + v_up*tailofs_z;
+	org = self.origin + attack_vector(tailofs);
 	dir = self.enemy.origin + v_right*(TAILOFFSET*3);
 	dir = normalize(dir - org);
 	launch_projectile (org, dir, CT_PROJ_SCORP, self.attack_speed+random()*25);
@@ -232,7 +232,7 @@ void() pinch_leap4	=[	$attackC7, pinch_leap5	] {ai_face();};
 void() pinch_leap5	=[	$attackC8, pinch_leap6 ] {ai_face();};	
 void() pinch_leap6	=[	$attackC9, pinch_leap8 ] {
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; //random jump angle
 		self.think = pinch_leap3;
 	}
@@ -342,7 +342,7 @@ void() pinch_die7		=[	$death13,	pinch_die8	] {};
 void() pinch_die8		=[	$death15,	pinch_die9	] {};
 void() pinch_die9		=[	$death17,	pinch_die10] {};
 void() pinch_die10		=[	$death19,	pinch_die11] {monster_death_postcheck();};
-void() pinch_die11		=[	$death21,	pinch_die11] {};
+void() pinch_die11		=[	$death21,	pinch_die11] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------------
 void() pinch_die = 
@@ -446,6 +446,7 @@ void() setup_scorpion =
 	self.pain_longanim = FALSE;			// No long pain animation
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '32 0 10';		// Claw attack offset
+	self.attack_offset = '32 8 14';		// Nail attack offset
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

@@ -186,19 +186,18 @@ void()	jim_run1	=[	$idle1,	jim_run1 ] {
 //======================================================================
 void() jim_laser =
 {
-	local vector org, orgofs, dir, vec;
+	local vector org, dir, vec;
 
 	if (!self.enemy) return;
 	if (self.health < 1) return;
 	// Always make sure there is no monster or obstacle in the way
-	if ( visxray(self.enemy, '20 0 -10', '0 0 12', FALSE) ) return;
+	if ( visxray(self.enemy, self.attack_offset, '0 0 12', FALSE) ) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);
 
 	makevectors (self.angles);
-	orgofs = '20 0 -10';			// The front of the laser gun
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(self.attack_offset);
 
 	// Aim high to catch jumping players
 	dir = SUB_orgEnemyTarget() + '0 0 12';
@@ -213,19 +212,18 @@ void() jim_laser =
 //----------------------------------------------------------------------
 void() jim_rocket =
 {
-	local vector org, orgofs, dir, vec;
+	local vector org, dir, vec;
 	
 	if (!self.enemy) return;
 	if (self.health < 1) return;
 	// Always make sure there is no monster or obstacle in the way
-	if ( visxray(self.enemy, '20 0 -10', '0 0 -12', FALSE) ) return;
+	if ( visxray(self.enemy, self.attack_offset, '0 0 -12', FALSE) ) return;
 	
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "jim/rocket_fire.wav", 1, ATTN_NORM);	
 
 	makevectors (self.angles);
-	orgofs = '20 0 -10';			// The front of the rocket launcher
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(self.attack_offset);
 
 	// Aim low to catch players with splash damage
 	dir = SUB_orgEnemyTarget() - '0 0 12';
@@ -380,7 +378,7 @@ void() jim_dying1 =
 	else self.angles_y = (self.angles_y - 10);
 
 	// Spawn some extra smoke trails
-	if (random() < 0.3) SpawnProjectileSmoke(self.origin, 150, 200);
+	if (random() < 0.3) SpawnProjectileSmoke(self.origin, 150, 50, 150);
 
 	// Keep looping round
 	self.think = jim_dying1;
@@ -404,7 +402,7 @@ void() jim_dying2 =
 
 	// Medium explosion + sound OR smoke projectile trail
 	if (random() > 0.7) SpawnExplosion(EXPLODE_MED, self.origin, "jim/explode_minor.wav");
-	else if (random() < 0.3) SpawnProjectileSmoke(self.origin, 150, 200);
+	else if (random() < 0.3) SpawnProjectileSmoke(self.origin, 150, 50, 150);
 
 	// Turn down towards the ground
 	makevectors(self.angles);
@@ -430,8 +428,8 @@ void() jim_is_dead =
 	
 	// Final fireworks!
 	particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
-	SpawnProjectileSmoke(self.origin, 150, 200);
-	SpawnProjectileSmoke(self.origin, 150, 200);
+	SpawnProjectileSmoke(self.origin, 150, 50, 150);
+	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 	SpawnExplosion(EXPLODE_BIG, self.origin, "jim/explode_major.wav");
 
 	// Goto final resting place
@@ -475,7 +473,7 @@ void() jim_die =
 	// Spawn dust and sprite explosion
 	particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
 	SpawnExplosion(EXPLODE_BIG, self.origin, "jim/explode_minor.wav");
-	SpawnProjectileSmoke(self.origin, 150, 200);
+	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 
 	jim_dying1();
 };
@@ -514,10 +512,11 @@ void() monster_jim =
 	self.steptype = FS_FLYING;			// Silent feet
 	self.pain_longanim = FALSE;			// No long pain animation
 	self.blockudeath = TRUE;			// No humanoid death sound
-	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
+	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
 	self.oldorigin = self.origin;		// Used for wing angles
 	self.idlebusy = 0;					// Rotate gun idle states
 	self.idlereverse = FALSE;			// Reverse direction for idle
+	self.attack_offset = '20 0 -10';	// front of laser/rocket
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -569,5 +568,5 @@ void() monster_jim =
 	monster_start();
 };
 
-// Re-direct all Bob requests to Jim!
+// Re-direct all Quoth Bob requests to Jim!
 void() monster_bob = { monster_jim(); }

@@ -25,7 +25,7 @@ void() ambient_custom_loop =
 	// Check for sound file
 	if (self.noise == "") {
 		dprint("\b[AMB_CUSTOM_LOOP]\b Missing sound file\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -112,11 +112,15 @@ void() ambient_thunder =
 Play a sound on a periodic basis
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
+target  : targets to trigger each time sound is played
 volume  : volume of sound (default 1, capped at 1)
-noise   : path to the sound to play (ambience/windgust1.wav)
+noise   : primary sound (ambience/windgust1a.wav)
+noise1  : stop sound (anbience/switch_6off.wav)
+noise2  : random sound (ambience/windgust1b.wav)
 wait    : random time between sounds (default 20, =-1 no random element)
 delay   : minimum time between sounds (default 2)
 waitmin : Starting time (waitmin + random() x waitmin, =-1 no delay)
+waitmin2: 1 = Will not silence any playing sound if switching off
 impulse : channel on which to play sound (0-7) (0 automatic is default)
 speed   : attenuation -1=no attenuation, 1=normal (default), 2=idle, 3=static, 4=quiet
 -------- SPAWNFLAGS --------
@@ -128,34 +132,47 @@ Play a sound on a periodic basis
 //======================================================================
 void() ambient_custom_stop =
 {
-	// Block USE functionality if state wrong
-	if (self.estate & ESTATE_BLOCK) return;
+	// Cannot block via entity state because there is an 'off sound'
+	// Need to check against entity internal state for off state
+	if (self.state == STATE_OFF) return;
 
+	// Switch off sound emitter, clear next think
 	self.state = STATE_OFF;
-	// Check for OFF sound, else play silence to clear sound
-	if (self.noise1) sound (self, self.impulse, self.noise1, self.volume, self.speed);
-	else sound (self, self.impulse, SOUND_EMPTY, self.volume, self.speed);
+	self.think = SUB_Null;
+	self.nextthink = time + 0.1;
+
+	// Catch play once/disable setting separate
+	if (self.estate & ESTATE_DISABLE) return;
 	
-	// lunaran
-	// clear think so ambient_custom_play doesn't turn the speaker back on later
-	self.think = ambient_custom_stop;
-	self.nextthink = 0;
-	// lunaran
+	// Check for OFF sound, else play silence to clear sound
+	if (self.noise1 != "") 
+		sound (self, self.impulse, self.noise1, self.volume, self.speed);
+	else {
+		// If aflag is defined, do not cut off sound
+		if (!self.waitmin2) sound (self, self.impulse, SOUND_EMPTY, self.volume, self.speed);
+	}
 };
 
 //----------------------------------------------------------------------
 void() ambient_custom_play =
 {
-	// Block USE functionality if state wrong
+	// Block everything except ON entity state
 	if (self.estate & ESTATE_BLOCK) return;
 
+	// Internal state used for switch off sound
 	self.state = STATE_ON;
-	sound (self, self.impulse, self.noise, self.volume, self.speed);
+	
+	// Check for multiple random sounds, else play sound
+	if (self.noise2 != "" && random() < 0.5) 
+		sound (self, self.impulse, self.noise2, self.volume, self.speed);
+	else sound (self, self.impulse, self.noise, self.volume, self.speed);
+	// If any targets defined, trigger them
+	if (self.target != "") trigger_strs(self.target, self);
 	
 	// Keep playing sound?
 	// If sound is setup to play once, don't turn off sound before finished
 	// Let the sound play out and switch off ambient sound entity
-	if (self.spawnflags & SOUND_PLAYONCE) self.estate = ESTATE_OFF;
+	if (self.spawnflags & SOUND_PLAYONCE) self.estate = ESTATE_DISABLE;
 	else {
 		self.nextthink = time + self.delay + random()*self.wait;
 		self.think = ambient_custom_play;
@@ -176,8 +193,8 @@ void() ambient_custom_use =
 		if (self.estate & ESTATE_BLOCK) return;
 
 		// Toggle state of ambient sound to start/stop
-		if (self.state == STATE_OFF) ambient_custom_play();
-		else ambient_custom_stop();
+		if (self.state == STATE_OFF) self.estate_on();
+		else self.estate_off();
 	}
 };
 
@@ -209,7 +226,7 @@ void() ambient_custom_sound =
 	if (self.noise == "") {
 		dprint("\b[AMBIENT_SOUND]\b Missing sound file at ");
 		dprint(vtos(self.origin)); dprint("\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -217,14 +234,16 @@ void() ambient_custom_sound =
 	
 	// Is there an OFF sound defined (used for toggle sounds)
 	if (self.noise1 != "") precache_sound (self.noise1);
+
+	// Is there any random alternative sounds
+	if (self.noise2 != "") precache_sound (self.noise2);
 	
 	self.classtype = CT_SOUNDEMITTER;
 	if (self.volume <= 0 || self.volume > 1) self.volume = 1;
 	
-	// lunaran
+	// Setup defaults for sound waits (-1=no random element)
 	if (self.wait == 0) self.wait = 20;
-	if (self.wait < 0) self.wait = 0;	// lunaran
-	// lunaran
+	if (self.wait < 0) self.wait = 0;
 	
 	if (self.delay <= 0) self.delay = 2;
 	if (self.waitmin == 0) self.waitmin = 4;

@@ -125,17 +125,17 @@ void() gaunt_run20 = [ $hover20, gaunt_run1 ] {ai_run(8);};
 //============================================================================
 void() gaunt_plasma =
 {
-	local vector org, vec;
+	local vector org, dir;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "gaunt/plasma_fire.wav", 1, ATTN_NORM);
-	self.attack_speed = SPEED_GAUNTBOLT + (skill * SPEED_GAUNTSKILL);
 
 	makevectors (self.angles);
-	org = self.origin + v_forward * 8 + v_up * -4;
-	vec = normalize(SUB_orgEnemyTarget() - self.origin);
+	org = self.origin + attack_vector(self.attack_offset);
+	dir = normalize(SUB_orgEnemyTarget() - self.origin);
+	self.attack_speed = SPEED_GAUNTBOLT + (skill * SPEED_GAUNTSKILL);
 
-	launch_plasma(org, vec, CT_PROJ_PLASMA, self.attack_speed);
+	launch_plasma(org, dir, CT_PROJ_PLASMA, self.attack_speed);
 };
 
 //----------------------------------------------------------------------
@@ -304,14 +304,9 @@ void() gaunt_deathA3 = [ $deathA3, gaunt_deathA4 ] {monster_check_gib();
 	self.solid = SOLID_NOT;};
 void() gaunt_deathA4 = [ $deathA4, gaunt_deathA5 ] {};
 void() gaunt_deathA5 = [ $deathA5, gaunt_deathA6 ] {};
-void() gaunt_deathA6 = [ $deathA6, gaunt_deathA7 ] {
-	if (self.velocity_z == 0)
-		self.nextthink = time + 0.05;
-	else //loop until it stops falling.
-		self.think = gaunt_deathA6;
-};
+void() gaunt_deathA6 = [ $deathA6, gaunt_deathA7 ] {};
 void() gaunt_deathA7 = [ $deathA7, gaunt_deathA8 ] {monster_death_postcheck();};
-void() gaunt_deathA8 = [ $deathA8, gaunt_deathA8 ] {};
+void() gaunt_deathA8 = [ $deathA8, gaunt_deathA8 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() gaunt_deathB1 = [ $deathB1, gaunt_deathB2 ] {};
@@ -320,14 +315,9 @@ void() gaunt_deathB3 = [ $deathB3, gaunt_deathB4 ] {monster_check_gib();
 	self.solid = SOLID_NOT;};
 void() gaunt_deathB4 = [ $deathB4, gaunt_deathB5 ] {};
 void() gaunt_deathB5 = [ $deathB5, gaunt_deathB6 ] {};
-void() gaunt_deathB6 = [ $deathB6, gaunt_deathB7 ] {
-	if (self.velocity_z == 0)
-		self.nextthink = time + 0.05;
-	else //loop until it stops falling.
-		self.think = gaunt_deathB6;
-};
+void() gaunt_deathB6 = [ $deathB6, gaunt_deathB7 ] {};
 void() gaunt_deathB7 = [ $deathB7, gaunt_deathB8 ] {monster_death_postcheck();};
-void() gaunt_deathB8 = [ $deathB8, gaunt_deathB8 ] {};
+void() gaunt_deathB8 = [ $deathB8, gaunt_deathB8 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() gaunt_die =
@@ -343,12 +333,12 @@ void() gaunt_die =
 	if (self.attachment) {
 		if (self.attachment.state == STATE_ON) {
 			self.gibondeath = TRUE;
-			SpawnProjectileSmoke(self.origin, 200, 200);
-			SpawnProjectileSmoke(self.origin, 200, 200);
+			SpawnProjectileSmoke(self.origin, 200, 50, 150);
+			SpawnProjectileSmoke(self.origin, 200, 50, 150);
 			particle_explode(self.origin-'0 0 16', 50+random()*50, 2, PARTICLE_BURST_BLUE, PARTICLE_BURST_UPWARD);
 			makevectors(self.angles);
 			self.oldorigin = self.origin + v_forward*8;
-			SpawnExplosion(EXPLODE_BIGP, self.oldorigin, SOUND_REXP3);
+			SpawnExplosion(EXPLODE_PLASMA_BIG, self.oldorigin, SOUND_REXP3);
 		}
 		// make sure any electricity is hidden
 		gaunt_elecfinish();
@@ -360,6 +350,10 @@ void() gaunt_die =
 	// regular death
 	if (!self.gibbed) {
 		sound (self, CHAN_BODY, "gaunt/death.wav", 1, ATTN_NORM);
+		self.velocity_x = -200 + 400*random();
+		self.velocity_y = -200 + 400*random();
+		self.velocity_z = 100 + 100*random();
+		self.flags = self.flags - (self.flags & FL_ONGROUND);
 		if (random() < 0.5) gaunt_deathA1();
 		else gaunt_deathB1();
 	}
@@ -408,6 +402,7 @@ void() monster_gaunt =
 	self.pain_flinch = 70;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
+	self.attack_offset = '8 0 -4';		// Plasma start location
 
 	self.th_checkattack = GauntCheckAttack;
 	self.th_pain = gaunt_pain; 

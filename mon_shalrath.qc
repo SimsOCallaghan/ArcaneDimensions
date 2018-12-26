@@ -122,7 +122,7 @@ void(vector hmofs, float hmframe) Setup_ShalHome =
 	// The offset is based on the shalrath facing forward
 	ai_face();
 	makevectors(self.angles);
-	org = self.origin + v_forward*hmofs_x + v_right*hmofs_y + v_up*hmofs_z;
+	org = self.origin + attack_vector(hmofs);
 	setorigin(self.attachment, org);
 	self.attachment.angles = self.angles;
 	self.attachment.frame = hmframe;
@@ -177,7 +177,7 @@ void(vector eggofs, float eggframe) Setup_ShalrathEgg =
 	// The offset is based on the shalrath facing forward
 	ai_face();
 	makevectors(self.angles);
-	org = self.origin + v_forward*eggofs_x + v_right*eggofs_y + v_up*eggofs_z;
+	org = self.origin + attack_vector(eggofs);
 	setorigin(self.attachment, org);
 	self.attachment.angles = self.angles;
 	self.attachment.frame = eggframe;
@@ -260,7 +260,13 @@ void(entity inflictor, entity attacker, float damage) shal_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) shal_pain1();
+		if (self.pain_check == 1) shal_pain1();
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.5;
+			self.axhitme = 0;
+			shal_pain1();
+		}
 	}
 };
 
@@ -272,7 +278,7 @@ void() shal_death3 =[ $death3, shal_death4 ] {monster_check_gib();
 void() shal_death4 =[ $death4, shal_death5 ] {};
 void() shal_death5 =[ $death5, shal_death6 ] {};
 void() shal_death6 =[ $death6, shal_death7 ] {monster_death_postcheck();};
-void() shal_death7 =[ $death7, shal_death7 ] {};
+void() shal_death7 =[ $death7, shal_death7 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() shal_die =
@@ -332,6 +338,7 @@ void() monster_shalrath =
 	self.gibhealth = -90;			// Rarely gib (explosives required)
 	self.gibbed = FALSE;			// Still in one piece
 	self.pain_flinch = 70;			// take a lot of damage before pain
+	self.pain_longanim = TRUE;		// can be chopped with shadow axe
 	self.pain_timeout = 3;			// Really high pain tolerance
 	self.steptype = FS_TYPELIGHT;	// Light tap feet
 	self.blockudeath = TRUE;		// no humanoid death sound

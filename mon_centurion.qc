@@ -79,12 +79,12 @@ void() cent_fire =
 	local vector org, vec;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
-	sound (self, CHAN_WEAPON, "weapons/plasma_fire.wav", 1, ATTN_NORM);
+	sound (self, CHAN_WEAPON, SOUND_PLASMA_FIRE, 1, ATTN_NORM);
 
 	makevectors (self.angles);
-	org = self.origin + v_forward * 28 + v_right * 8.5 + '0 0 24';
+	org = self.origin + attack_vector(self.attack_offset);
 	// Fire plasma projectile at players feet
-	vec = SUB_orgEnemyTarget() - '0 0 24';
+	vec = SUB_orgEnemyTarget() - '0 0 12';
 	vec = normalize(vec - self.origin);
 
 	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
@@ -181,10 +181,10 @@ void() cent_crash =
 {
 	if (self.state) {
 		// Spawn projectile smoke trails or smoke sprites
-		if (random() < 0.5) SpawnProjectileSmoke(self.origin, 150, 200);
+		if (random() < 0.5) SpawnProjectileSmoke(self.origin, 150, 50, 150);
 		else {
 			self.oldorigin = self.origin + vecrand(0,32,TRUE);
-			SpawnExplosion(EXPLODE_PUFF, self.oldorigin, "");
+			SpawnExplosion(EXPLODE_BURST_SMOKE, self.oldorigin, "");
 		}
 		// Once on ground, thud sound and no more smoke
 		if (self.flags & FL_ONGROUND) {
@@ -209,7 +209,7 @@ void()	cent_die10	=[	$death10,	cent_die11	] {cent_crash();};
 void()	cent_die11	=[	$death11,	cent_die12	] {cent_crash();};
 void()	cent_die12	=[	$death12,	cent_die13	] {cent_crash();};
 void()	cent_die13	=[	$death13,	cent_die14	] {monster_death_postcheck();cent_crash();};
-void()	cent_die14	=[	$death14,	cent_die14	] {};
+void()	cent_die14	=[	$death14,	cent_die14	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	cent_fdie1	=[	$fdeath1,	cent_fdie2	] {cent_crash();};
@@ -223,7 +223,7 @@ void()	cent_fdie7	=[	$fdeath7,	cent_fdie8	] {cent_crash();};
 void()	cent_fdie8	=[	$fdeath8,	cent_fdie9	] {cent_crash();};
 void()	cent_fdie9	=[	$fdeath9,	cent_fdie10	] {cent_crash();};
 void()	cent_fdie10	=[	$fdeath10,	cent_fdie11	] {monster_death_postcheck();cent_crash();};
-void()	cent_fdie11	=[	$fdeath11,	cent_fdie11	] {};
+void()	cent_fdie11	=[	$fdeath11,	cent_fdie11	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() cent_die =
@@ -279,8 +279,8 @@ void() monster_centurion =
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("enforcer/elim_pg_load.wav");
-	precache_sound ("weapons/plasma_fire.wav");
-	precache_sound ("weapons/plasma_hit.wav");
+	precache_sound (SOUND_PLASMA_FIRE);
+	precache_sound (SOUND_PLASMA_HIT);
 	
 	// Originally from rubicon2 (re-processed)
 	precache_sound ("enforcer/cent_hover.wav");
@@ -296,9 +296,10 @@ void() monster_centurion =
 	self.pain_flinch = 60;				// high pain tolerance
 	self.pain_longanim = FALSE;			// Not using D pain, too slow
 	self.steptype = FS_FLYING;			// Silent feet
-	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
+	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
 	if (!self.exactskin) self.randomskin = 6;
 	self.ammo_cells = rint(random()*3);
+	self.attack_offset = '28 8.5 24';
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

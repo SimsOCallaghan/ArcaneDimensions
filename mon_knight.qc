@@ -152,7 +152,7 @@ void()	knight_stand5	=[	$stand5,	knight_stand6	] {ai_stand();};
 void()	knight_stand6	=[	$stand6,	knight_stand7	] {ai_stand();};
 void()	knight_stand7	=[	$stand7,	knight_stand8	] {ai_stand();};
 void()	knight_stand8	=[	$stand8,	knight_stand9	] {ai_stand();};
-void()	knight_stand9	=[	$stand9,	knight_stand1	] {ai_stand();
+void()	knight_stand9	=[	$stand9,	knight_stand1	] {
 	self.idlebusy = FALSE; 
 	if (random() < MON_IDLE_ANIMATION && self.weaponswitch < time) {
 		// Slow down the repeating of idle animations
@@ -258,10 +258,10 @@ void(entity inflictor, entity attacker, float damage)	knight_pain =
 				knight_painb1 ();					// Cool stumble, hand over mouth
 			}
 		}
-		// The new axe forces monsters into long pain animations
 		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
+			self.pain_finished = time + 1.1;
 			knight_painb1 ();
 		}
 	}
@@ -278,7 +278,7 @@ void()	knight_die6	=[	$death6,	knight_die7	] {};
 void()	knight_die7	=[	$death7,	knight_die8	] {};
 void()	knight_die8	=[	$death8,	knight_die9	] {};
 void()	knight_die9	=[	$death9,	knight_die10] {monster_death_postcheck();};
-void()	knight_die10=[	$death10,	knight_die10] {};
+void()	knight_die10=[	$death10,	knight_die10] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	knight_dieb1	=[	$deathb1,	knight_dieb2	] {};
@@ -292,7 +292,7 @@ void()	knight_dieb7	=[	$deathb7,	knight_dieb8	] {};
 void()	knight_dieb8	=[	$deathb8,	knight_dieb9	] {};
 void()	knight_dieb9	=[	$deathb9,	knight_dieb10] {};
 void()	knight_dieb10 = [	$deathb10,	knight_dieb11] {monster_death_postcheck();};
-void()	knight_dieb11 = [	$deathb11,	knight_dieb11] {};
+void()	knight_dieb11 = [	$deathb11,	knight_dieb11] {monster_deadbody_check();};
 
 //============================================================================
 void() knight_die =
@@ -329,6 +329,9 @@ void() knight_aistates =
 //----------------------------------------------------------------------
 void() knight_wakeup =
 {
+	// Check for sudden death!
+	if (self.health < 0) return;
+	
 	self.use = SUB_Null;				// no re-trigger
 	self.takedamage = DAMAGE_AIM;		// Can receive damage
 	self.spawnstatue = FALSE;			// No longer stationary
@@ -342,6 +345,9 @@ void() knight_statue =
 {
 	local float targ_angle, new_frame;
 
+	// Check for sudden death!
+	if (self.health < 0) return;
+	
 	if (random() < MON_IDLE_SOUND && self.pos1_z > 1) {
 		new_frame = TRUE;
 		self.oldenemy = checkclient();
@@ -429,6 +435,7 @@ void() monster_knight =
 	self.pain_longanim = TRUE;
 	self.steptype = FS_TYPEMEDIUM;
 	self.skin = 0;
+	self.th_die = knight_die;			// Face meets floor
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -440,9 +447,10 @@ void() monster_knight =
 	//----------------------------------------------------------------------
 	if (self.spawnflags & MON_STATUE) {
 		self.classgroup = CG_STONE;		// Stone hates metal!
-		self.resist_nails = 0.2;		// Tough skin for nails
+		self.resist_nails = 0.5;		// Tough skin for nails
 		if (!self.exactskin) self.exactskin = 4;	// Stone skin
 		self.pain_flinch = 40;			// Doubled
+		self.pain_longanim = FALSE;		// resistant to shadow axe
 		self.pain_timeout = 2;			// HK pain threshold
 		self.steptype = FS_TYPEHEAVY;	// heavy stone feet!
 		self.no_liquiddmg = TRUE;		// Immune to slime/lava
@@ -481,6 +489,7 @@ void() monster_knight =
 		if (!self.exactskin && world.knight_defskin > 0)
 			self.exactskin = world.knight_defskin;
 
+		self.pain_longanim = TRUE;		// can be chopped with shadow axe
 		self.classgroup = CG_KNIGHT;	// Classic tincan!
 		knight_aistates();				// setup AI state functions
 	}

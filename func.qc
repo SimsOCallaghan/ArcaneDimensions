@@ -11,6 +11,7 @@ float FUNC_LASERNODMG = 4;		// Func bmodel does no touch damage
 float FUNC_SKILLSTARTOPEN = 1;	// Reverse setup for lighting issues
 
 float BOB_COLLISION = 2;		// Collision for misc_bob
+float BOB_NONSOLID = 4;			// Non solid for func_bob
 
 /*======================================================================
 /*QUAKED func_wall (0 .5 .8) ? x AFRAME x x MODCHECK x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
@@ -53,6 +54,11 @@ void() func_wall_on =
 	self.movetype = MOVETYPE_PUSH;
 	self.solid = SOLID_BSP;
 	setmodel (self, self.mdl);
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
 };
 
 //----------------------------------------------------------------------
@@ -63,6 +69,9 @@ void() func_wall_off =
 	self.solid = SOLID_NOT;
 	setmodel (self, "");
 };
+
+//----------------------------------------------------------------------
+void() func_wall_aframe = { };
 
 //----------------------------------------------------------------------
 void() func_wall =
@@ -79,6 +88,7 @@ void() func_wall =
 	self.estate_on = func_wall_on;
 	self.estate_off = func_wall_off;
 	self.estate_use = func_wall_use;
+	self.estate_aframe = func_wall_aframe;
 	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 	else self.estate_on();
 };
@@ -109,6 +119,11 @@ void() func_illusionary_on =
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
 	setmodel (self, self.mdl);
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
 };
 
 //----------------------------------------------------------------------
@@ -163,6 +178,11 @@ void() func_episodegate =
 	self.bsporigin = TRUE;
 	self.mdl = self.model;
 
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
 	// Remove any extra spawnkey stuff like skill restrictions
 	self.customkey = self.spawnflags & SVR_RUNE_ALL;
 	
@@ -209,6 +229,11 @@ void() func_bossgate =
 	self.bsporigin = TRUE;
 	self.mdl = self.model;
 
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_on = func_wall_on;
@@ -233,15 +258,24 @@ void() func_bossgate =
 /*QUAKED func_laser (0 .5 .8) ? x SOLID NODMG x x x STARTOFF x
 A togglable laser, hurts to touch, can be used to block players
 -------- KEYS --------
-targetname : trigger entity (works with entity state system)
-message  : message to display when switched ON
-message2 : message to display when switched OFF
-wait     : -1 = will display the switching state messages only once
-dmg      : damage to do on touch. default 1 per 0.1s
-alpha    : alpha value will vary +/- 20% (def=0.5)
-sounds   : 1=laser, 4=silent, 5=custom
-noise1   : switched ON sound
-noise2   : switched OFF sound
+targetname  : trigger entity (works with entity state system)
+message     : message to display when switched ON
+message2    : message to display when switched OFF
+wait        : -1 = will display the switching state messages only once
+dmg         : damage to do on touch. default 1 per 0.1s
+alpha       : alpha value will vary +/- 20% (def=0.5)
+sounds      : 1=laser, 2=power, 4=silent, 5=custom
+noise1      : switched ON sound
+noise2      : switched OFF sound
+spr_frame   : 1=Yellow, 2=Green, 4=Red, 8=Blue, 16=Purple, 32=Fire, 64=White
+angle       : Direction of particles to move (def=-2 down)
+part_limit  : Maximum active quantity of particles (def=25)
+part_life   : Lifetime of particle (def=2s)
+part_velrand: Random movement of particles (def='4 4 4')
+part_vol    : Size of area to spawn particles in (def=bmodel)
+wakeup_dist : Distance to wakeup particle emitter (def=768)
+spawn_base  : Minimum time frame to spawn particles (def=0.1s)
+spawn_rand  : Random time amount to add to spawning times (def=0.1s)
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -286,7 +320,9 @@ void() func_laser_on =
 
 	// Only play the ON sound and display message when not spawning
 	if (self.waitmin == TRUE) {
-		sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+		// Play sound on extra emitter if sounds been defined
+		if (self.sound_emitter && self.noise1 != "")
+			sound (self.sound_emitter, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
 		if (activator.flags & FL_CLIENT && self.message != "")
 			centerprint(activator,self.message);
 		if (self.wait == TRUE) self.message = "";
@@ -303,9 +339,18 @@ void() func_laser_on =
 		self.solid = SOLID_TRIGGER;
 		self.movetype = MOVETYPE_NONE;
 	}
+
 	// Add bmodel back to world (visually)
 	setmodel (self, self.mdl);
 
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Switch ON any particle emitter
+	if (self.part_emitter) misc_particle_on(self.part_emitter);
+	
 	// Reset touch and laser blink effect
 	self.touch = func_laser_touch;
 	self.think = func_laser_think;
@@ -320,12 +365,17 @@ void() func_laser_off =
 
 	// Only play the OFF sound and display message when not spawning
 	if (self.waitmin == TRUE) {
-		sound (self, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
+		// Play sound on extra emitter if sounds been defined
+		if (self.sound_emitter && self.noise2 != "")
+			sound (self.sound_emitter, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
 		if (activator.flags & FL_CLIENT && self.message2 != "")
 			centerprint(activator,self.message2);
 		if (self.wait == TRUE) self.message2 = "";
 	}
 	else self.waitmin = TRUE;
+
+	// Switch OFF any particle emitter
+	if (self.part_emitter) misc_particle_off(self.part_emitter);
 	
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
@@ -336,27 +386,50 @@ void() func_laser_off =
 //----------------------------------------------------------------------
 void() func_laser =
 {
-	// Setup all empty/silent sound files first
-	if (self.noise1 == "") self.noise1 = SOUND_EMPTY;
-	if (self.noise2 == "") self.noise2 = SOUND_EMPTY;
-
-	if (self.sounds == 1) {
-		self.noise1 = "misc/laseron.wav";
-		self.noise2 = "misc/laseroff.wav";
-	}
-	precache_sound(self.noise1);
-	precache_sound(self.noise2);
-	
 	self.classtype = CT_FUNCLASER;		// Classtype
 	self.mdl = self.model;				// Save for later (on function)
+	if (self.spr_frame > 0 && CheckZeroVector(self.angles)) self.angles = '0 -2 0';
 	InitTrigger();						// Add to work and initialize
+
 	if (!self.alpha) self.alpha = 0.5;	// Lasers always transparent
 	self.height = self.alpha;			// Used for think function
 	if (!self.dmg) self.dmg = 1;		// Default tickle
 	if (self.wait < 0) self.wait = TRUE;// Display message once?
 	else self.wait = FALSE;
 	self.waitmin = FALSE;				// Spawning no message check
+
+	// Pre-cache sounds and setup sound emitter
+	if (self.sounds > 0 && self.sounds < 3) {
+		if (self.sounds == 1) {
+			self.noise1 = "misc/laseron.wav";
+			self.noise2 = "misc/laseroff.wav";
+		}
+		else if (self.sounds == 2) {
+			self.noise1 = "ambience/power_on.wav";
+			self.noise2 = "ambience/power_off.wav";
+		}
+		precache_sound(self.noise1);
+		precache_sound(self.noise2);
+
+		// Setup sound emitter where bmodel is correctly located
+		self.sound_emitter = spawn();
+		self.sound_emitter.origin = bmodel_origin(self);
+		setorigin(self.sound_emitter, self.sound_emitter.origin);
+		self.classtype = CT_SOUNDEMITTER;	
+	}
 	
+	// Check for particles emitter type
+	if (self.spr_frame > 0) {
+		self.part_active = PARTICLE_STYLE_FFIELD;
+		// Volume/direction need to be set early, just in case
+		// the entity starts off and then it has no volume!
+		self.part_vol = self.size * 0.5;
+		self.part_vel = self.movedir * 4;
+		if (self.spawnflags & ENT_STARTOFF) self.lip = PARTICLE_START_OFF;
+		else self.lip = PARTICLE_START_ON;
+		self.part_emitter = spawn_pemitter(self, self, self.part_active, self.lip);
+	}
+		
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_on = func_laser_on;
@@ -542,11 +615,10 @@ void() func_skill =
 	precache_sound(self.noise2);	// moving sound (door moving)
 	precache_sound(self.noise3);	// Touch sound
 	
-	SetMovedir ();
-
 	self.classtype = CT_FUNCSKILL;	// Type
 	self.bsporigin = TRUE;			// Bmodel (0,0,0 origin)
 	self.mdl = self.model;
+	SetMovedir ();
 	
 	if (!self.speed) self.speed = 100;	// Default movement speed
 	if (!self.lip) self.lip = 8;		// End movement distance
@@ -569,6 +641,11 @@ void() func_skill =
 	self.pos1 = self.origin;
 	self.pos2 = self.pos1 + self.movedir*(fabs(self.movedir*self.size) - self.lip);
 	
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
 	//----------------------------------------------------------------------
 	// FUNC_SKILL_START_OPEN is design is hide a skill pillar
 	// until it is triggered (nightmare skill)
@@ -697,8 +774,15 @@ void() func_bob_on =
 
 	self.estate = ESTATE_ON;
 	if (self.bsporigin) {
-		self.movetype = MOVETYPE_PUSH;
-		self.solid = SOLID_BSP;
+		// Check for solid spawnflag
+		if (self.spawnflags & BOB_NONSOLID) {
+			self.movetype = MOVETYPE_PUSH;
+			self.solid = SOLID_NOT;
+		}
+		else {
+			self.movetype = MOVETYPE_PUSH;
+			self.solid = SOLID_BSP;
+		}
 	}
 	else {
 		self.movetype = MOVETYPE_FLY;
@@ -708,6 +792,11 @@ void() func_bob_on =
 	}
 	setmodel (self, self.mdl);
 	setsize (self, self.mins , self.maxs);
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
 };
 
 //----------------------------------------------------------------------

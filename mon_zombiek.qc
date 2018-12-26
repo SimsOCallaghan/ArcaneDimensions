@@ -327,7 +327,7 @@ void()	zombiek_jump6	=[	$atta6,		zombiek_jump6	] {ai_face();};
 void()	zombiek_jump7	=[	$atta7,		zombiek_jump7	] {ai_face();};
 void()	zombiek_jump8	=[	$atta8,		zombiek_jump9	] {ai_face();
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		if (!checkbottom(self)) {
 			self.ideal_yaw = random() * 360; 	//random jump angle
 			self.think = zombiek_jump3;
@@ -610,7 +610,7 @@ void(float frameno) zombiek_onground = {
 			self.frame = $paine12;
 		}
 		// If no angle set, Random fall direction
-		if (self.angles_y == 0) self.angles_y = rint(random()*359);
+		if (self.angles_y < 1) self.angles_y = rint(random()*359);
 		self.use = self.th_wakeup;
 		self.fixangle = TRUE;
 	}
@@ -771,7 +771,8 @@ void() monster_zombiek =
 	precache_sound ("weapons/sword2a.wav");
 	precache_sound ("weapons/sword2b.wav");
 
-	self.sight_sound = "zombie/z_idle.wav";
+	// New sight sound, mixture of knight + zombie
+	self.sight_sound = "zombie/zk_sight.wav";
 	precache_sound (self.sight_sound);
 
 	self.solid = SOLID_NOT;				// No interaction with world

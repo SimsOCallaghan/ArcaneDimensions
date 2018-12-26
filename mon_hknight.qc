@@ -105,6 +105,8 @@ void() CheckForCharge =
 	enemy_vis = visible(self.enemy);
 	if (!enemy_vis) return;
 	if (time < self.attack_finished) return;
+	if (self.movespeed < 0) return;
+	if (self.tetherlock) return;
 	// Only charge at player if ground height < 20
 	if ( fabs(self.origin_z - self.enemy.origin_z) > MONAI_CHARGEZAXIS) return;
 	if (ai_checkmelee(MONAI_MELEEKNIGHT)) return;
@@ -304,6 +306,140 @@ void()	hknight_magicc10 =[	$magicc10,	hknight_magicc11] {hknight_shot(2);};
 void()	hknight_magicc11 =[	$magicc11,	hknight_run1] {hknight_shot(3);};
 
 //============================================================================
+// Special setup - Hell Knight firing electricity at target
+//----------------------------------------------------------------------
+void() hknight_create_attachment =
+{
+	// Are the attachments setup yet?
+	if (!self.attachment) {
+		self.attachment = spawn();
+		self.attachment.owner = self;
+		self.attachment.classtype = CT_ATTACHMENT;
+		self.attachment.mdl = self.weaponglow;
+		setmodel(self.attachment, self.attachment.mdl);
+		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
+		self.attachment.movetype = MOVETYPE_NONE;
+		self.attachment.solid = SOLID_NOT;
+	}
+};
+
+//----------------------------------------------------------------------
+void() hknight_remove_attachment =
+{
+	if (self.attachment) {
+		self.attachment.think = SUB_Remove;
+		self.attachment.nextthink = time + 0.1;
+	}
+}
+
+//----------------------------------------------------------------------
+void() hknight_pointfire =
+{
+	local vector hkp_start, hkp_rand, hkp_end;
+	
+	// Make sure the knight is alive
+	if (self.health < 1) return;
+
+	// Time for a new LG hit sound?
+	if (self.t_width < time) {
+		// Lower volume and attenuation just in case of several together
+		sound (self, CHAN_WEAPON, "weapons/lhit.wav", 0.75, ATTN_IDLE);
+		self.t_width = time + 0.6;
+	}
+
+	// Update animation frames (default = MagicB6-11)
+	self.frame = self.frame + self.pos3_z;
+	if (self.frame < self.pos3_x) self.frame = self.pos3_y;
+	if (self.frame > self.pos3_y) self.frame = self.pos3_x;
+	
+	// Turn the Knight towards lightning target
+	self.ideal_yaw = vectoyaw(self.movetarget.origin - self.origin);
+	ChangeYaw ();
+	// Work out start point of lightning bolt
+	makevectors(self.angles);
+	
+	// Work out starting point for lightning on sword
+	hkp_start = v_forward*self.pos1_x + v_right*self.pos1_y + v_up*self.pos1_z;
+	hkp_rand = v_forward * (self.pos2_x * random());
+	hkp_rand = hkp_rand + v_right * (self.pos2_y * random());
+	hkp_rand = hkp_rand + v_up * (self.pos2_z * random());
+	hkp_start = hkp_start + self.origin + hkp_rand;
+	
+	// Check for any random target origin variance
+	if (self.t_length > 0) {
+		hkp_end = vecrand(0,self.t_length,1);
+		hkp_end = hkp_end + self.movetarget.origin;
+	}
+	// Default (0) = exact target position
+	else hkp_end = self.movetarget.origin;
+
+	// Update sword with lightning visuals
+	if (self.attachment) {
+		setorigin(self.attachment, self.origin);
+		self.attachment.frame = self.frame;
+		self.attachment.angles = self.angles;
+		// Allow for no sword effect by going over max and reset
+		self.attachment.alpha = self.attachment.alpha + random();
+		if (self.attachment.alpha > 1) self.attachment.alpha = 0.01;
+		// The four skins are randomly setup already
+		self.lip = self.attachment.skin + 1;
+		if (self.lip > 3) self.lip = 0;
+		self.attachment.skin = self.lip;
+		// Draw paticles on sword where lightning starts
+		particle_explode(hkp_start, 2, 1, PARTICLE_BURST_BLUE, PARTICLE_BURST_LOSTUP);
+	}
+	
+	// Create lightning bolt
+	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+	WriteByte (MSG_BROADCAST, TE_LIGHTNING2);
+	WriteEntity (MSG_BROADCAST, self);
+	WriteCoord (MSG_BROADCAST, hkp_start_x);
+	WriteCoord (MSG_BROADCAST, hkp_start_y);
+	WriteCoord (MSG_BROADCAST, hkp_start_z);
+	WriteCoord (MSG_BROADCAST, hkp_end_x);
+	WriteCoord (MSG_BROADCAST, hkp_end_y);
+	WriteCoord (MSG_BROADCAST, hkp_end_z);
+
+	// Can the lightning damage things?
+	if (self.dmg > 0) 
+		LightningDamage (hkp_start, hkp_end, self, self.dmg);
+	
+	// Keep Looping
+	self.think = self.th_run;
+	self.nextthink = time + 0.1;
+	
+};
+
+//----------------------------------------------------------------------
+void() hknight_pointsetup = 
+{
+	// Find Lightning bolt target
+	self.movetarget = find(world, targetname, self.target);
+	if (!self.movetarget) {
+		dprint("\b[HKNIGHT]\b Pointing knight invalid target!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
+	// Start pointing lightning sword!
+	else {
+		// Save pain threshold and timeout for later
+		self.finaldest_x = self.pain_flinch;
+		self.finaldest_y = self.pain_timeout;
+		// Reset all pain parameters so it always happens
+		self.pain_flinch = self.pain_timeout = 0;
+		self.pain_finished = self.pain_ignore = 0;
+		self.infightextra = self.noinfighting = 0;
+		// Stop other monsters attacking pointy knights
+		self.flags = self.flags - (self.flags & FL_MONSTER);
+		self.enemy = world;
+		// Create glowing sword and start pointing
+		hknight_create_attachment();
+		self.th_run();
+	}
+};
+
+//============================================================================
 void()	hknight_pain1	=[	$pain1,		hknight_pain2	] {};
 void()	hknight_pain2	=[	$pain2,		hknight_pain3	] {};
 void()	hknight_pain3	=[	$pain3,		hknight_pain4	] {};
@@ -311,7 +447,7 @@ void()	hknight_pain4	=[	$pain4,		hknight_pain5	] {};
 void()	hknight_pain5	=[	$pain5,		hknight_run1	] {};
 
 //----------------------------------------------------------------------
-void(entity inflictor, entity attacker, float damage)	hknight_pain =
+void(entity inflictor, entity attacker, float damage) hknight_pain =
 {
 	// Check all pain conditions and set up what to do next
 	monster_pain_check(attacker, damage);
@@ -319,7 +455,13 @@ void(entity inflictor, entity attacker, float damage)	hknight_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) hknight_pain1 ();
+		if (self.pain_check == 1) hknight_pain1 ();
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.5;
+			self.axhitme = 0;
+			hknight_pain1 ();
+		}
 	}
 };
 
@@ -336,7 +478,7 @@ void()	hknight_die8	=[	$death8,	hknight_die9	] {ai_forward(10);};
 void()	hknight_die9	=[	$death9,	hknight_die10	] {ai_forward(11);};
 void()	hknight_die10	=[	$death10,	hknight_die11	] {};
 void()	hknight_die11	=[	$death11,	hknight_die12	] {monster_death_postcheck();};
-void()	hknight_die12	=[	$death12,	hknight_die12	] {};
+void()	hknight_die12	=[	$death12,	hknight_die12	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	hknight_dieb1	=[	$deathb1,	hknight_dieb2	] {};
@@ -348,14 +490,16 @@ void()	hknight_dieb5	=[	$deathb5,	hknight_dieb6	] {};
 void()	hknight_dieb6	=[	$deathb6,	hknight_dieb7	] {};
 void()	hknight_dieb7	=[	$deathb7,	hknight_dieb8	] {};
 void()	hknight_dieb8	=[	$deathb8,	hknight_dieb9	] {monster_death_postcheck();};
-void()	hknight_dieb9	=[	$deathb9,	hknight_dieb9	] {};
+void()	hknight_dieb9	=[	$deathb9,	hknight_dieb9	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() hknight_die =
 {
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
-
+	// Make sure attachments are removed
+	hknight_remove_attachment();
+	
 	// regular death
 	if (!self.gibbed) {
 	sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
@@ -375,6 +519,8 @@ void() hknight_sword_sound =
 };
 
 //============================================================================
+// Used by stone knights to wakup and attack the player
+//----------------------------------------------------------------------
 void() hknight_aistates =
 {
 	self.th_stand = hknight_stand1;		// Idling on feet
@@ -390,12 +536,80 @@ void() hknight_aistates =
 //----------------------------------------------------------------------
 void() hknight_wakeup =
 {
+	if (self.health < 0) return;		// Check for sudden death!
+	
 	self.use = SUB_Null;				// no re-trigger
 	self.takedamage = DAMAGE_AIM;		// Can receive damage
 	self.spawnstatue = FALSE;			// No longer stationary
 
 	hknight_aistates();					// Restore AI state functions
 	monster_targets();					// Check for targets
+};
+
+//----------------------------------------------------------------------
+// Restore pointy lightning knights to normal hell knights
+//----------------------------------------------------------------------
+void() hknight_pointwakeup =
+{
+	// Check for sudden death!
+	if (self.health < 0) return;
+	// Always reset health+max back to default
+	self.health = self.max_health = self.reset_health;
+	// Fire any trigger event when breaking pointy pose
+	if (self.target2 != "") {
+		trigger_strs(self.target2, self.enemy);
+		self.target2 = "";		// Trigger once
+	}
+
+	// Restore pain threshold and timeout
+	self.pain_flinch = self.finaldest_x;
+	self.pain_timeout = self.finaldest_y;
+	self.pain_finished = time + 2;
+	self.flags = self.flags | FL_MONSTER;
+
+	// Restore the nail resistance if setup to be a statue skin
+	if (self.spawnflags & MON_STATUE) self.resist_nails = 0.2;
+	
+	hknight_remove_attachment();		// Remove glowing sword
+	hknight_aistates();					// Restore AI state functions
+	// Check for any enemy target?
+	if (self.enemy) {
+		monster_sightsound();			// Sword sounds!
+		FoundHuntTarget(TRUE);			// Setup goals and targets
+		self.think = self.th_run;		// Move to running
+	}
+	else self.think = self.th_stand;	// Stand around
+	self.nextthink = time + 0.1;
+};
+
+//----------------------------------------------------------------------
+// Special pain function for pointy lightning knights
+//----------------------------------------------------------------------
+void(entity inflictor, entity attacker, float damage) hknight_pointpain =
+{
+	self.pain_finished = 0;
+	if (!(attacker.flags & FL_CLIENT)) return;
+	self.enemy = attacker;
+	hknight_pointwakeup();
+};
+
+//----------------------------------------------------------------------
+// Special use/trigger function for pointy lightning knights
+//----------------------------------------------------------------------
+void() hknight_pointuse = 
+{
+	// Check for enemy/health/player exceptions
+	if (self.enemy) return;
+	if (self.health < 1) return;
+	if (activator.items & IT_INVISIBILITY) return;
+	if (activator.flags & FL_NOTARGET) return;
+
+	// Trigger once
+	self.use = SUB_Null;
+	// Is the trigger the player?
+	if (activator.flags & FL_CLIENT) self.enemy = activator;
+	else self.enemy = world;
+	hknight_pointwakeup();
 };
 
 /*======================================================================
@@ -478,20 +692,51 @@ void() monster_hell_knight =
 	self.pain_timeout = 1.5;				// Higher than a knight
 	self.steptype = FS_TYPEHEAVY;			// Heavy player
 	self.meleeattack = rint(random()*3);	// randomize last melee attack
+	self.th_die = hknight_die;				// Face meets floor
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
 
 	//----------------------------------------------------------------------
+	// Special lightning point knight (metal/stone skins)
+	//----------------------------------------------------------------------
+	if (self.spawnflags & MON_POINT_KNIGHT) {
+		self.weaponglow = "progs/mon_hknight_glow.mdl";
+		precache_model (self.weaponglow);	// Glowing magical swords
+		if (self.spawnflags & MON_STATUE) {
+			self.classgroup = CG_STONE;		// Stone hates metal!
+			self.skin = 1;					// Stone skin
+			self.pain_flinch = 60;			// Doubled
+			self.pain_longanim = FALSE;		// resistant to shadow axe
+			self.pain_timeout = 2;			// high pain threshold
+			self.no_liquiddmg = TRUE;		// Immune to slime/lava
+		}
+		self.th_stand = hknight_pointsetup;	// Find target before shoot
+		self.th_run = hknight_pointfire;	// Keep Looping
+		self.th_pain = hknight_pointpain;	// Release from pointing
+		self.think1 = hknight_pointuse;		// Special trigger event
+		self.reset_health = self.health;	// Save for later
+		self.health = MEGADEATH;			// Should be impossible to kill
+		if (self.t_length < 0) self.t_length = 5;	// Random target factor
+		if (self.dmg < 0) self.dmg = 5;				// Contact damage
+		
+		// Setup default pose start pos + random modifier
+		if (CheckZeroVector(self.pos1)) self.pos1 = '20 0 24';
+		if (CheckZeroVector(self.pos2)) self.pos2 = '30 0 2';
+		// Setup default animation pose (magicB6 - magicB11)
+		if (CheckZeroVector(self.pos3)) self.pos3 = '98 103 1';
+	}
+	//----------------------------------------------------------------------
 	// Detect statues and setup different parameters
 	// Tougher skin, less pain, heavy feet etc	
 	//----------------------------------------------------------------------
-	if (self.spawnflags & MON_STATUE) {
+	else if (self.spawnflags & MON_STATUE) {
 		self.classgroup = CG_STONE;		// Stone hates metal!
-		self.resist_nails = 0.2;		// Tough skin for nails
+		self.resist_nails = 0.5;		// Tough skin for nails
 		self.skin = 1;					// Stone skin
 		self.pain_flinch = 60;			// Doubled
+		self.pain_longanim = FALSE;		// resistant to shadow axe
 		self.pain_timeout = 2;			// high pain threshold
 		self.no_liquiddmg = TRUE;		// Immune to slime/lava
 
@@ -521,6 +766,7 @@ void() monster_hell_knight =
 		}
 	}
 	else {
+		self.pain_longanim = TRUE;		// can be chopped with shadow axe
 		self.classgroup = CG_DKNIGHT;	// Classic tincan!
 		hknight_aistates();				// setup AI state functions
 	}
@@ -528,4 +774,57 @@ void() monster_hell_knight =
 	self.classtype = CT_MONHELLK;
 	self.classmove = MON_MOVEWALK;
 	monster_start();
+};
+
+//======================================================================
+/*QUAKED monster_hell_pointknight (0.75 0.5 0) (-16 -16 -24) (16 16 40) AMBUSH STATUE x NOSIGHT NOIDLE NOGFX STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+{ model(":progs/mon_hknight.mdl"); }
+Special Electricity Pointing Hell Knight
+-------- KEYS --------
+targetname : monster/trigger name
+target : target for electricity
+target2 : trigger to fire when electricity stopped
+pos1 : XYZ offset to start lightning (uses v_forward/v_right/v_up)
+pos2 : XYZ random offset to start lightning (uses v_forward/v_right/v_up)
+pos3 : Animation lightning frame set (Start/Finish/Direction)
+t_length : random wobble to electricity target origin (0=def 5)
+dmg : amount of contact damage with electricity (0=def 5)
+health : Override default health settings
+deathtarget : entity to trigger upon death (useful if target field already in use)
+health : Override default health settings
+upgrade_ssg : 1 = will only spawn if shotgun upgrade active on server
+upgrade_axe : 1 = will only spawn if axe upgrade active on server
+upgrade_lg : 1 = will only spawn if lightning gun upgrade active on server
+nomonstercount : will not be included in any monster count functionality
+no_zaware : All Z Aware projectiles will be disabled
+bboxtype : Change bbox 1=Tiny,4=Short,5=Tall,7=Wide,8=Giant,10=Massive
+gibondeath : 1 = always explode in a shower of gibs on death
+bodyfadeaway : Time (secs) before body/head will fade away (default=0)
+-------- SPAWNFLAGS --------
+AMBUSH : the monster will only wake up on seeing the player, not by another monster
+STATUE : Stone statue skin
+NOSIGHT : No sight sound
+NOIDLE : No idle sound
+NOGFX : No spawn effect or sound when triggered
+STARTOFF : Trigger Spawn
+-------- NOTES --------
+Special Electricity Pointing Hell Knight*/
+//======================================================================
+void() monster_hell_pointknight =
+{
+	// Setup with new special spawnflag (not mapper controlled)
+	self.spawnflags = self.spawnflags | MON_POINT_KNIGHT;
+	// remove notfrozen and angry, always start/spawn firing lightning
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_NOTFROZEN);
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_SPAWN_ANGRY);
+	
+	// If not target setup then stop!
+	if (self.target == "") {
+		dprint("\b[HKNIGHT]\b Pointing knight needs target!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
+	// Loop back through existing hell knight function
+	else monster_hell_knight();
 };

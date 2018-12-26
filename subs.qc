@@ -7,6 +7,7 @@ void(entity inflictor, entity attacker, float damage) SUB_Null_pain = {};
 
 void() SUB_CalcMoveDone;
 void() SUB_CalcAngleMoveDone;
+void(vector marker_org, float marker_type) spawn_marker;
 
 //======================================================================
 // To determine if an entity is still active this function generates
@@ -20,9 +21,23 @@ void(entity targ) gen_unique_no =
 };
 
 //======================================================================
+// Most of the monsters have an attack_offset setup to spawn their
+// proejctiles in the right location relative to their gun model
+// This function expects the makevectors has been done already
+// makevectors (self.angles); <--- if missing, vector will be rubbish!
+//----------------------------------------------------------------------
+vector(vector attack_dir) attack_vector =
+{
+	local vector retvec;
+	retvec = v_forward * attack_dir_x;
+	retvec = retvec + (v_right * attack_dir_y);
+	retvec = retvec + (v_up * attack_dir_z);
+	return retvec;
+};
+
+//======================================================================
 // Bmodels have a 0,0,0 origin key, need to calculate from mins/maxs
 // This function will return the true origin using mins/max vectors
-//
 //----------------------------------------------------------------------
 vector(entity bmodel_ent) bmodel_origin =
 {
@@ -75,8 +90,16 @@ void() SetMovedir =
 		makevectors (self.angles);
 		self.movedir = v_forward;
 	}
-	
+	// Bmodels need angles key reset otherwise twisted on spawn
 	self.angles = '0 0 0';
+};
+
+//----------------------------------------------------------------------
+float(vector check_vec) CheckZeroVector =
+{
+	if (check_vec_x == 0 && check_vec_y == 0 && check_vec_z == 0)
+		return TRUE;
+	else return FALSE;
 };
 
 //----------------------------------------------------------------------
@@ -113,7 +136,7 @@ void() InitTrigger =
 {
 	// trigger angles are used for one-way touches.  An angle of 0 is assumed
 	// to mean no restrictions, so use a yaw of 360 instead.
-	if (self.angles != '0 0 0') SetMovedir ();
+	if (CheckZeroVector(self.angles) == FALSE) SetMovedir ();
 	self.solid = SOLID_TRIGGER;
 	self.movetype = MOVETYPE_NONE;
 	self.mdl = self.model;		// Save model for later
@@ -335,6 +358,7 @@ void() SUB_UseTargets =
 		t.killtarget = self.killtarget;
 		t.target = self.target;
 		t.target2 = self.target2;
+		t.noise = self.noise;
 		return;
 	}
 	
@@ -351,7 +375,15 @@ void() SUB_UseTargets =
 	// print any messages
 	//----------------------------------------------------------------------
 	if (activator.flags & FL_CLIENT && self.message != "") {
-		centerprint (activator, self.message);
+		if (coop > 0) {
+			// Write message to all clients
+			msg_entity = self;
+			WriteByte (MSG_ALL, SVC_CENTERPRINT);
+			WriteString (MSG_ALL, self.message);
+		}
+		// Write message to single client
+		else centerprint (activator, self.message);
+		// Default noise = classic beep beep sound
 		if (self.noise == "") sound (activator, CHAN_VOICE, SOUND_TALK, 1, ATTN_NORM);
 	}
 
@@ -445,10 +477,21 @@ void(float normal) SUB_AttackFinished =
 		// Exceptions to nightmare mode (minion spawning) - 75-100% time
 		nightadj = 0.5 + (random()*0.25);
 		if (self.minion_active) nightadj = nightadj + 0.25;
+		// The original ID shamblers were lightning turrets on Nightmare
+		// Shamblers don't scale with skill levels in AD because
+		// they don't have projectiles, so they need a switch instead
+		// On Nightmare skill Shamblers go from 2-4s to 1s!
+		// Instead of 2-4s, NM is 0.6-1.2s, Average 1.2s +2 frames
+		if (self.classtype == CT_MONSHAM) nightadj = 0.4;
 		self.attack_finished = time + (normal*nightadj);
 	}
 	// Easy, Nornal and Hard skill all pass through, no change
 	else self.attack_finished = time + normal;
+	//dprint("Time ("); dprint(ftos(time));
+	//dprint(") AF ("); dprint(ftos(normal));
+	//dprint(") Dif ("); dprint(ftos(self.attack_finished - time));
+	//dprint(") Att ("); dprint(ftos(self.attack_finished));
+	//dprint(")\n");
 };
 
 //----------------------------------------------------------------------
@@ -552,20 +595,32 @@ void(vector org) spawn_tfog =
 //----------------------------------------------------------------------
 void() tdeath_touch =
 {
+	// Cannot telefrag yourself!?!
 	if (other == self.owner) return;
+	// Check if found a breakable than cannot be broken
+	if (ai_foundbreakable(self, other, FALSE)) return;
+	
+	// A boss cannot be telefragged (except shub)
+	// Telefrag entity trying to telefrag boss instead!?!
+	if (other.bossflag == TRUE) {
+		if (other.classtype != CT_MONIDSHUB) {
+			T_Damage (self.owner, other, other, MEGADEATH, NOARMOR);
+			return;
+		}
+	}
 
 	// frag anyone who teleports in on top of an invincible player
 	if (other.flags & FL_CLIENT) {
 		if (other.invincible_finished > time) self.classname = "teledeath2";
 		// other monsters explode themselves
 		if ( !(self.owner.flags & FL_CLIENT) ) {
-			T_Damage (self.owner, self, self, 50000, NOARMOR);
+			T_Damage (self.owner, self, self, MEGADEATH, NOARMOR);
 			return;
 		}
 	}
 
 	// Sudden death incoming ...
-	if (other.health) T_Damage (other, self, self, 50000, NOARMOR);
+	if (other.health) T_Damage (other, self, self, MEGADEATH, NOARMOR);
 };
 
 //----------------------------------------------------------------------
@@ -658,14 +713,14 @@ vector(vector iorg, vector org_offset, entity targ, float zspeed) SUB_Tracking =
 
 	// Allow for source origin to be fine tuned (directional)
 	makevectors (self.angles);
-	org = self.origin + org_offset_x * v_forward + org_offset_y * v_right + org_offset_z * v_up;
+	org = self.origin + attack_vector(org_offset);
 
-	diff = vlen(iorg - org) / zspeed;				// Workout difference
+	diff = vlen(iorg - org) / zspeed;		// Workout difference
 	vec = targ.velocity;
 	if (targ.flags & FL_MONSTER) vec_z = 0;	// Flatten Z axis for monsters
-	else vec_z = vec_z * 0.2;								// Aim for headshot with players
+	else vec_z = vec_z * 0.2;				// Aim for headshot with players
 
-	iorg = targ.origin + diff * vec;				// Refine target origin
+	iorg = targ.origin + diff * vec;		// Refine target origin
 	return iorg;
 };
 
@@ -676,7 +731,6 @@ vector(vector iorg, vector org_offset, entity targ, float zspeed) SUB_Tracking =
   * Added support for variable origin locations and proj speeds
   * Added support for distance scaling linked to skill levels
 ======================================================================*/
-void(vector spawn_org) spawn_marker;
 float(float theta, vector sorg, vector mdest, float zspeed) SUB_Elevation =
 {
 	local float a, b, c; 	//constants in the equation to be solved
@@ -696,7 +750,8 @@ float(float theta, vector sorg, vector mdest, float zspeed) SUB_Elevation =
 	// The grenade is aimed infront of target so that it bounces
 	// No check for vertical difference so it bad going up height!
 	// Zombie, poison spiders zaware calculation is fine, exception!
-	if (self.classgroup != CG_ZOMBIE && self.classtype != CT_MONSPIDER) {
+	if (self.classgroup != CG_ZOMBIE && self.classtype != CT_MONSPIDER
+		&& self.classtype != CT_MONBOGLORD) {
 		vec = mdest - sorg;
 		dist = vlen(vec);
 		vec = normalize(vec);

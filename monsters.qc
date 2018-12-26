@@ -24,9 +24,13 @@ float BBOX_TALL = 5;		// -16 -16 -24, 16 16 40
 float BBOX_WIDE = 7;		// -24 -24 -24, 24 24 40
 float BBOX_GIANT = 8;		// -24 -24 -24, 24 24 64
 float BBOX_MASSIVE = 10;	// -32 -32 -24, 32 32 64
+float BBOX_GOLEM = 15;		// -24 -24 -24, 24 24 72
 float BBOX_DOG = 20;		// -20 -20 -24, 20 20 16
-float BBOX_FISH = 21;		// -16 -16 -24, 16 16 24
-float BBOX_GOLEM = 22;		// -24 -24 -24, 24 24 72
+float BBOX_FISH = 25;		// -16 -16 -24, 16 16 24
+float BBOX_FISHS = 26;		// -12 -12 -16, 12 12 16
+float BBOX_EEL = 27;		// -16 -16 -16, 16 16 16
+float BBOX_HYDRA = 30;		// -20 -20 -16, 20 20 16
+float BBOX_CUSTOM = 99;		// Custom size set already
 
 /*======================================================================
  monster_use - trigger/make angry
@@ -208,30 +212,51 @@ void(float altfoot) monster_footstep =
 	if (self.watertype < CONTENT_EMPTY) return;
 	if (self.steptype == FS_FLYING) return;
 	
+	// Wide volume range for player
+	if (self.flags & FL_CLIENT) footvol = 0.2 + random()*0.6;
 	// feetsteps need to be louder during combat
-	if (self.enemy) footvol = 1;
+	else if (self.enemy) footvol = 1;
 	// Dogs have too many legs making noise, reduce volume	
 	else if (self.classtype == CT_MONDOG) footvol = 0.2 + random()*0.6;
 	// Slight random volume level out of combat
-	else footvol = 0.8 + random()*0.2;
+	else footvol = 0.7 + random()*0.3;
 	
-	// Decide which foot sound to play, long live clubfeet!
+	// Decide which foot sound to play, long live clubfoot!
 	if (altfoot) {
-		footstep = self.altsteptype;			// Extra leg sound
-		if (!self.altsteplast) self.altsteplast = random()*4;
-		footstepnext = self.altsteplast + 1;
-		if (footstepnext > 4) footstepnext = 0.5;
-		self.altsteplast = footstepnext;	// update last footstep index
+		// Switch to ALTernative foot sound
+		footstep = self.altsteptype;
+		if (self.altsteplast < 1) self.altsteplast = rint(1 + random()*4);
+
+		// Increase footstep sound index by one 
+		footstepnext = rint(self.altsteplast + 1);
+		// Every loop around, randomly reset
+		if (footstepnext > 5) footstepnext = rint(1 + random()*4);
+		self.altsteplast = footstepnext;
 	}
 	else {
-		// Increase footstep sound index by one (rotate round to zero if too high)	
+		// Setup last footstep sound
 		footstep = self.steptype;
-		if (!self.steplast) self.steplast = random()*4;
-		footstepnext = self.steplast + 1;
-		if (footstepnext > 4) footstepnext = 0.5;
-		self.steplast = footstepnext;			// update last footstep index
+		if (self.steplast < 1) self.steplast = rint(1 + random()*4);
+
+		// Player is randomly selected footsteps
+		if (self.flags & FL_CLIENT) {
+			// Quake random function is not really super random
+			// Probably a bad seed starting point for function
+			// Use 3 randoms to create something more random!
+			footstepnext = rint(self.steplast + random() + random() + random());
+			if (footstepnext > 5) footstepnext = footstepnext - 5;
+		}
+		else {
+			// Increase footstep sound index by one 
+			footstepnext = rint(self.steplast + 1);
+			// Every loop around, randomly reset
+			if (footstepnext > 5) footstepnext = rint(1 + random()*4);
+		}
+
+		// update last footstep index
+		self.steplast = footstepnext;
 	}
-		
+	
 	// Cycle through all footstep types and work out correct sound file
 	// All footstep types reduced down to 5 possible choices (speed things up)
 	// Could store sound files with entity and cycle round quicker, req more memory
@@ -239,59 +264,67 @@ void(float altfoot) monster_footstep =
 	// Luckly most footstep sounds are several frames apart (too noisy as well)
 	if (footstep == FS_TYPELIGHT) {
 		// Light heal/ paw sound
-		if (footstepnext < 1) footstepwav = SOUND_FS_LIGHT1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_LIGHT2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_LIGHT3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_LIGHT4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_LIGHT1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_LIGHT2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_LIGHT3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_LIGHT4;
 		else footstepwav = SOUND_FS_LIGHT5;
 	}
 	else if (footstep == FS_TYPEMEDIUM) {
 		// Average foot/boot sound
-		if (footstepnext < 1) footstepwav = SOUND_FS_MEDIUM1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_MEDIUM2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_MEDIUM3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_MEDIUM4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_MEDIUM1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_MEDIUM2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_MEDIUM3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_MEDIUM4;
 		else footstepwav = SOUND_FS_MEDIUM5;
 	}
 	else if (footstep == FS_TYPEHEAVY) {
 		// Heavy foot with slight echo
-		if (footstepnext < 1) footstepwav = SOUND_FS_HEAVY1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_HEAVY2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_HEAVY3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_HEAVY4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_HEAVY1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_HEAVY2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_HEAVY3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_HEAVY4;
 		else footstepwav = SOUND_FS_HEAVY5;
 	}
 	else if (footstep == FS_TYPELARGE) {
 		// Large foot with large echo
-		if (footstepnext < 1) footstepwav = SOUND_FS_LARGE1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_LARGE2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_LARGE3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_LARGE4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_LARGE1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_LARGE2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_LARGE3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_LARGE4;
 		else footstepwav = SOUND_FS_LARGE5;
 	}
 	else if (footstep == FS_TYPEGIANT) {
 		// Giant foot with long echo
-		if (footstepnext < 1) footstepwav = SOUND_FS_GIANT1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_GIANT2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_GIANT3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_GIANT4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_GIANT1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_GIANT2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_GIANT3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_GIANT4;
 		else footstepwav = SOUND_FS_GIANT5;
+	}
+	else if (footstep == FS_TYPECUSTOM) {
+		// Custom feet sounds (usually boss type creatures)
+		if (footstepnext < 2) footstepwav = self.stepc1;
+		else if (footstepnext < 3) footstepwav = self.stepc2;
+		else if (footstepnext < 4) footstepwav = self.stepc3;
+		else if (footstepnext < 5) footstepwav = self.stepc4;
+		else footstepwav = self.stepc5;
 	}
 	else if (footstep == FS_TYPEDRAG) {
 		// Small scraping foot on ground
-		if (footstepnext < 1) footstepwav = SOUND_FS_DRAG1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_DRAG2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_DRAG3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_DRAG4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_DRAG1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_DRAG2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_DRAG3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_DRAG4;
 		else footstepwav = SOUND_FS_DRAG5;
 	}
 	// FS_TYPESLOW (default)
 	else {
 		// Souless shoe foot sound
-		if (footstepnext < 1) footstepwav = SOUND_FS_SLOW1;
-		else if (footstepnext < 2) footstepwav = SOUND_FS_SLOW2;
-		else if (footstepnext < 3) footstepwav = SOUND_FS_SLOW3;
-		else if (footstepnext < 4) footstepwav = SOUND_FS_SLOW4;
+		if (footstepnext < 2) footstepwav = SOUND_FS_SLOW1;
+		else if (footstepnext < 3) footstepwav = SOUND_FS_SLOW2;
+		else if (footstepnext < 4) footstepwav = SOUND_FS_SLOW3;
+		else if (footstepnext < 5) footstepwav = SOUND_FS_SLOW4;
 		else footstepwav = SOUND_FS_SLOW5;
 	}
 	
@@ -329,12 +362,59 @@ void() monster_fade =
 //----------------------------------------------------------------------
 void() monster_death_postcheck =
 {
+	local float bodytimer;
+	
 	self.blockudeath = TRUE;	// Body is dead, no human death noise
 	if (!self.gibbed) self.bodyonflr = MON_ONFLR;
-		
-	if (self.bodyfadeaway) {
-		self.nextthink = time + 10 + random()*self.bodyfadeaway;
-		self.think = monster_fade;
+
+	// Allow for the dead body/head to touch triggers (void/hurt)
+	setorigin(self, self.origin);
+	self.solid = SOLID_TRIGGER;
+	self.touch = SUB_Null;
+	
+	// Check for global or individual body fading mechanic
+	if (self.bodyfadeaway > 0 || map_bodyfadeaway > 0) {
+		if (map_bodyfadeaway > 0) bodytimer = map_bodyfadeaway;
+		else bodytimer = self.bodyfadeaway;
+		self.pain_finished = time + 10 + random() * bodytimer;
+	}
+	// Body sticks around
+	else self.pain_finished = time + LARGE_TIMER;
+};
+
+//----------------------------------------------------------------------
+void() monster_deadbody_check =
+{
+	// Remove/Fade out body if timer is finished
+	if (self.pain_finished < time) { monster_fade(); return; }
+	// Exit condition, body no longer has any interaction
+	if (self.deadflag == DEAD_FINISHED) return;
+	
+	// Check for deadflag first, if touched something this will be changed
+	if (self.deadflag == DEAD_REMOVE || self.deadflag == DEAD_EXPLODE
+		&& self.gibbed == FALSE) {
+		// make sure touch,solid and body axe interaction are off
+		self.touch = SUB_Null;
+		self.solid = SOLID_NOT;
+		self.bodyonflr = "";
+		self.gibhealth = TRUE;
+		// Only two options available, gib explode or remove
+		if (self.deadflag == DEAD_EXPLODE) self.think = monster_ThrowGib;
+		// Replace animation frame group think function
+		else self.think = SUB_Remove;
+		self.nextthink = time + 0.1;
+		// Prevent this function from running again
+		self.deadflag = DEAD_FINISHED;
+	}
+	else {
+		// Check global map variable first (default = off)
+		// Check floor below dead body (global function)
+		if (map_bodyflrcheck == TRUE)
+			ent_floorcheck(self, FLOOR_TRACE_MONSTER);
+
+		// Keep checking for dead body/head conditions
+		self.think = monster_deadbody_check;
+		self.nextthink = time + 0.1;	
 	}
 };
 
@@ -425,7 +505,7 @@ void() monster_targets =
 		if (self.angrytarget) {
 			self.oldenemy = find(world, targetname, self.angrytarget);
 			// Is the attack target a monster and spawned/active (take damage)
-			if (self.oldenemy.flags & FL_MONSTER && self.oldenemy.takedamage == DAMAGE_AIM)
+			if (self.oldenemy.flags & FL_MONSTER && self.oldenemy.takedamage != DAMAGE_NO)
 				self.enemy = self.oldenemy;
 		}
 
@@ -442,7 +522,8 @@ void() monster_targets =
 		// Do nothing with patrol paths if spawning angry with the player
 		if (self.target != "") {
 			self.movetarget = find(world, targetname, self.target);
-			if (self.movetarget) {
+			// Cannot chase a target if setup as a turret
+			if (self.movetarget && self.movespeed != -1) {
 				if (self.movetarget.classtype == CT_PATHCORNER) {
 					self.goalentity = self.movetarget;
 					self.ideal_yaw = vectoyaw(self.goalentity.origin - self.origin);
@@ -480,12 +561,21 @@ void() monster_spawn =
 	}
 
 	//----------------------------------------------------------------------
-	self.use = monster_use;						// Standard trigger event
+	if (self.think1) self.use = self.think1;	// different use function?
+	else self.use = monster_use;				// default trigger event
 	self.solid = SOLID_SLIDEBOX;				// Standard monster movement
 	self.movetype = MOVETYPE_STEP;				// Standard monster movement
 	setmodel(self, self.mdl);					// Setup model
+	self.skin = self.skin_override;				// Restore any skins
+	self.frame = self.frame_override;			// Restore any frames
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
-	self.takedamage = DAMAGE_AIM;				// Can receive damage
+	
+	// Restore any effect flags settings (various dlight glows)
+	if (self.savedeffects > 0) self.effects = self.savedeffects;
+	
+	// Should grenades bounce off the body?
+	if (self.bouncegrenade) self.takedamage = DAMAGE_YES;
+	else self.takedamage = DAMAGE_AIM;			// Can receive damage
 
 	self.velocity = '0 0 0';					// Make sure stationary
 	self.deadflag = DEAD_NO;					// used to stop death re-triggering
@@ -494,10 +584,10 @@ void() monster_spawn =
 	if (!self.pain_flinch) self.pain_flinch = self.health;
 
 	// Double check that all ammo resistance are within range
-	if (self.resist_shells < 0 || self.resist_shells > 1) self.resist_shells = 0;
-	if (self.resist_nails < 0 || self.resist_nails > 1) self.resist_nails = 0;
-	if (self.resist_rockets < 0 || self.resist_rockets > 1) self.resist_rockets = 0;
-	if (self.resist_cells < 0 || self.resist_cells > 1) self.resist_cells = 0;
+	Resist_CheckRange(self);
+
+	// Check for tether system (special target field)
+	setup_tethersystem();
 	
 	// Long time before first idle sound (except scorpions!)
 	if (self.classtype == CT_MONSCORPION) self.idletimer = time + 0.1 + random();
@@ -511,7 +601,7 @@ void() monster_spawn =
 	if (!self.pain_timeout) self.pain_timeout = 1;	// Default
 	if (skill == SKILL_HARD) self.pain_timeout = self.pain_timeout + 1;
 	if (skill == SKILL_NIGHTMARE) self.pain_timeout = self.pain_timeout + 3;
-		
+
 	//----------------------------------------------------------------------
 	// Setup different skin options
 	//----------------------------------------------------------------------
@@ -602,7 +692,7 @@ void() monster_spawn =
 		}
 		else {
 			dprint("\b[MONSTER]\b Trying to place on ceiling, no space!\n");
-			spawn_marker(self.origin);
+			spawn_marker(self.origin, SPNMARK_YELLOW);
 			remove(self);
 			return;
 		}
@@ -619,7 +709,7 @@ void() monster_spawn =
 			// Some monster placement in the original ID maps NEED original Bounding Boxes
 			// this is something that cannot be easily fixed, so go back to original BB
 			// and test the monster placement again
-			if (self.idmins != '0 0 0') {
+			if (CheckZeroVector(self.idmins) == FALSE) {
 				self.bbmins = self.idmins; self.bbmaxs = self.idmaxs;
 				setsize (self, self.bbmins, self.bbmaxs);	// Restore ID BB size
 				self.origin_z = self.origin_z + 1;
@@ -646,7 +736,7 @@ void() monster_spawn =
 					dprint ("\b[STUCK]\b "); dprint (self.classname);
 					dprint (" at "); dprint (vtos(self.origin));
 					dprint ("\n");
-					spawn_marker(self.origin);
+					spawn_marker(self.origin, SPNMARK_YELLOW);
 					remove(self);
 				}
 				return;
@@ -658,9 +748,29 @@ void() monster_spawn =
 	// Telefrag (kill) anything at monster position
 	// Phased monsters cannot telefrag or produce spawn effects
 	if (!self.bodyphased) {
-		spawn_tdeath(self.origin, self);
+		// New spawn condition via entity key nospawndamage
+		// This is to prevent excessive damage to breakables
+		// Monsters can spawn in very wierd situations (inside things)
+		// if spawning damage is disabled (spawn_tdeath)
+		if (self.nospawndamage == 0) 
+			spawn_tdeath(self.origin, self);	// 50K damage!
+		
+		// Don't show spawning effect if delay spawn + nogfx
 		if (self.spawnflags & MON_SPAWN_DELAY && !(self.spawnflags & MON_SPAWN_NOGFX)) 
 			spawn_tfog(self.origin);
+	}
+
+	//----------------------------------------------------------------------
+	// Hell Knights can be setup to point at a target and fire lightning
+	// This uses the magicB attack by ID software that was never used
+	// When the Hell Knight recieves damage from the player or triggered
+	// will revert back to normal walking/talking/fighting monster!
+	// ** Has unique use/think function
+	//----------------------------------------------------------------------
+	if (self.classtype == CT_MONHELLK && self.spawnflags & MON_POINT_KNIGHT) {
+		self.nextthink = time + 0.1 + random()*0.5;
+		self.think = self.th_stand;			// statue function
+		return;
 	}
 
 	//----------------------------------------------------------------------
@@ -668,10 +778,22 @@ void() monster_spawn =
 	// They are frozen in an selected pose and wake up on trigger
 	// Have different skin, high pain resistance and stone gibs!
 	// Added double check for statue spawnflag, just in case
+	// ** Has unique use/think function
 	//----------------------------------------------------------------------
 	if (self.spawnstatue && self.spawnflags & MON_STATUE) {
 		self.takedamage = DAMAGE_NO;		// No damage till wakeup
-		self.use = self.think1;				// Trigger function
+		self.nextthink = time + 0.1 + random()*0.5;
+		self.think = self.th_stand;			// statue function
+		return;
+	}
+
+	//----------------------------------------------------------------------
+	// Start in special standby mode with a blue halo glowing shield
+	// Will wait for a trigger before reverted back to normal gameplay
+	// ** Has unique use/think function
+	//----------------------------------------------------------------------
+	if (self.classtype == CT_MONSEEKER && self.spawnflags & MON_SEEK_SHIELD) {
+		self.takedamage = DAMAGE_NO;		// No damage till wakeup
 		self.nextthink = time + 0.1 + random()*0.5;
 		self.think = self.th_stand;			// statue function
 		return;
@@ -695,7 +817,8 @@ void() monster_spawn =
 //----------------------------------------------------------------------
 void() monster_bbox = 
 {
-	if (self.bboxtype == BBOX_TINY)
+	if (self.bboxtype == BBOX_CUSTOM) return;
+	else if (self.bboxtype == BBOX_TINY)
 		// Lost Soul, Scorpion, Spider, Voreling
 		{ self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 16'; }
 	else if (self.bboxtype == BBOX_SHORT)
@@ -723,6 +846,12 @@ void() monster_bbox =
 		{ self.bbmins = '-20 -20 -24'; self.bbmaxs = '20 20 16'; }
 	else if (self.bboxtype == BBOX_FISH)
 		{ self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 24'; }
+	else if (self.bboxtype == BBOX_FISHS)
+		{ self.bbmins = '-12 -12 -14'; self.bbmaxs = '12 12 14'; }
+	else if (self.bboxtype == BBOX_EEL)
+		{ self.bbmins = '-16 -16 -16'; self.bbmaxs = '16 16 16'; }
+	else if (self.bboxtype == BBOX_HYDRA)
+		{ self.bbmins = '-20 -20 -16'; self.bbmaxs = '20 20 16'; }
 	else if (self.bboxtype == BBOX_GOLEM)
 		{ self.bbmins = '-28 -28 -24'; self.bbmaxs = '28 28 80'; }
 	
@@ -737,8 +866,21 @@ void() monster_bbox =
 void() monster_start =
 {
 	self.flags = FL_MONSTER;			// Always reset this flag
-	if (self.effects) dprint("\b[MONSTER]\b Effects flag active\n");
-	else self.effects = 0;				// reset ready for muzzles flashes
+	self.skin_override = self.skin;		// Save for later
+	self.frame_override = self.frame;
+	
+	// Check for spawning conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+	
+	// Warning if effects flag is active before spawning
+	if (self.effects) {
+		dprint("\b[MONSTER]\b Effects flag active\n");
+		self.savedeffects = self.effects;
+	}
+	// Reset effects flag because some engines will show effects
+	// This is especially obvious for delay spawned monsters
+	self.effects = 0;
 
 	self.oldorigin = self.origin;		// Save origin
 	self.max_health = self.health;		// Save max health
@@ -754,12 +896,20 @@ void() monster_start =
 	// Cannot have multiple upgrade restrictions on monsters
 	remove_duplicate_upgrades();
 
+	// Cannot delay spawn a monster if nothing can trigger it!?!
+	if (self.spawnflags & MON_SPAWN_DELAY && self.targetname == "") {
+		dprint("\b[MONSTER]\b Cannot delay spawn without targetname!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
+	
 	// Check for Axe / Shotgun upgrade monster exceptions?
 	// Don't add these kind of monster to the count until spawned
 	if (self.upgrade_axe || self.upgrade_ssg || self.upgrade_lg) {
 		if ( !(self.spawnflags & MON_SPAWN_DELAY) ) {
 			dprint("\b[MONSTER]\b need spawn delay for axe/shotgun/lg\n");
-			spawn_marker(self.origin);
+			spawn_marker(self.origin, SPNMARK_YELLOW);
 			remove(self);
 			return;
 		}
@@ -770,7 +920,10 @@ void() monster_start =
 		// Allow mappers to spawn monsters that don't affect monster count
 		// I know this can be a dangerous if used incorrectly, but good for statues
 		if (!self.nomonstercount) total_monsters = total_monsters + 1;
-		else dprint("\b[MONSTER]\b excluded from total counter\n");
+		else {
+			dprint("\b[MONSTER]\b ("); dprint(self.targetname);
+			dprint(") - no monster count\n");
+		}
 	}
 	
 	//----------------------------------------------------------------------
@@ -785,6 +938,15 @@ void() monster_start =
 		setmodel(self, string_null);
 		self.solid = SOLID_NOT;				// No world interaction
 		self.use = monster_spawn;			// Wait for trigger
+		
+		if (developer > 0) {
+			self.movetype = MOVETYPE_NONE;
+			self.solid = SOLID_NOT;
+			setmodel(self, MODEL_BROKEN);
+			if (self.nomonstercount == 1) self.skin = SPNMARK_GREEN;
+			else self.skin = SPNMARK_BLUE;
+			self.frame = 0;
+		}
 	}
 	else {
 		// Variable start delay on all monsters to reduce packet errors
@@ -794,56 +956,12 @@ void() monster_start =
 };
 
 //======================================================================
-// Some map hacks use these functions as an entry point
-// setup original functionality (very basic)
+// Map hacks are not supported in this MOD
+// There is no use in pretending otherwise!
 //======================================================================
-void() orgmonster_start_go = {
-	self.takedamage = DAMAGE_AIM;
-	self.ideal_yaw = self.angles * '0 1 0';
-	self.use = monster_use;
-	self.flags = self.flags | FL_MONSTER;
-	self.idletimer = time + 4 + (random() * 4);	// Long time before first idle
-
-	// Not all bounding boxes are tall, check bounding box first
-	if (self.maxs_z <= MON_VIEWOFS) self.view_ofs_z = self.maxs_z*0.5;
-	else self.view_ofs_z = MON_VIEWOFS;
-	
-	if (self.target) {
-		self.goalentity = self.movetarget = find(world, targetname, self.target);
-		if (self.movetarget.classname == "path_corner") {
-			self.ideal_yaw = vectoyaw(self.goalentity.origin - self.origin);
-			self.th_walk ();
-		}
-		else {
-			self.pausetime = 99999999;
-			self.th_stand ();
-		}
-	}
-	else {
-		self.pausetime = 99999999;
-		self.th_stand ();
-	}
-	self.nextthink = self.nextthink + 0.01 + random()*0.5;
-};
-//----------------------------------------------------------------------
-void() walkmonster_start_go = {
-	self.origin_z = self.origin_z + 1;
-	droptofloor();
-	if (!self.yaw_speed) self.yaw_speed = 20;
-	orgmonster_start_go();
-};
-//----------------------------------------------------------------------
-void() flymonster_start_go = {
-	self.flags = self.flags | FL_FLY;
-	if (!self.yaw_speed) self.yaw_speed = 15;
-	orgmonster_start_go();
-};
-//----------------------------------------------------------------------
-void() swimmonster_start_go = {
-	self.flags = self.flags | FL_SWIM;
-	if (!self.yaw_speed) self.yaw_speed = 10;
-	orgmonster_start_go();
-};
+void() walkmonster_start_go = { remove(self); return; };
+void() flymonster_start_go = { remove(self); return; };
+void() swimmonster_start_go = { remove(self); return; };
 
 /*======================================================================
 /*QUAKED monster_x (1 0 0) (x y z) (x y z) AMBUSH x x NOSIGHT NOIDLE NOGFX STARTOFF ANGRY Not_Easy Not_Normal Not_Hard Not_DM
@@ -885,6 +1003,15 @@ NOTFROZEN : Will start active (works with statue spawnflag)
 --- Golem ---
 frame: statue frame to be frozen in. (default 48)
 STATUE : Stone statue until triggered
+
+--- Tarbaby ---
+death_dmg : Damage on Death (def=120)
+poisonous : 0=Jump attack (default, 1=Poison attack
+exactskin : 0-1=Blue, 2-3=Green1, 4-5=Green2, 6-7=Green3
+
+--- Skull Wizards ---
+bodyphased   : Spawn phased out and wait to see player
+bodystatic   : Prevents skull wizard from teleporting
 
 -------- SPAWNFLAGS --------
 AMBUSH : the monster will only wake up on seeing the player, not by another monster

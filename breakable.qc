@@ -41,6 +41,7 @@ float BMODTYPE_WOOD3 = 22;		// ID wizwood1_7 (mouldy)
 float BMODTYPE_GLASS1 = 30;		// ID window1_2 (blue sqr)
 float BMODTYPE_GLASS2 = 31;		// ID window01_4 (red stain)
 float BMODTYPE_GLASS3 = 32;		// ID window02_1 (yellow stain)
+float BMODTYPE_GLASS4 = 33;		// ID window01_3 (purple stain)
 float BMODTYPE_METAL1 = 40;		// ID metal1_2 (brown generic)
 float BMODTYPE_METAL2 = 41;		// ID metal4_5 (metal4_4 generic)
 float BMODTYPE_METAL3 = 42;		// ID metal4_7 (rivet metal panels)
@@ -51,6 +52,8 @@ float BMODTYPE_BRICK2 = 51;		// ID city2_3 (small sewer green)
 float BMODTYPE_BRICK3 = 52;		// ID city6_8 (small drywall greyish)
 float BMODTYPE_BRICK4 = 53;		// ID wiz1_4 (large white)
 float BMODTYPE_BRICK5 = 54;		// ID city2_1 (small red brick)
+float BMODTYPE_BRICK6 = 55;		// ID city1_6 (small brown brick)
+float BMODTYPE_BRICK7 = 56;		// ID city4_5 (small blue brick)
 float BMODTYPE_CERAMIC1 = 60;	// Blank atm
 
 //----------------------------------------------------------------------
@@ -123,7 +126,7 @@ string MODEL_BRK_WOOD3B = "maps/ad_brk/wood10.bsp";
 string MODEL_BRK_WOOD3C = "maps/ad_brk/wood11.bsp";
 string MODEL_BRK_WOOD3D = "maps/ad_brk/wood12.bsp";
 // ID window1_2 (blue sqr), window01_4 (red stain), 
-// window02_1 (yellow stain)
+// window02_1 (yellow stain), window01_3 (purple dragon)
 string MODEL_BRK_GLASS1A = "maps/ad_brk/glass01.bsp";
 string MODEL_BRK_GLASS1B = "maps/ad_brk/glass02.bsp";
 string MODEL_BRK_GLASS1C = "maps/ad_brk/glass03.bsp";
@@ -136,6 +139,10 @@ string MODEL_BRK_GLASS3A = "maps/ad_brk/glass09.bsp";
 string MODEL_BRK_GLASS3B = "maps/ad_brk/glass10.bsp";
 string MODEL_BRK_GLASS3C = "maps/ad_brk/glass11.bsp";
 string MODEL_BRK_GLASS3D = "maps/ad_brk/glass12.bsp";
+string MODEL_BRK_GLASS4A = "maps/ad_brk/glass13.bsp";
+string MODEL_BRK_GLASS4B = "maps/ad_brk/glass14.bsp";
+string MODEL_BRK_GLASS4C = "maps/ad_brk/glass15.bsp";
+string MODEL_BRK_GLASS4D = "maps/ad_brk/glass16.bsp";
 // ID metal1_2 (brown generic), metal4_5 (metal4_4 generic), 
 // metal4_7 (rivet metal panels), cop1_1 (green generic)
 string MODEL_BRK_METAL1A = "maps/ad_brk/metal01.bsp";
@@ -160,7 +167,7 @@ string MODEL_BRK_METAL5C = "maps/ad_brk/metal19.bsp";
 string MODEL_BRK_METAL5D = "maps/ad_brk/metal20.bsp";
 // ID wbrick1_5 (large brown), city2_3 (small sewer green), 
 // city6_8 (small drywall greyish), wiz1_4 (large white)
-// city2_1 (small red brick)
+// city2_1 (small red brick), city1_6 (small brown)
 string MODEL_BRK_BRICK1A = "maps/ad_brk/brick01.bsp";
 string MODEL_BRK_BRICK1B = "maps/ad_brk/brick02.bsp";
 string MODEL_BRK_BRICK1C = "maps/ad_brk/brick03.bsp";
@@ -181,6 +188,14 @@ string MODEL_BRK_BRICK5A = "maps/ad_brk/brick17.bsp";
 string MODEL_BRK_BRICK5B = "maps/ad_brk/brick18.bsp";
 string MODEL_BRK_BRICK5C = "maps/ad_brk/brick19.bsp";
 string MODEL_BRK_BRICK5D = "maps/ad_brk/brick20.bsp";
+string MODEL_BRK_BRICK6A = "maps/ad_brk/brick21.bsp";
+string MODEL_BRK_BRICK6B = "maps/ad_brk/brick22.bsp";
+string MODEL_BRK_BRICK6C = "maps/ad_brk/brick23.bsp";
+string MODEL_BRK_BRICK6D = "maps/ad_brk/brick24.bsp";
+string MODEL_BRK_BRICK7A = "maps/ad_brk/brick25.bsp";
+string MODEL_BRK_BRICK7B = "maps/ad_brk/brick26.bsp";
+string MODEL_BRK_BRICK7C = "maps/ad_brk/brick27.bsp";
+string MODEL_BRK_BRICK7D = "maps/ad_brk/brick28.bsp";
 
 //----------------------------------------------------------------------
 // Axe impact/swipe/miss sounds
@@ -194,14 +209,15 @@ string SOUND_AXE_PLAYER = "player/axhit1.wav";			// ax hit meat (another player)
 string SOUND_AXE_STONE = "player/axhit2.wav";			// stone impact
 
 //=============================================================================
-/*QUAKED func_breakable (0 .5 .8) ? STARTOFF NODAMAGE EXPLOSION SILENT DAMAGE NOMOSTER NOSOUND NOROTATE
-Spawn breakable ojects from a bmodel
+/*QUAKED func_breakable (0 .5 .8) ? STARTOFF NODAMAGE EXPLOSION SILENT DAMAGE NOMOSTER NOSOUND NOROTATE Not_Easy Not_Normal Not_Hard Not_DM
+Spawn breakable objects from a bmodel
 -------- KEYS --------
-target, target2 : Additional targets to fire when breakable is dead/used (only used once)
+target     : targets to fire when breakable is dead/used (only used once)
+target2    : Additional trigger function (need target to be defined as well)
 style      : pre-defined sound/model types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 6=ceramic, 10=custom
 brksound   : Initial breaking sound type (override style default)
 brkimpsound : Impact sound type (override style default)
-brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-43=metals, 50-54=brick, 60=ceramic)
+brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-42=metals, 50-54=brick, 60=ceramic)
 noise     : Initial breaking sound (unique sound file)
 noise1    : Custom Rubble Impact sounds (unique sound files, must have 1 defined)
 noise2    : Custom Rubble Impact sound 2
@@ -213,15 +229,19 @@ brkobj3   : Custom Rubble bmodel objects 3
 brkobj4   : Custom Rubble bmodel objects 4
 health    : amount of damage to take before breaking (def 1)
 count     : minimum quantity to spawn (def 4)
-cnt       : random quantity to spawn (def 4) final qty = count + random(cnt)
+cnt       : random quantity to spawn (def 4) =-1 no random qty
 dmg       : explosive radius damage (emits from center of func object)
 pos1      : x=start particle colour, y=random range, z=quantity
 brkvelbase : Base amount for velocity of broken parts (def "50 50 100")
 brkveladd : Random additions for velocity of broken parts (def "100 100 150")
 brkavel   : Amount of breaking object angle velocity (def 200)
 brkfade   : Fade time before rubble fades away (def 4+random()x4)
+brkmondmg : Damage multiplier for monster damage against breakable
 angles    : direction to throw rubble (override default = impact direction)
-brkgravity: will change the gravity for rubble, useful for underwater
+brktrigjump    : Trigger if damaged by jumping monster attack
+brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg
+brktrignoplayer: No player/clients can damage this breakable
+brkgravity     : Change the gravity for rubble, useful for underwater (Value = 0-1)
 -------- SPAWNFLAGS --------
 STARTOFF  : Will wait for trigger to spawn
 NODAMAGE  : Cannot be damaged or shot, trigger only
@@ -236,15 +256,16 @@ Spawn breakable ojects from a bmodel
 */
 
 //=============================================================================
-/*QUAKED func_breakable_spawner (0.5 .5 .8) (-8 -8 -8) (8 8 8) x x EXPLOSION SILENT DAMAGE NOMOSTER NOSOUND NOROTATE
-Spawn breakable ojects from a single point
+/*QUAKED func_breakable_spawner (0.5 .5 .8) (-8 -8 -8) (8 8 8) x x EXPLOSION SILENT DAMAGE NOMOSTER NOSOUND NOROTATE Not_Easy Not_Normal Not_Hard Not_DM
+Spawn breakable objects from a single point
 -------- KEYS --------
-target, target2 : Additional targets to fire when breakable is dead/used (only used once)
+target     : targets to fire when breakable is dead/used (only used once)
+target2    : Additional trigger function (need target to be defined as well)
 style      : pre-defined sound/model types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 6=ceramic, 10=custom
 brksound   : Initial breaking sound type (override style default)
 brkimpsound : Impact sound type (override style default)
-brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-43=metals, 50-54=brick, 60=ceramic)
-noise     : Initial breaking sound (unique sound file)
+brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-42=metals, 50-54=brick, 60=ceramic)
+noise      : Initial breaking sound (unique sound file)
 noise1    : Custom Rubble Impact sounds (unique sound files, must have 1 defined)
 noise2    : Custom Rubble Impact sound 2
 noise3    : Custom Rubble Impact sound 3
@@ -255,7 +276,7 @@ brkobj3   : Custom Rubble bmodel objects 3
 brkobj4   : Custom Rubble bmodel objects 4
 health    : amount of damage to take before breaking (def 1)
 count     : minimum quantity to spawn (def 4)
-cnt       : random quantity to spawn (def 4) final qty = count + random(cnt)
+cnt       : random quantity to spawn (def 4) =-1 no random qty
 dmg       : explosive radius damage (emits from center of func object)
 pos1      : x=start particle colour, y=random range, z=quantity
 brkvelbase : Base amount for velocity of broken parts (def "50 50 100")
@@ -263,7 +284,9 @@ brkveladd : Random additions for velocity of broken parts (def "100 100 150")
 brkavel   : Amount of breaking object angle velocity (def 200)
 brkfade   : Fade time before rubble fades away (def 4+random()x4)
 angles    : direction to throw rubble (override default = impact direction)
-brkgravity : will change the gravity for rubble, useful for underwater
+brktrigjump    : Trigger if damaged by jumping monster attack
+brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg
+brkgravity     : Change the gravity for rubble, useful for underwater (Value = 0-1)
 brkvol    : Spawning volume vector for breakable point entity
 -------- SPAWNFLAGS --------
 EXPLOSION : trigger sprite/particle explosion
@@ -285,34 +308,51 @@ void() breakable_remove =
 };
 
 //----------------------------------------------------------------------
+void() breakable_checkfloor =
+{
+	// Is it time for the breakable to fade away?
+	if (self.pain_finished > time) {
+		// Check floor below breakable (global function)
+		// Origin at base of model + 16 (typical step height)
+		ent_floorcheck(self, FLOOR_TRACE_BREAK);
+
+		// Keep checking
+		self.think = breakable_checkfloor;
+		self.nextthink = time + 0.1;
+	}
+	else breakable_remove();
+};
+
+//----------------------------------------------------------------------
 void() breakable_particle =
 {
 	// Are particles disabled? has the model touched something?
 	if (self.wait) {
-		// Has the fade away timer been reached?
-		if (self.waitmin < time) self.nextthink = time + 0.1;
-		else self.nextthink = self.waitmin;
-		self.think = breakable_remove;
+		// Is there any time left to setup floor checks
+		if (self.pain_finished > time + 0.1) {
+			self.think = breakable_checkfloor;
+		}
+		else self.think = breakable_remove;
+		self.nextthink = time + 0.1;
 	}
 	else {
 		// Add a bit of randomness to the particles generated
 		if (random() < 0.5) self.nextthink = time + 0.01;
 		else self.nextthink = time + 0.02;
-//		particle (self.origin, self.oldorigin, 32, self.pos1_z);
 		particle (self.origin, self.oldorigin, rint(self.pos1_x + random()*self.pos1_y), self.pos1_z);
-		if (self.waitmin < time) self.think = breakable_remove;
+		// Check for removal timer
+		if (self.pain_finished < time) self.think = breakable_remove;
 	}
 };
 
 //----------------------------------------------------------------------
 void() breakable_touch =
 {
+	if (check_skycontent(self.origin)) {entity_remove(self, 0.1); return;}
 	if (self.touchedvoid) { entity_remove(self,0.1); return; }
-	if (check_skycontent(self.origin)) { remove(self); return;}
 	if (other.classtype == CT_FUNCBREAKOBJ) return;	// Ignore other breakables
 	if (other.solid == SOLID_TRIGGER) return;		// Ignore trigger fields
-	
-	self.wait = TRUE;	// no more particles
+	self.wait = TRUE;	// No more particles
 
 	if (self.count < 1) {
 		self.touch = SUB_Null;				// no more touching
@@ -339,6 +379,15 @@ void() breakable_touch =
 	}
 };
 
+//----------------------------------------------------------------------
+// Can't have multiple radius explosion on same frame
+// Always delay them to prevent endless loops
+//----------------------------------------------------------------------
+void() funcbreakable_delayexplode =
+{
+	T_RadiusDamage (self.attachment, self.attachment, self.dmg, self.attachment, DAMAGEALL);
+};
+
 //======================================================================
 // Main function for generating rubble
 //======================================================================
@@ -346,8 +395,8 @@ void() funcbreakable_use =
 {
 	local vector dirvec, rorg, gvel, dirorg;
 	local float content_loop, content_flag;
-	
-	if (self.waitmin) return;
+
+	if (self.waitmin == TRUE) return;	// Trigger once block
 
 	//----------------------------------------------------------------------
 	// Play initial breaking sound (exception - silent spawnflag)
@@ -429,8 +478,6 @@ void() funcbreakable_use =
 			content_flag = pointcontents(rorg);
 			if (content_flag != CONTENT_SOLID && content_flag != CONTENT_SKY) content_loop = -1;
 			else content_loop = content_loop - 1;
-//				if (pointcontents(rorg) == CONTENT_EMPTY) content_loop = -1;
-//				else content_loop = content_loop - 1;
 		}
 
 		//----------------------------------------------------------------------
@@ -485,7 +532,7 @@ void() funcbreakable_use =
 			//----------------------------------------------------------------------
 			// Touch and eventual fade functions		
 			newmis.touch = breakable_touch;
-			newmis.waitmin = time + self.brkfade + random()*self.brkfade;
+			newmis.pain_finished = time + self.brkfade + random()*self.brkfade;
 			newmis.nextthink = time + 0.01;
 			newmis.think = breakable_particle;
 	
@@ -503,10 +550,6 @@ void() funcbreakable_use =
 		self.count = self.count - 1;
 	}
 	
-	//----------------------------------------------------------------------
-	// create any explosive damage	
-	if (self.dmg) T_RadiusDamage (self.attachment, self.attachment, self.dmg, self.attachment, DAMAGEALL);
-
 	//----------------------------------------------------------------------
 	// breakable trigger entities can spawn debris multiple times
 	if (self.wait != -1) {
@@ -527,6 +570,13 @@ void() funcbreakable_use =
 			// Do no remove breakable, the rumble is still using
 			// the noise keys for impact sounds
 			entity_hide(self);
+		}
+		//----------------------------------------------------------------------
+		// create any explosive damage (do this last!)
+		// setup the radius explosion as a delay to prevent endless loops
+		if (self.dmg) {
+			self.think = funcbreakable_delayexplode;
+			self.nextthink = time + 0.05;
 		}
 	}
 };
@@ -552,6 +602,9 @@ void(entity inflictor, entity attacker, float damage)	funcbreakable_pain =
 	// If inflictor the same as attacker then particle impact done already
 	if (inflictor.classtype == CT_PROJ_GL) return;
 	if (inflictor == attacker) return;
+	// Check for player exception on damage to breakable
+	if (inflictor.flags & FL_CLIENT && self.brktrignoplayer) return;
+	if (attacker.flags & FL_CLIENT && self.brktrignoplayer) return;
 	
 	// Something is trying to wear down the breakable with damage
 	// work out facing angle and project particles upward
@@ -567,6 +620,8 @@ void(entity inflictor, entity attacker, float damage)	funcbreakable_pain =
 void() funcbreakable_death =
 {
 	if (self.spawnflags & BREAK_NOSHOOT) return;
+	// Check for player exception on damage to breakable
+	else if (self.activate.flags & FL_CLIENT && self.brktrignoplayer) return;
 	else funcbreakable_use();
 };
 
@@ -796,6 +851,13 @@ void() breakable_cache =
 		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_GLASS3C;
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_GLASS3D;
 	}
+	else if (self.brkobjects == BMODTYPE_GLASS4) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '128 4 1';	// Purple
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_GLASS4A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_GLASS4B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_GLASS4C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_GLASS4D;
+	}
 	else if (self.brkobjects == BMODTYPE_METAL1) {
 		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '16 8 1';	// Brown
 		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_METAL1A;
@@ -866,6 +928,20 @@ void() breakable_cache =
 		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_BRICK5C;
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_BRICK5D;
 	}
+	else if (self.brkobjects == BMODTYPE_BRICK6) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '16 8 1';	// Brown
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_BRICK6A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_BRICK6B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_BRICK6C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_BRICK6D;
+	}
+	else if (self.brkobjects == BMODTYPE_BRICK7) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '32 8 1';	// Blue
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_BRICK7A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_BRICK7B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_BRICK7C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_BRICK7D;
+	}
 	else if (self.brkobjects == BMODTYPE_CERAMIC1) {
 		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '96 8 1';	// Pink/Yellow
 		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_GLASS3A;
@@ -892,6 +968,9 @@ void() breakable_cache =
 //----------------------------------------------------------------------
 void() breakable_defaults =
 {
+	// Reset trigger ONCE function
+	self.waitmin = FALSE;
+
 	// Setup rubble counter = count + random*cnt
 	if (self.count <= 0) self.count = 4;
 	if (self.cnt == 0) self.cnt = 4;
@@ -1012,7 +1091,7 @@ void() func_breakable =
 		setmodel (self, self.model);	// set size and link into world
 		setorigin (self, self.origin);	
 		setsize (self, self.mins , self.maxs);
-		spawn_marker(bmodel_origin(self));
+		spawn_marker(bmodel_origin(self), SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -1042,7 +1121,7 @@ void() func_breakable_spawner =
 	// Check for targetname
 	if (self.targetname == "") {
 		dprint("\b[BRKTRIG]\b Missing targetname\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -1177,12 +1256,15 @@ Trigger (once) breakable and monster together
 ======================================================================*/
 void() trig_monbreak_delay =
 {
-	// Find breakable (single target only)
-	self.owner = find(world,targetname,self.target);
-	if (self.owner.classtype == CT_FUNCBREAK) {
-		self.owner.activate = self;
-		self = self.owner;
-		self.use();
+	// Check for breakable targetname first
+	if (self.target != "") {
+		// Find breakable (single target only)
+		self.owner = find(world,targetname,self.target);
+		if (self.owner.classtype == CT_FUNCBREAK) {
+			self.owner.activate = self;
+			self = self.owner;
+			self.use();
+		}
 	}
 };
 
@@ -1194,13 +1276,18 @@ void() trig_monbreak_use =
 	
 	// Trigger once
 	self.attack_finished = LARGE_TIMER;
-	
-	// Find monster (single target only)
-	self.enemy = find(world,targetname,self.target2);
-	if (self.enemy.flags & FL_MONSTER) {
-		if (self.spawnflags & MONTRIG_WAKEUPANIM) self.enemy.wakeuptrigger = TRUE;
-		trigger_ent(self.enemy, other);
+
+	// Any monster defined to wakeup?
+	if (self.target2 != "") {
+		// Find monster (single target only)
+		self.enemy = find(world,targetname,self.target2);
+		if (self.enemy.flags & FL_MONSTER) {
+			if (self.spawnflags & MONTRIG_WAKEUPANIM) self.enemy.wakeuptrigger = TRUE;
+			trigger_ent(self.enemy, other);
+		}
 	}
+
+	// Time to explode breakable?
 	if (self.spawnflags & MONTRIG_NODELAY) trig_monbreak_delay();
 	else {
 		// setup delay to trigger breakable wall
@@ -1219,69 +1306,6 @@ void() trigger_monsterbreak =
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_use = trig_monbreak_use;
-	self.estate = ESTATE_ON;
-};
-
-//======================================================================
-// General purpose sprite+particle explosion
-// Entity is fired once and deleted afterward
-//======================================================================
-/*QUAKED trigger_explode (.8 .5 .5) (-4 -4 -4) (4 4 4) x
-Triggered (once) entity producing damage + sprite explosion
--------- KEYS --------
-targetname : trigger entity (works with entity state system)
-dmg : explosive radius damage (def=40, -1=no damage)
-delay : time delay to explosion
--------- SPAWNFLAGS --------
--------- NOTES --------
-Triggered (once) entity producing damage + sprite explosion
-
-=============================================================================*/
-void() trig_explode_fire =
-{
-	// create any explosive radius damage	
-	if (self.dmg > 0) T_RadiusDamage (self, self, self.dmg, self, DAMAGEALL);
-
-	// Old style particle explosion
-	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-	WriteByte (MSG_BROADCAST, TE_EXPLOSION);
-	WriteCoord (MSG_BROADCAST, self.origin_x);
-	WriteCoord (MSG_BROADCAST, self.origin_y);
-	WriteCoord (MSG_BROADCAST, self.origin_z);
-
-	// Play original explosion sound
-	sound(self, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
-
-	// Explode with sprite/particle effect and delete entity afterward
-	BecomeExplosion();
-};
-
-//----------------------------------------------------------------------
-void() trig_explode_use =
-{
-	if (self.estate & ESTATE_BLOCK) return;
-	if (self.attack_finished > time) return;
-	
-	// Trigger once
-	self.attack_finished = LARGE_TIMER;
-	
-	// Check for explosion delay or straight away blow up
-	if (self.delay) {
-		self.nextthink = time + self.delay;
-		self.think = trig_explode_fire;
-	}
-	else trig_explode_fire();
-};
-
-//----------------------------------------------------------------------
-void() trigger_explode =
-{
-	self.classtype = CT_TRIGEXPLODE;	
-	if (self.dmg >= 0) self.dmg = DAMAGE_MONROCKET;
-	
-	// Setup Entity State functionality
-	if (self.targetname != "") self.use = entity_state_use;
-	self.estate_use = trig_explode_use;
 	self.estate = ESTATE_ON;
 };
 
@@ -1338,7 +1362,7 @@ void() misc_breakable_pot1 =
 
 	// Save any custom angles, otherwise random Y rotation
 	self.pos2 = '0 0 0';
-	if (self.mangle != '0 0 0') self.pos2 = self.mangle;
+	if (CheckZeroVector(self.mangle) == FALSE) self.pos2 = self.mangle;
 	else if (query_configflag(SVR_ITEMROTATE) == FALSE)
 		self.pos2_y = rint(random()*359);
 	

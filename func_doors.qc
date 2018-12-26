@@ -215,7 +215,7 @@ void() func_door_hit_bottom =
 	if (self.estate == ESTATE_OFF) return;
 	sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
 	self.state = STATE_BOTTOM;
-	self.frame = 0;			// use original textures
+	self.frame = 1 - self.frame;	//switch textures
 };
 
 //----------------------------------------------------------------------
@@ -268,7 +268,7 @@ void() func_door_go_up =
 	SUB_CalcMove (self.pos2, self.speed, func_door_hit_top);
 
 	SUB_UseTargets();
-	self.frame = 1;			// use alternate textures
+	self.frame = 1 - self.frame;	//switch textures
 };
 
 //----------------------------------------------------------------------
@@ -382,10 +382,10 @@ void() func_door_touch =
 				// Use the key item netname to reference the custom key
 				// These netnames are updated when picking up the key
 				sprint(other, "You used the ");
-				if (self.moditems & IT_CKEY1) sprint(other, other.ckeyname1);
-				else if (self.moditems & IT_CKEY2) sprint(other, other.ckeyname2);
-				else if (self.moditems & IT_CKEY3) sprint(other, other.ckeyname3);
-				else sprint(other, other.ckeyname4);
+				if (self.moditems & IT_CKEY1 && other.ckeyname1 != "") sprint(other, other.ckeyname1);
+				else if (self.moditems & IT_CKEY2 && other.ckeyname2 != "") sprint(other, other.ckeyname2);
+				else if (self.moditems & IT_CKEY3 && other.ckeyname3 != "") sprint(other, other.ckeyname3);
+				else if (self.moditems & IT_CKEY4 && other.ckeyname4 != "") sprint(other, other.ckeyname4);
 				sprint(other, "\n");
 			}
 		}
@@ -393,14 +393,14 @@ void() func_door_touch =
 			// Does the player have the correct key? (silver/gold)
 			if ( (self.items & other.items) != self.items ) {
 				if (self.owner.items == IT_KEY1) {
-					if (world.worldtype == 1) centerprint (other, "You need the silver runekey");
-					else if (world.worldtype == 2) centerprint (other, "You need the silver keycard");
+					if (self.worldtype == 1) centerprint (other, "You need the silver runekey");
+					else if (self.worldtype == 2) centerprint (other, "You need the silver keycard");
 					else centerprint (other, "You need the silver key");
 					sound (self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
 				}
 				else {
-					if (world.worldtype == 1) centerprint (other, "You need the gold runekey");
-					else if (world.worldtype == 2) centerprint (other, "You need the gold keycard");
+					if (self.worldtype == 1) centerprint (other, "You need the gold runekey");
+					else if (self.worldtype == 2) centerprint (other, "You need the gold keycard");
 					else centerprint (other, "You need the gold key");
 					sound (self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
 				}
@@ -438,7 +438,7 @@ void() func_door_on =
 	self.solid = SOLID_BSP;
 	setmodel (self, self.mdl);
 	self.velocity = '0 0 0';
-	self.frame = 0;			// use original textures
+	self.frame = self.frame_override;	// Reset to default
 	
 	// Reset Door position if NOT key or working once
 	if (self.items == 0 && self.wait != -1) {
@@ -466,10 +466,12 @@ void() func_door_off =
 	self.velocity = '0 0 0';
 	self.takedamage = DAMAGE_NO;
 	self.think = SUB_Null;
+
+	// Stop all movement sounds
+	sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
 	
 	// Reset Door position if NOT key or working once
 	if (self.items == 0 && self.wait != -1) {
-		sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
 		setorigin(self, self.pos2);
 		self.state = STATE_BOTTOM;
 	}
@@ -480,7 +482,7 @@ void() func_door_disable =
 {
 	// Block damage function and show alternative texture
 	self.takedamage = DAMAGE_NO;
-	self.frame = 1;
+	self.frame = 1 - self.frame_override;	// Turn off alt textures
 };
 
 //----------------------------------------------------------------------
@@ -500,7 +502,7 @@ void() func_door_reset =
 	setorigin(self, self.pos1);
 	self.state = STATE_BOTTOM;
 	self.attack_finished = 0;
-	self.frame = 0;			// use original textures
+	self.frame = self.frame_override;	// Reset Alt textures
 	
 	// Restore door to ON state
 	self.estate = ESTATE_OFF;
@@ -545,16 +547,19 @@ void() func_door =
 		self.noise2 = "doors/ddoor1.wav";
 	}
 
+	// Check for any self worldtype override
+	if (!self.worldtype) self.worldtype = world.worldtype;
+	
 	// Allow for custom sounds by checking noise3/4 string content first
 	// Locked door sounds (silver, gold and custom keys)
 	if (self.noise3 == "") {
-		if (world.worldtype == 1) self.noise3 = "doors/runetry.wav";
-		else if (world.worldtype == 2) self.noise3 = "doors/basetry.wav";
+		if (self.worldtype == 1) self.noise3 = "doors/runetry.wav";
+		else if (self.worldtype == 2) self.noise3 = "doors/basetry.wav";
 		else self.noise3 = "doors/medtry.wav";
 	}
 	if (self.noise4 == "") {
-		if (world.worldtype == 1) self.noise4 = "doors/runeuse.wav";
-		else if (world.worldtype == 2) self.noise4 = "doors/baseuse.wav";
+		if (self.worldtype == 1) self.noise4 = "doors/runeuse.wav";
+		else if (self.worldtype == 2) self.noise4 = "doors/baseuse.wav";
 		else self.noise4 = "doors/meduse.wav";
 	}		
 
@@ -571,14 +576,13 @@ void() func_door =
 	precache_sound (self.noise3);
 	precache_sound (self.noise4);
 
-	SetMovedir ();
-
+	// Setup classtype and flag as BSP origin
 	self.classtype = CT_FUNCDOOR;
+	self.classgroup = CG_FUNCMOVER;
 	self.bsporigin = TRUE;
 	self.mdl = self.model;
+	SetMovedir ();			// Work out movedir based on angles
 
-	self.blocked = func_door_blocked;
-	
 	if (!self.speed) self.speed = 100;
 	// Second movement speed can be different, yaw_speed
 	if (!self.yaw_speed) self.yaw_speed = self.speed;
@@ -587,6 +591,10 @@ void() func_door =
 	if (!self.dmg) self.dmg = 2;
 	self.state = STATE_BOTTOM;
 	self.attack_finished = 0;
+	
+	// Default/Setup alternative texture frame
+	if (!self.frame_override) self.frame_override = 0;
+	self.frame = self.frame_override;
 
 	//----------------------------------------------------------------------
 	// Is the door locked via special keys (silver/gold)
@@ -613,9 +621,6 @@ void() func_door =
 		self.health = 0;	// no shoot/damage
 	}
 
-	// Only need door functionality if require keys or centerprint messages
-	if (self.items > 0 || self.message != "") self.touch = func_door_touch;
-	
 	//----------------------------------------------------------------------
 	// Add bmodel to world and work out movement positions
 	self.solid = SOLID_BSP;
@@ -626,6 +631,15 @@ void() func_door =
 	self.pos1 = self.origin;
 	self.pos2 = self.pos1 + self.movedir*(fabs(self.movedir*self.size) - self.lip);
 
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Only need door functionality if require keys or centerprint messages
+	if (self.items > 0 || self.message != "") self.touch = func_door_touch;
+	self.blocked = func_door_blocked;
+	
 	//----------------------------------------------------------------------
 	// DOOR_START_OPEN is design for an entity to be lit in the closed position
 	// but spawn in the open position, also reversed door functions

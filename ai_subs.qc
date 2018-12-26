@@ -58,21 +58,6 @@
 
 ======================================================================*/
 
-//----------------------------------------------------------------------
-entity(vector spawn_org) spawn_devmarker =
-{
-	local entity spawn_ent;
-	
-	spawn_ent = spawn();
-	spawn_ent.classtype = CT_DEVMARKER;
-	spawn_ent.movetype = MOVETYPE_NONE;
-	spawn_ent.solid = SOLID_NOT;
-	setmodel(spawn_ent, MODEL_BROKEN);
-	setorigin(spawn_ent, spawn_org);
-	setsize (spawn_ent, VEC_ORIGIN, VEC_ORIGIN);
-	return spawn_ent;
-};
-
 /*======================================================================
  visible (target entity)
  Conditions added to water surface check
@@ -249,8 +234,8 @@ float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide =
 ======================================================================*/
 float(entity targ) infront =
 {
-	local vector	vec;
-	local float		dot;
+	local vector vec;
+	local float dot;
 	
 	makevectors (self.angles);	// sets v_forward, etc globals
 	vec = normalize (targ.origin - self.origin);
@@ -593,6 +578,15 @@ void(float dist) ai_forward =
 };
 
 //----------------------------------------------------------------------
+// ai_forward + ai_face
+//----------------------------------------------------------------------
+void(float dist) ai_faceforward =
+{
+	ai_face();
+	walkmove (self.angles_y, dist);
+};
+
+//----------------------------------------------------------------------
 // ai_back + backface
 //----------------------------------------------------------------------
 void(float dist) ai_back =
@@ -885,6 +879,8 @@ void(float brkdmg) ai_damagebreakable =
 	spot2 = spot1 + v_forward * 100;
 	traceline (spot1, spot2, TRUE, self);
 	if (ai_foundbreakable(self, trace_ent, FALSE)) {
+		// Check for any monster damage modifier on breakable
+		if (trace_ent.brkmondmg>0) ldmg = ldmg * trace_ent.brkmondmg;
 		T_Damage (trace_ent, self, self, ldmg, DAMARMOR);
 	}
 	else {
@@ -892,6 +888,8 @@ void(float brkdmg) ai_damagebreakable =
 		spot2 = spot1 + v_forward * 100 + v_up * 64;
 		traceline (spot1, spot2, TRUE, self);
 		if (ai_foundbreakable(self, trace_ent, FALSE)) {
+			// Check for any monster damage modifier on breakable
+			if (trace_ent.brkmondmg>0) ldmg = ldmg * trace_ent.brkmondmg;
 			T_Damage (trace_ent, self, self, ldmg, DAMARMOR);
 		}
 		else {
@@ -899,6 +897,8 @@ void(float brkdmg) ai_damagebreakable =
 			spot2 = spot1 + v_forward * 100 - v_up * 64;
 			traceline (spot1, spot2, TRUE, self);
 			if (ai_foundbreakable(self, trace_ent, FALSE)) {
+				// Check for any monster damage modifier on breakable
+				if (trace_ent.brkmondmg>0) ldmg = ldmg * trace_ent.brkmondmg;
 				T_Damage (trace_ent, self, self, ldmg, DAMARMOR);
 			}
 		}
@@ -1068,6 +1068,7 @@ void(vector imp_vec, float imp_damage, float imp_radius, float imp_forward, floa
 	local entity swave, sjump;
 	local vector impact, fvel;
 	local float vdist, vpercent, vpart;
+	local float impzdiff;
 	
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	// Check if the player is close enough for damage?
@@ -1078,33 +1079,38 @@ void(vector imp_vec, float imp_damage, float imp_radius, float imp_forward, floa
 	// Play impact sound and work out where the impact is going to happen
 	sound (self, CHAN_WEAPON, self.meleehitsound, 1, ATTN_IDLE);
 	makevectors (self.angles);
-	impact = self.origin + v_forward*imp_vec_x + v_right*imp_vec_y + v_up*imp_vec_z;
+//	impact = self.origin + v_forward*imp_vec_x + v_right*imp_vec_y + v_up*imp_vec_z;
+	impact = self.origin + attack_vector(imp_vec);
 
 	// Push all entities within a certain radius outwards
 	// Do this find search before spawning ring and particles
 	// findradius will find ALL entities regardless of type
 	sjump = findradius(impact, imp_radius);
 	while(sjump) {
-		// Ignore ogre (self)
+		// Ignore monster (self)
 		if (sjump != self) {
 			// Only affect players and other monsters
 			if (sjump.flags & FL_CLIENT || sjump.flags & FL_MONSTER) {
-				// Exclude statues and stone/heavy monsters
-				if (sjump.classgroup != CG_STONE) {
+				// Exclude statues, stone/heavy monsters and bosses!
+				if (sjump.classgroup != CG_STONE && sjump.bossflag == FALSE) {
 					// Is the entity on the ground?
 					if (sjump.flags & FL_ONGROUND) {
-						// Distance between impact and enemy
-						vdist = vlen(sjump.origin - impact);
-						// Percentage of impact force
-						vpercent = 1 - (vdist / imp_radius);
-						// Monsters have less impact
-						if (sjump.flags & FL_MONSTER) vpercent = vpercent * 0.75;
-						// Ogre facing angle (easier to understand)
-						makevectors(self.angles);									
-						// Combine forward/up force with existing velocity
-						fvel = (v_forward * (imp_forward * vpercent)) + (v_up * (imp_up * vpercent));
-						sjump.velocity = sjump.velocity + fvel;
-						sjump.flags = sjump.flags - (sjump.flags & FL_ONGROUND);
+						// Is the entity too far above or below the impact?
+						impzdiff = fabs(sjump.origin_z - impact_z);
+						if (impzdiff < MONAI_IMPACTZAXIS) {
+							// Distance between impact and enemy
+							vdist = vlen(sjump.origin - impact);
+							// Percentage of impact force
+							vpercent = 1 - (vdist / imp_radius);
+							// Monsters have less impact
+							if (sjump.flags & FL_MONSTER) vpercent = vpercent * 0.75;
+							// Ogre facing angle (easier to understand)
+							makevectors(self.angles);									
+							// Combine forward/up force with existing velocity
+							fvel = (v_forward * (imp_forward * vpercent)) + (v_up * (imp_up * vpercent));
+							sjump.velocity = sjump.velocity + fvel;
+							sjump.flags = sjump.flags - (sjump.flags & FL_ONGROUND);
+						}
 					}
 				}
 			}

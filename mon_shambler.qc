@@ -75,6 +75,7 @@ void() sham_run5 =[ $run5, sham_run6 ] {monster_footstep(FALSE); ai_run(24);};
 void() sham_run6 =[ $run6, sham_run1 ] {ai_run(20);};
 
 //======================================================================
+// MELEE ATTACK 1 - Claw and Smash
 // Merged shambler melee attacks (over head smash and side claw)
 // Standardized to test vlen and zaxis height difference better
 //======================================================================
@@ -97,6 +98,9 @@ void(float melee_attack, float side) sham_meleeattack =
 
 	// Can the target bleed? - generate red/green blood
 	if (!CanDamage (self.enemy, self)) return;
+	
+	// Check for poisonous attribute (new poison version)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
 
 	// Shambler over head claw smash to ground (slow and high damage)
 	// If this is infighting do more damage as it will look more impressive
@@ -173,20 +177,55 @@ void() sham_melee =
 };
 
 //============================================================================
-void() CastLightning =
+// Attachment management (create, finish and delete)
+//============================================================================
+void() sham_create_attachment =
 {
-	local	vector	org, dir;
-	
-	self.effects = self.effects | EF_MUZZLEFLASH;
-	ai_face ();
-	ai_damagebreakable(80);							// Damage any breakables
+	// Are the attachments setup yet?
+	if (!self.attachment) {
+		self.attachment = spawn();
+		self.attachment.owner = self;
+		self.attachment.classtype = CT_ATTACHMENT;
+		self.attachment.alpha = 0.85;
+	}
+};
 
-	org = self.origin + '0 0 40';
+//----------------------------------------------------------------------
+void() sham_finish_attachment =
+{
+	if (self.attachment) setmodel(self.attachment, "");
+};
+
+//----------------------------------------------------------------------
+void() sham_remove_attachment =
+{
+	if (self.attachment) {
+		self.attachment.think = SUB_Remove;
+		self.attachment.nextthink = time + 0.1;
+	}
+};
+
+//======================================================================
+// RANGE ATTACK 1 - classic hitscan lightning
+//======================================================================
+void() sham_lightning =
+{
+	local vector org, dir;
+	if (self.health < 1) return;
+	
+	ai_face ();
+	self.effects = self.effects | EF_MUZZLEFLASH;
+	sham_finish_attachment();
+
+	makevectors(self.angles);
+	org = self.origin + attack_vector(self.attack_offset);
 	dir = self.enemy.origin + '0 0 16' - org;
 	dir = normalize (dir);
 
+	// Trace direct line of lightning infront of shambler
 	traceline (org, self.origin + dir*MONAI_SHAMRANGE, TRUE, self);
 
+	// Display lightning model segments
 	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 	WriteByte (MSG_BROADCAST, TE_LIGHTNING1);
 	WriteEntity (MSG_BROADCAST, self);
@@ -197,40 +236,74 @@ void() CastLightning =
 	WriteCoord (MSG_BROADCAST, trace_endpos_y);
 	WriteCoord (MSG_BROADCAST, trace_endpos_z);
 
-	LightningDamage (org, trace_endpos, self, 10);
+	// Check for any breakables first
+	if (ai_foundbreakable(self, trace_ent, FALSE)) {
+		T_Damage (trace_ent, self, self, 80, DAMARMOR);
+	}
+	// Standard player lightning damage function
+	else LightningDamage (org, trace_endpos, self, 10);
 };
 
 //----------------------------------------------------------------------
-void() sham_magic1     =[      $magic1,       sham_magic2    ] {ai_face();
-	sound (self, CHAN_WEAPON, "shambler/sattck1.wav", 1, ATTN_NORM); };
-void() sham_magic2     =[      $magic2,       sham_magic3    ] {ai_face();};
-void() sham_magic3     =[      $magic3,       sham_magic4    ] {ai_face();
-	self.nextthink = self.nextthink + 0.2;
-	local entity o;
-	
-	self.effects = self.effects | EF_MUZZLEFLASH;
+void(vector leftofs, vector rightofs, float litframe) sham_casting =
+{
+	local vector org, dir;
+	local float litpoint;
+	if (self.health < 1) return;
+
+	// Check if attachment has been setup yet
+	if (!self.attachment) sham_create_attachment();
+
+	// Frame 0 is start of the sequence (move everything into place)
+	if (litframe == 0) {
+		setorigin(self.attachment, self.origin);
+		setmodel(self.attachment, MODEL_PROJ_SHAMLIT);
+		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
+		self.attachment.movetype = MOVETYPE_NONE;
+		self.attachment.solid = SOLID_NOT;
+	}
+
+	// Turn toward enemy
 	ai_face();
-	self.owner = spawn();
-	o = self.owner;
-	setmodel (o, "progs/s_light.mdl");
-	setorigin (o, self.origin);
-	o.angles = self.angles;
-	o.nextthink = time + 0.7;
-	o.think = SUB_Remove;
+	self.effects = self.effects | EF_MUZZLEFLASH;
+	
+	// Place orb in the center of the electricity
+	setorigin(self.attachment, self.origin);
+	self.attachment.angles = self.angles;
+	self.attachment.frame = litframe;
+	
+	// Work out each hand position
+	makevectors(self.angles);
+	self.pos1 = self.origin + attack_vector(leftofs);
+	self.pos2 = self.origin + attack_vector(rightofs);
+	
+	// Spawn some particles randomly along the lighting beam
+	dir = normalize(self.pos2 - self.pos1);
+	litpoint = vlen(self.pos2 - self.pos1) * random();
+	self.pos3 = self.pos1 + (dir*litpoint);
+	particle_explode(self.pos3, 5+random()*5, 0.2+random(), PARTICLE_BURST_BLUE, PARTICLE_BURST_SKULLUP);
 };
-void() sham_magic4     =[      $magic4,       sham_magic5    ] { monster_footstep(FALSE); 
-self.effects = self.effects | EF_MUZZLEFLASH; self.owner.frame = 1;};
-void() sham_magic5     =[      $magic5,       sham_magic6    ] {
-self.effects = self.effects | EF_MUZZLEFLASH; self.owner.frame = 2;};
-void() sham_magic6     =[      $magic6,       sham_magic9    ] {
-remove (self.owner);
-CastLightning();
+
+//----------------------------------------------------------------------
+void() sham_magic1 =[ $magic1, sham_magic2 ] {ai_face();
+	sound (self, CHAN_WEAPON, "shambler/sattck1.wav", 1, ATTN_NORM);};
+void() sham_magic2 =[ $magic2, sham_magic3 ] {
+	sham_casting('0 43 61','16 -4 75',0);};
+void() sham_magic3 =[ $magic3, sham_magic3b ] {ai_face();
+	sham_casting('-16 42 69','7 0 80',1);};
+void() sham_magic3b =[ $magic3, sham_magic4 ] {ai_face();
+	sham_casting('-14 38 68','8 6 78',2);};
+void() sham_magic4 =[ $magic4, sham_magic5 ] {monster_footstep(FALSE);
+	sham_casting('-22 35 75','6 3 80',3);};
+void() sham_magic5 =[ $magic5, sham_magic6 ] {
+	sham_casting('-3 26 88','19 -9 81',4);};
+void() sham_magic6 =[ $magic6, sham_magic9 ] {sham_lightning();
 sound (self, CHAN_WEAPON, "shambler/sboom.wav", 1, ATTN_NORM);};
-void() sham_magic9     =[      $magic9,       sham_magic10   ] {CastLightning();};
-void() sham_magic10    =[      $magic10,      sham_magic11   ] {monster_footstep(FALSE); CastLightning();};
-void() sham_magic11    =[      $magic11,      sham_magic12   ] {
-if (skill == SKILL_NIGHTMARE) CastLightning();};
-void() sham_magic12    =[      $magic12,      sham_run1	   ] {};
+void() sham_magic9 =[ $magic9, sham_magic10 ] {sham_lightning();};
+void() sham_magic10=[ $magic10,sham_magic11 ] {sham_lightning();monster_footstep(FALSE);};
+void() sham_magic11=[ $magic11,sham_magic12 ] {
+	if (skill == SKILL_NIGHTMARE) sham_lightning();};
+void() sham_magic12 =[ $magic12, sham_run1] {};
 
 //============================================================================
 void() sham_pain1       =[      $pain1, sham_pain2      ] {};
@@ -243,13 +316,22 @@ void() sham_pain6       =[      $pain6, sham_run1      ] {};
 //----------------------------------------------------------------------
 void(entity inflictor, entity attacker, float damage)	sham_pain =
 {
+	// Finish with all attachments
+	sham_finish_attachment();
+
 	// Check all pain conditions and set up what to do next
 	monster_pain_check(attacker, damage);
 
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) sham_pain1 ();
+		if (self.pain_check == 1) sham_pain1 ();
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.6;
+			self.axhitme = 0;
+			sham_pain1 ();
+		}
 	}
 };
 
@@ -265,11 +347,15 @@ void() sham_death7  =[ $death7,  sham_death8  ] {};
 void() sham_death8  =[ $death8,  sham_death9  ] {};
 void() sham_death9  =[ $death9,  sham_death10 ] {};
 void() sham_death10 =[ $death10, sham_death11 ] {monster_death_postcheck();};
-void() sham_death11 =[ $death11, sham_death11 ] {};
+void() sham_death11 =[ $death11, sham_death11 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() sham_die =
 {
+	// Finish and remove all attachments
+	sham_finish_attachment();
+	sham_remove_attachment();
+
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
 
@@ -299,15 +385,26 @@ void() monster_shambler =
 {
 	if (deathmatch) { remove(self); return; }
 
-	self.mdl = "progs/shambler.mdl";
-	self.headmdl = "progs/h_shams.mdl";			// Large head
-	self.gib1mdl = "progs/gib_shclaw1.mdl";		// Left claw
-	self.gib2mdl = "progs/gib_shclaw2.mdl";		// Right claw
-	self.gib3mdl = "progs/gib_shfoot1.mdl";		// foot
-	self.gib4mdl = "progs/gib_shfoot2.mdl";		// foot
+	if (self.poisonous) {
+		self.mdl = "progs/mon_shambler.mdl";
+		self.headmdl = "progs/h_shambler.mdl";		// Large head
+		self.gib1mdl = "progs/gib_blclaw1.mdl";		// Left claw
+		self.gib2mdl = "progs/gib_blclaw2.mdl";		// Right claw
+		self.gib3mdl = "progs/gib_blfoot1.mdl";		// foot
+		self.gib4mdl = "progs/gib_blfoot2.mdl";		// foot
+	}
+	else {
+		self.mdl = "progs/mon_shambler.mdl";
+		self.headmdl = "progs/h_shambler.mdl";		// Large head
+		self.gib1mdl = "progs/gib_shclaw1.mdl";		// Left claw
+		self.gib2mdl = "progs/gib_shclaw2.mdl";		// Right claw
+		self.gib3mdl = "progs/gib_shfoot1.mdl";		// foot
+		self.gib4mdl = "progs/gib_shfoot2.mdl";		// foot
+	}
 
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
+	precache_model (MODEL_PROJ_SHAMLIT);
 	precache_model ("progs/s_light.mdl");
 	precache_model ("progs/bolt.mdl");
 	precache_model (self.gib1mdl);
@@ -338,17 +435,26 @@ void() monster_shambler =
 
 	self.sight_sound = "shambler/ssight.wav";
 	precache_sound (self.sight_sound);
-
+	
+	// Precache extra green small gibs
+	if (self.poisonous) {
+		precache_poisongibs();
+		self.gibtype = GIBTYPE_POISON;
+		self.exactskin = 1;
+	}
+	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_MASSIVE;
 	if (self.health < 1) self.health = 600;
 	self.gibhealth = -60;
-	self.gibbed = FALSE;
-	self.pain_flinch = 400;
-	self.pain_timeout = 2;
-	self.steptype = FS_TYPELARGE;
-	self.blockudeath = TRUE;
+	self.gibbed = FALSE;				// In one peice
+	self.pain_flinch = 400;				// Really low chance of pain
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
+	self.pain_timeout = 2;				// Long pause on pain
+	self.steptype = FS_TYPELARGE;		// Large stomping feet
+	self.blockudeath = TRUE;			// No player gib sound
+	self.attack_offset = '0 0 40';		// Between hands
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

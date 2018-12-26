@@ -1,9 +1,3 @@
-/*======================================================================
- Extra global functions
-======================================================================*/
-float FADEMODEL_TIME = 0.01;	// Small amount of time
-float FADEFOG_TIME = 0.05;		// 20 updates per second
-
 //======================================================================
 // Trigger/use all entities that match the supplied targetname
 // self is switched around so target use function works correctly
@@ -87,6 +81,58 @@ void(entity target_ent, entity activator_ent) trigger_ent =
 };
 
 //======================================================================
+// Check if the entity has solid surface below 
+// There is no entity type checks, can be any entity in theory!
+// First check is checkbottom for completel bounding box coverage
+// Second check is trace down to find floor surface below
+// Typical trace down distance is 128 units with 24 unit difference
+//
+// Uses for this function:-
+// ai_states.qc - ai_stand
+// monsters.qc  - monster_deadbody_check
+// ai_gibs.qc   - CheckFloorGib
+// items.qc     - item_thinkloop
+//
+//----------------------------------------------------------------------
+void(entity source, float floor_dist) ent_floorcheck =
+{
+	local vector trace_pos1;
+	local float trace_dist;
+	
+	// if (!checkbottom(source)) = disabled
+	//  too expensive, 5 traces (4 corners + center) and liquid check
+
+	// Tracedown directly from origin for floor check
+	trace_pos1 = source.origin;
+	trace_pos1_z = trace_pos1_z - FLOOR_TRACE_DIST;
+	traceline (source.origin, trace_pos1, TRUE, source);
+	
+	// Work out distance from origin to floor
+	trace_dist = source.origin_z - trace_endpos_z;
+	
+	// Check if the floor is too far away? (usually 24 units)
+	if (trace_dist > floor_dist && source.flags & FL_ONGROUND) {
+		// Move entity up and do a trace/fall down (256 units max)
+		source.oldorigin = source.origin;
+		source.origin_z = source.origin_z + 1;
+		droptofloor();
+		if (source.oldorigin != source.origin) {
+			// lift entity upward and remove onground flag
+			source.flags = source.flags - (source.flags & FL_ONGROUND);
+			source.velocity_z = 10 + 10*random();
+			// Check for any attachment (lids) for ammo
+			if (source.classgroup == CG_AMMOITEM && source.attachment) {
+				// sync flag/velocity so lid falls correctly
+				source.attachment.flags = source.attachment.flags - (source.attachment.flags & FL_ONGROUND);
+				source.attachment.velocity = source.velocity;
+			}
+		}
+		// Move item back to original pos before droptofloor
+		setorigin(source, source.oldorigin);
+	}
+};
+
+//======================================================================
 // Check for contact with sky brushes
 // - Use pointcontent() for Typical/Enhanced Quake engines
 // - Use new FTE string functions and surface check for Darkplaces engine
@@ -154,38 +200,6 @@ void(float hud_item) update_hud_totals =
 };
 
 //======================================================================
-// Show where broken monster/items are located (developer only)
-//
-//----------------------------------------------------------------------
-void(vector spawn_org) spawn_marker =
-{
-	local entity brokend;
-	
-	if (developer) {
-		brokend = spawn();
-		brokend.classtype = CT_DEVMARKER;
-		brokend.movetype = MOVETYPE_NONE;
-		brokend.solid = SOLID_NOT;
-		setmodel(brokend, MODEL_BROKEN);
-		setorigin(brokend, spawn_org);
-		setsize (brokend, VEC_ORIGIN, VEC_ORIGIN);
-		// If DP engine active remove particle shadow
-		if (engine == ENG_DPEXT) brokend.effects = brokend.effects + EF_NOSHADOW;
-	}
-};
-
-//======================================================================
-// Clear all trigger strings
-//
-//----------------------------------------------------------------------
-void (entity targ) clear_trigstrs =
-{
-	if (targ.target != "") targ.target = string_null;
-	if (targ.target2 != "") targ.target2 = string_null;
-	if (targ.killtarget != "") targ.killtarget = string_null;
-};
-
-//======================================================================
 // Reduce any entity down to a non-interactive empty marker
 //
 //----------------------------------------------------------------------
@@ -208,9 +222,117 @@ void(entity targ) entity_hide =
 //----------------------------------------------------------------------
 void(entity targ, float removetime) entity_remove =
 {
+	if (targ == world) return;
 	entity_hide(targ);
 	targ.think = SUB_Remove;
 	targ.nextthink = time + removetime;
+};
+
+//======================================================================
+// Show where broken monster/items are located (developer only)
+// SPNMARK_YELLOW, SPNMARK_BLUE, SPNMARK_GREEN, SPNMAKR_RED
+//----------------------------------------------------------------------
+void(vector marker_org, float marker_type) spawn_marker =
+{
+	local entity brokend;
+	
+	if (developer) {
+		brokend = spawn();
+		brokend.classtype = CT_DEVMARKER;
+		brokend.movetype = MOVETYPE_NONE;
+		brokend.solid = SOLID_NOT;
+		setmodel(brokend, MODEL_BROKEN);
+		setorigin(brokend, marker_org);
+		setsize (brokend, VEC_ORIGIN, VEC_ORIGIN);
+		// Setup marker type (skin colour)
+		// YELLOW = error, BLUE = delay, GREEN = nocount, RED = nightmare
+		brokend.skin = marker_type;
+		brokend.frame = 0;
+		// If DP engine active remove particle shadow
+		if (engine == ENG_DPEXT) brokend.effects = brokend.effects + EF_NOSHADOW;
+	}
+};
+
+//----------------------------------------------------------------------
+entity(vector spawn_org) spawn_devmarker =
+{
+	local entity spawn_ent;
+	
+	spawn_ent = spawn();
+	spawn_ent.classtype = CT_DEVMARKER;
+	spawn_ent.movetype = MOVETYPE_NONE;
+	spawn_ent.solid = SOLID_NOT;
+	setmodel(spawn_ent, MODEL_BROKEN);
+	setorigin(spawn_ent, spawn_org);
+	setsize (spawn_ent, VEC_ORIGIN, VEC_ORIGIN);
+	return spawn_ent;
+};
+
+//----------------------------------------------------------------------
+// Check for SKILL spawning conditions (frame 0 check ONLY)
+// Returns FALSE = do nothing  TRUE = inhibit spawning
+//----------------------------------------------------------------------
+float() check_nightmare =
+{
+	// Check for nightmare skill only spawning
+	if (self.nightmare == TRUE) {
+		// Double check the coop console variable, not setup till frame 1+
+		// Use a nosave variable to prevent constant cvar command checking
+		if (skill_cvar != TRUE) { skill = cvar("skill"); skill_cvar = TRUE; }
+		if (skill == SKILL_NIGHTMARE) return FALSE;
+		else {
+			// Check for BSP entities has origin is different
+			if (self.bsporigin) spawn_marker(bmodel_origin(self), SPNMARK_RED);
+			else spawn_marker(self.origin, SPNMARK_RED);
+			// Hide entity instead of removing it
+			// Because of possible active touch functions
+			entity_hide(self);
+			return TRUE;
+		}
+	}
+	return FALSE;
+};
+
+//----------------------------------------------------------------------
+// Check for COOP spawning conditions (frame 0 check ONLY)
+// Returns FALSE = do nothing  TRUE = inhibit spawning
+//----------------------------------------------------------------------
+float() check_coop =
+{
+	// Check for coop only spawning conditions
+	if (self.cooponly == TRUE || self.cooponly == NEGATIVE) {
+		// Double check the coop console variable, not setup till frame 1+
+		// Use a nosave variable to prevent constant cvar command checking
+		if (coop_cvar != TRUE) { coop = cvar("coop"); coop_cvar = TRUE; }
+		
+		// Only one condition will let a cooponly item spawn
+		// cooponly =  1  coop = 0 inhibit = TRUE
+		// cooponly =  1  coop = 1 inhibit = FALSE
+		// cooponly = -1  coop = 0 inhibit = TRUE
+		// cooponly = -1  coop = 1 inhibit = TRUE
+		if (self.cooponly == TRUE && coop == TRUE) return FALSE;
+		else {
+			// Check for BSP entities has origin is different
+			if (self.bsporigin) spawn_marker(bmodel_origin(self), SPNMARK_PURPLE);
+			else spawn_marker(self.origin, SPNMARK_PURPLE);
+			// Hide entity instead of removing it
+			// Because of possible active touch functions
+			entity_hide(self);
+			return TRUE;
+		}
+	}
+	return FALSE;
+};
+
+//======================================================================
+// Clear all trigger strings
+//
+//----------------------------------------------------------------------
+void (entity targ) clear_trigstrs =
+{
+	if (targ.target != "") targ.target = string_null;
+	if (targ.target2 != "") targ.target2 = string_null;
+	if (targ.killtarget != "") targ.killtarget = string_null;
 };
 
 //======================================================================
@@ -235,7 +357,8 @@ vector(float base, float rndmix, float plusminus) vecrand =
 };
 
 //======================================================================
-// Gradually fade out a model over time and then remove it
+// model_fade : Gradually fade out a model over time 
+// * Optionally entity removal if height = 0
 //
 //----------------------------------------------------------------------
 void() model_fade =
@@ -248,9 +371,9 @@ void() model_fade =
         self.model = "";
         // Remove model by default
         if (!self.height) {
-	        self.think = SUB_Remove;
- 	       self.nextthink = time + 1;
- 				}
+			self.think = SUB_Remove;
+			self.nextthink = time + 1;
+ 		}
         return;
     }
 

@@ -185,16 +185,35 @@ void() path_corner_setuptargets =
 		}
 	}
 
-	// Cycle through list for BACKLINK path_corner
-	fdest = find (world, target, self.targetback);
-	while(fdest) {
-		// Update (spawnflags) path_corner and save entity
-		if (fdest.classtype == CT_PATHCORNER) {
-			self.spawnflags = self.spawnflags | PATHC_BACKLINK;
-			self.movetarget3 = fdest;
-			fdest = world;
+	// Has the path corner back link override key been used?
+	// If this override string does not exist, weird things will happen 
+	if (self.targetback != "") {
+		fdest = find (world, targetname, self.targetback);
+		while(fdest) {
+			// Update (spawnflags) path_corner and save entity
+			if (fdest.classtype == CT_PATHCORNER) {
+				self.spawnflags = self.spawnflags | PATHC_BACKLINK;
+				self.movetarget3 = fdest;
+				fdest = world;
+			}
+			else fdest = find(fdest, targetname, self.targetback);
 		}
-		else fdest = find(fdest, target, self.targetback);
+	}
+	else {
+		// Setup back link name, if none exist use targetname
+		self.targetback = self.targetname;
+		
+		// Cycle through list for BACKLINK path_corner
+		fdest = find (world, target, self.targetback);
+		while(fdest) {
+			// Update (spawnflags) path_corner and save entity
+			if (fdest.classtype == CT_PATHCORNER) {
+				self.spawnflags = self.spawnflags | PATHC_BACKLINK;
+				self.movetarget3 = fdest;
+				fdest = world;
+			}
+			else fdest = find(fdest, target, self.targetback);
+		}
 	}
 
 	// Double check TARGET2 before declaring a deadend
@@ -224,6 +243,7 @@ void() path_corner_setuptargets =
 	// Generate developer arrow models on path_corner
 	self.nextthink = time + 0.5 + random();
 	self.think = path_corner_setuparrow;
+	
 };
 
 //----------------------------------------------------------------------
@@ -268,6 +288,9 @@ void() path_corner_use =
 				self.spawnflags = self.spawnflags - PATHC_REVERSE;
 		}
 	}
+	
+	// Change speed of train moving towards path_corner (default=100)
+	if (other.corner_speed > 0) self.speed = other.corner_speed;
 
 	// Changing routes?
 	if (other.corner_route) {
@@ -289,6 +312,9 @@ void() path_corner_use =
 				self.spawnflags = self.spawnflags - PATHC_EXACT;
 			self.state = STATE_ROUTE1;
 		}
+		dprint("Corner ("); dprint(self.targetname);
+		dprint(") Route ("); dprint(ftos(self.state));
+		dprint(")\n");
 	}
 	else {
 		// Toggle route selection if EXACT routing logic is active
@@ -378,7 +404,7 @@ void() path_corner =
 	// otherwise it will cause problems with linking later
 	if (self.targetname == "") {
 		dprint("\b[PATH_CORNER]\b Missing targetname!\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -440,8 +466,6 @@ void() path_corner =
 	
 	// Check for dead end path_corner
 	if (self.target == "") self.spawnflags = self.spawnflags | PATHC_DEADEND;
-	// Setup back link name, if none exist use targetname
-	if (self.targetback == "") self.targetback = self.targetname;
 
 	// Allow 1 frame for path_corners to spawn
 	// Got to start linking before func_train (2nd frame)

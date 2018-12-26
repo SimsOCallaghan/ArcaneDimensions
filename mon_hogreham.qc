@@ -150,7 +150,7 @@ void() hogreham_smash14	=[	$smash14,	hogreham_run1	] {ai_face();};
 // Slow wind up animation (impact frame - 13) so it is easier to spot
 // Pain animations are suppressed so that the attack always happens
 //----------------------------------------------------------------------
-void() hogreham_slam1	=[	$slam1,		hogreham_slam2	] {ai_charge(2);self.pain_finished = time + self.pain_timeout;};
+void() hogreham_slam1	=[	$slam1,		hogreham_slam2	] {ai_charge(2);};
 void() hogreham_slam2	=[	$slam2,		hogreham_slam3	] {ai_charge(2);};
 void() hogreham_slam3	=[	$slam3,		hogreham_slam4	] {ai_charge(2);};
 void() hogreham_slam4	=[	$slam4,		hogreham_slam5	] {ai_charge(2);};
@@ -187,6 +187,8 @@ void() hogreham_slam17	=[	$slam17,	hogreham_run1 ] {
 //----------------------------------------------------------------------
 void() hogreham_melee =
 {
+	// Hammer ogres don't get interrupted with pain for melee
+	self.pain_finished = time + 2;
 	if (self.spawnflags & MON_HOGRE_METAL) hogreham_slam1();
 	else {
 		self.lip = random();
@@ -284,10 +286,16 @@ void(entity inflictor, entity attacker, float damage) hogreham_pain =
 			}
 		}
 		if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
-			if (random() < 0.3) hogre_painC1 ();	// Fall to ground
-			else hogre_painB1 ();					// Stagger backwards
+			if (random() < 0.5) {
+				self.pain_finished = time + 1.3;
+				hogre_painC1 ();	// Fall to ground
+			}
+			else {
+				self.pain_finished = time + 1.7;
+				hogre_painB1 ();	// Stagger backwards
+			}
 		}
 	}
 };
@@ -303,7 +311,7 @@ void()	hogreham_dieA6	=[	$deathA6,	hogreham_dieA7	] {ai_forward(1);};
 void()	hogreham_dieA7	=[	$deathA7,	hogreham_dieA8	] {hogreham_sound(3);};	// Hammer hits floor
 void()	hogreham_dieA8	=[	$deathA8,	hogreham_dieA9	] {};
 void()	hogreham_dieA9	=[	$deathA9,	hogreham_dieA10	] {monster_death_postcheck();};
-void()	hogreham_dieA10	=[	$deathA10,	hogreham_dieA10	] {};
+void()	hogreham_dieA10	=[	$deathA10,	hogreham_dieA10	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	hogreham_dieB1	=[	$deathB1,	hogreham_dieB2	] {ai_back(4);};
@@ -320,7 +328,7 @@ void()	hogreham_dieB10	=[	$deathB10,	hogreham_dieB11	] {};
 void()	hogreham_dieB11	=[	$deathB11,	hogreham_dieB12	] {};
 void()	hogreham_dieB12	=[	$deathB12,	hogreham_dieB13	] {};
 void()	hogreham_dieB13	=[	$deathB13,	hogreham_dieB14	] {monster_death_postcheck();};
-void()	hogreham_dieB14	=[	$deathB14,	hogreham_dieB14	] {};
+void()	hogreham_dieB14	=[	$deathB14,	hogreham_dieB14	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void() hogreham_die =
 {
@@ -430,18 +438,19 @@ void() monster_hogreham =
 		
 	self.gibhealth = -80;
 	self.gibbed = FALSE;
-	self.pain_flinch = 30;
+	self.pain_flinch = 100;
 	self.pain_timeout = 2;		// High pain resistance
-	self.pain_longanim = TRUE;
-	self.steptype = FS_TYPESLOW;
-	self.meleecontact = FALSE;			// Smash contact
-	self.meleerange = MONAI_MELEEOGRE;	// Smash attack
+	self.pain_longanim = FALSE;
+	self.steptype = FS_TYPEHEAVY;
+	self.meleecontact = FALSE;				// Smash contact
+	self.meleerange = MONAI_MELEEBLUNTOGRE;	// Hammer range
+	self.movespeed = 0;						// Cannot be turret
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
 
-	self.th_checkattack = OgreCheckAttack;
+	self.th_checkattack = OgreHamCheckAttack;
 	self.th_stand = hogreham_stand1;
 	self.th_walk = hogreham_walk1;
 	self.th_run = hogreham_run1;
@@ -451,7 +460,7 @@ void() monster_hogreham =
 	self.th_pain = hogreham_pain;
 	self.th_wakeup = hogreham_wakeup1a;
 	
-	self.ammo_rockets = 2;
+	self.ammo_rockets = 4;
 	self.classtype = CT_MONHOGREHAM;	// new style hunter ogre
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
 	self.classmove = MON_MOVEWALK;

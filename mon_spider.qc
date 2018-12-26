@@ -1,5 +1,5 @@
 /*==============================================================================
-SPIDER (Hexen 2 model)
+SPIDER (Hexen2 model by Raven Software)
 ==============================================================================*/
 $frame idle1 idle2 idle3 idle4 idle5 idle6 idle7 idle8
 $frame idle9 idle10 idle11 idle12 idle13
@@ -147,7 +147,7 @@ void(float sideang) spider_spitacid =
 	if (sideang < 0) sound (self, CHAN_WEAPON, "spider/hiss2.wav", 1, ATTN_NORM);
 
 	makevectors (self.angles);	
-	org = self.origin + v_forward*14 +v_up*8; //Shoot from mouth not view_ofs
+	org = self.origin + attack_vector(self.attack_offset);
 
 	// Create elevation angle and use makevectors to create projectile direction
 	ang = vectoangles(self.enemy.origin - org);
@@ -168,9 +168,9 @@ void()	spider_spit4	=[	$atkup9,		spider_spit5 ] {ai_face();};
 void()	spider_spit5	=[	$atkup11,		spider_spit6 ] {ai_face();
 	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, SPEED_SPIDER); };
 void()	spider_spit6	=[	$atkloop1,		spider_spit7 ] {ai_face();
-	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, SPEED_SPIDER); };
+	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, SPEED_SPIDER); };
 void()	spider_spit7	=[	$atkloop3,		spider_spit8 ] {ai_face();
-	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, SPEED_SPIDER); };
+	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, SPEED_SPIDER); };
 void()	spider_spit8 = [	$atkloop5,		spider_spit9 ] {spider_spitacid(-0.1);};
 void()	spider_spit9 = [	$atkloop7,		spider_spit10 ] {spider_spitacid(0);};
 void()	spider_spit10 =[	$atkloop9,		spider_spit11 ] {spider_spitacid(0.1);};
@@ -201,6 +201,9 @@ void() spider_melee =
 	ldmg = (random() + random() + random()) * 3;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 
+	// Check for poisonous attribute (generally green spider)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+	
 	// Spawn blood at mouth of spider
 	spawn_touchblood (self, self.enemy, ldmg*3);
 };
@@ -271,7 +274,7 @@ void() spider_leap3	=[	$jump5, spider_leap4	] {
 	self.jump_flag = time + MONAI_JUMPTIMEOUT; // Stop jumping so much
 	self.touch = Spider_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * 400 + '0 0 200';
+	self.velocity = v_forward * MONAI_JUMPSPIDERDIST + '0 0 200';
 	self.origin_z = self.origin_z + 4;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
@@ -281,7 +284,7 @@ void() spider_leap5	=[	$jump8, spider_leap6 ] {};
 void() spider_leap6	=[	$jump9, spider_leap7	] {};
 void() spider_leap7	=[	$jump10, spider_leap8 ] {
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; //random jump angle
 		self.think = spider_leap3;
 	}
@@ -486,6 +489,11 @@ void(entity inflictor, entity attacker, float damage) spider_pain =
 		self.pain_finished = time + 1;
 
 		if (self.pain_check == 1 || self.pain_check == 2) {
+			if (self.pain_check == 2) {
+				// reset axe hit and setup short pain recovery
+				self.pain_finished = time + 0.4;
+				self.axhitme = 0;
+			}
 			// Different types of pain animations based on current attack
 			if ( self.frame > $atkup8 && self.frame < $atkloop10 ) spider_painu1();
 			else spider_paind1();
@@ -504,7 +512,7 @@ void() spider_die6		=[	$death11,	spider_die7	] {};
 void() spider_die7		=[	$death13,	spider_die8	] {};
 void() spider_die8		=[	$death15,	spider_die9	] {};
 void() spider_die9		=[	$death17,	spider_die10] {monster_death_postcheck();};
-void() spider_die10		=[	$death19,	spider_die10] {};
+void() spider_die10		=[	$death19,	spider_die10] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------------
 void() spider_die = 
@@ -536,26 +544,22 @@ void() monster_spider =
 
 	if (self.spawnflags & MON_SPIDER_LARGE) {
 		self.mdl = "progs/mon_spiderg.mdl";
-		self.headmdl = "progs/h_spiderg.mdl";				// Front Jaws
-		self.gib1mdl = "progs/gib_spidlegg.mdl";			// Single Leg
-		self.gib2mdl = "progs/gib_spidbodyg.mdl";			// Back Body
-		self.gibhealth = -25;
-		if (self.health < 1) self.health = 75;				// Larger body
+		self.headmdl = "progs/h_spiderg.mdl";		// Front Jaws
+		self.gib1mdl = "progs/gib_spidlegg.mdl";	// Single Leg
+		self.gib2mdl = "progs/gib_spidbodyg.mdl";	// Back Body
 
-		precache_model (MODEL_PROJ_SPID);					// Spit Projectile
 		precache_model (self.mdl);
 		precache_model (self.headmdl);
 		precache_model (self.gib1mdl);
 		precache_model (self.gib2mdl);		
+		precache_model (MODEL_PROJ_SPID);			// Spit Projectile
 	}
 	if (!(self.spawnflags & MON_SPIDER_LARGE) || 
 		self.classtype == CT_CACHESPIDER) {
 		self.mdl = "progs/mon_spiderb.mdl";
-		self.headmdl = "progs/h_spiderb.mdl";				// Front Jaws
-		self.gib1mdl = "progs/gib_spidlegb.mdl";			// Single Leg
-		self.gib2mdl = "progs/gib_spidbodyb.mdl";			// Back Body
-		self.gibhealth = -20;
-		if (self.health < 1) self.health = 30;
+		self.headmdl = "progs/h_spiderb.mdl";		// Front Jaws
+		self.gib1mdl = "progs/gib_spidlegb.mdl";	// Single Leg
+		self.gib2mdl = "progs/gib_spidbodyb.mdl";	// Back Body
 
 		precache_model (self.mdl);
 		precache_model (self.headmdl);
@@ -611,9 +615,11 @@ void() setup_spider =
 	self.gibbed = FALSE;
 	self.pain_flinch = 10;				// Always flinch
 	self.steptype = FS_TYPELIGHT;
-	self.pain_longanim = FALSE;			// No long pain animation
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '24 0 20';		// Bite attack offset
+	self.attack_offset = '14 0 8';		// Used by green spider, at jaws
+	
 	self.movespeed = 1;					// Can never be a turret
 
 	// Always reset Ammo Resistance to be consistent
@@ -630,11 +636,15 @@ void() setup_spider =
 
 	// Setup green/brown spider difference
 	if (self.spawnflags & MON_SPIDER_LARGE) {
+		if (self.health < 1) self.health = 75;
+		self.gibhealth = -25;
 		if (self.poisonous < 0) self.poisonous = FALSE;
 		else self.poisonous = TRUE;
 		self.th_missile = spider_spit1;
 	}
 	else {
+		if (self.health < 1) self.health = 30;
+		self.gibhealth = -20;
 		self.th_jump = spider_leap1;
 		self.th_jumpexit = spider_leap9;
 	}
@@ -701,16 +711,12 @@ void(vector minion_org, entity minion_targ) minion_spider =
 		minion.headmdl = "progs/h_spiderg.mdl";		// Front Jaws
 		minion.gib1mdl = "progs/gib_spidlegg.mdl";	// Single Leg
 		minion.gib2mdl = "progs/gib_spidbodyg.mdl";	// Back Body
-		minion.gibhealth = -25;
-		minion.health = 75;	
 	}
 	else {	
 		minion.mdl = "progs/mon_spiderb.mdl";
 		minion.headmdl = "progs/h_spiderb.mdl";		// Front Jaws
 		minion.gib1mdl = "progs/gib_spidlegb.mdl";	// Single Leg
 		minion.gib2mdl = "progs/gib_spidbodyb.mdl";	// Back Body
-		minion.gibhealth = -20;
-		minion.health = 30;
 	}
 
 	minion.gib1frame = 9;

@@ -105,6 +105,7 @@ void() W_FireAxe =
 					
 					self = tself; other = tother;	// switch back
 					SpawnBlood (onflr, onflr.origin, '0 0 50', axedmg*4);
+					if (onflr.bodyonflrtrig) trigger_strs(onflr.bodyonflrtrig,self); 
 					return;																// Finished
 				}
 			}
@@ -176,7 +177,7 @@ void() ApplyMultiDamage =
 	
 	// Check for bullet/shell resistance
 	if (multi_ent.resist_shells > 0) 
-		multi_damage = multi_damage*(1-multi_ent.resist_shells);
+		multi_damage = Resist_Damage(multi_ent, IT_SHELLS, multi_damage);
 
 	// Need to fool T_Damage that damage is coming from a shell
 	temp_classgroup = self.classgroup;
@@ -205,7 +206,7 @@ void(vector org, float marker_time) MarkAttack =
 	newmis.classtype = CT_DEVMARKER;
 	newmis.movetype = MOVETYPE_NONE;
 	newmis.solid = SOLID_NOT;
-	setmodel(newmis, MODEL_BROKEN);
+	setmodel(newmis, MODEL_IMPACT);
 	newmis.skin = rint(random()*7);
 	setorigin(newmis, org);
 	setsize (newmis, VEC_ORIGIN, VEC_ORIGIN);
@@ -228,7 +229,8 @@ void(float damage, vector dir) TraceAttack =
 	if (!check_skycontent(org)) {
 		if (trace_ent.takedamage) {
 			// Show bullet resistance as small blood+gunshot+smoke
-			if (trace_ent.resist_shells > 0) Resist_Shells(trace_ent, org, vel, damage);
+			if (trace_ent.resist_shells > 0) 
+				Resist_Shells(trace_ent, org, vel, damage);
 			else {
 				// Hitting monsters does twice the amount of blood effects
 				if (trace_ent.flags & FL_MONSTER) SpawnBlood (trace_ent, org, vel*0.2, damage*2);
@@ -257,28 +259,28 @@ void(float shotcount, vector spread) FireBullets =
 {
 	local	vector direction, src, dir;
 	
-	makevectors(self.v_angle);
-
 	if (self.flags & FL_CLIENT) {
+		makevectors(self.v_angle);
+		src = self.origin + v_forward*10;
+		src_z = self.absmin_z + self.size_z * 0.7;
 		// Auto aim assist (builtin function 44)
 		if (query_configflag(SVR_AUTOAIM)) dir = aim(self, SPEED_PLAYAIM);
 		// Straight line forward where crosshair is pointing
 		else dir = normalize(v_forward * SPEED_PLAYAIM);
 	}
 	else {
+		makevectors(self.angles);
+		src = self.origin + attack_vector(self.attack_offset);
 		// A monster attacking a monster will not dodge
 		if (self.enemy.flags & FL_MONSTER)
-			dir = normalize(self.enemy.origin - self.origin);
+			dir = normalize(self.enemy.origin - src);
 		else {
 			// fire somewhat behind the player
 			// so a dodging player is harder to hit
 			dir = self.enemy.origin - self.enemy.velocity*0.2;
-			dir = normalize (dir - self.origin);
+			dir = normalize (dir - src);
 		}
 	}
-
-	src = self.origin + v_forward*10;
-	src_z = self.absmin_z + self.size_z * 0.7;
 
 	ClearMultiDamage ();
 	while (shotcount > 0) {
@@ -303,7 +305,7 @@ void() W_FireShotgun =
 	
 	// Change weapon sound if using Projectile Pellets
 	// IMPORTANT - default for Projectile Pellets is ON = 0
-	if (!query_configflag(SVR_PROJSHOTG))
+	if (!query_configflag(SVR_SHOTGPROJ))
 		sound (self ,CHAN_WEAPON, "weapons/sg2.wav", 1, ATTN_NORM);
 	else
 		sound (self ,CHAN_WEAPON, "weapons/sg1.wav", 1, ATTN_NORM);
@@ -319,7 +321,7 @@ void() W_FireShotgun =
 	else spread_pat = SPREAD_SG;
 	
 	// Choose between a projectile or hitscan system
-	if (query_configflag(SVR_PROJSHOTG))
+	if (query_configflag(SVR_SHOTGPROJ))
 		FireBullets (QUANTITY_SG, spread_pat);
 	else {
 		Launch_Shells(QUANTITY_SGP, spread_pat, CT_PROJ_SG);
@@ -347,7 +349,7 @@ void() W_FireSuperShotgun =
 	
 	// Change weapon sound if using Shotgun Upgrade or Projectile Pellets
 	// IMPORTANT - default for Projectile Pellets is ON = 0
-	if (self.moditems & IT_UPGRADE_SSG || !query_configflag(SVR_PROJSHOTG))
+	if (self.moditems & IT_UPGRADE_SSG || !query_configflag(SVR_SHOTGPROJ))
 		sound (self ,CHAN_WEAPON, "weapons/ssg2.wav", 1, ATTN_NORM);
 	else
 		sound (self ,CHAN_WEAPON, "weapons/ssg1.wav", 1, ATTN_NORM);
@@ -383,7 +385,7 @@ void() W_FireSuperShotgun =
 	else spread_pat = SPREAD_SSG;
 
 	// Choose between a projectile or hit-scan system
-	if (query_configflag(SVR_PROJSHOTG))
+	if (query_configflag(SVR_SHOTGPROJ))
 		FireBullets (ssg_qty, spread_pat);	// Hit-scan
 	else {
 		Launch_Shells(ssg_qty, spread_pat, CT_PROJ_SSG);
@@ -546,24 +548,72 @@ void() W_FirePlasma =
 /*======================================================================
 LIGHTNING
 ======================================================================*/
-void(entity targ, vector org) Resist_Lightning =
+void(vector lstart, vector lfinish, entity lsource, float ldamage) LightningDamage =
 {
-	if (targ.health > 0 && targ.pain_finished < time) {
-		targ.pain_finished = time + 0.3 + random();
-		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
-	}	
-	// Don't spawn smoke constantly (let the sprite finish)
-	if (self.lightning_timer < time) {
-		self.lightning_timer = time + 0.3;
-		SpawnExplosion(EXPLODE_PUFF,org,"");
+	local vector spot1, spot2, lightdir;
+	local float lighthit, loffset;
+
+	lighthit = FALSE;
+	loffset = 8;
+
+	// Traceline 1 - Direct single line from source to target
+	traceline (lstart, lfinish, FALSE, lsource);
+	if (trace_ent.takedamage > DAMAGE_NO) lighthit = TRUE;
+	else {
+		// Where out vector direction from source to target
+		lightdir = lfinish - lstart;
+		makevectors(lightdir);
+		
+		// Traceline 2 - Left and right of center
+		spot1 = lstart + v_right * loffset;
+		spot2 = lfinish + v_right * loffset;
+		traceline (spot1, spot2, FALSE, lsource);
+		if (trace_ent.takedamage > DAMAGE_NO) lighthit = TRUE;
+		else {
+			spot1 = lstart - v_right * loffset;
+			spot2 = lfinish - v_right * loffset;
+			traceline (spot1, spot2, FALSE, lsource);
+			if (trace_ent.takedamage > DAMAGE_NO) lighthit = TRUE;
+			else {
+				// Traceline 3 - Up and down of center
+				spot1 = lstart + v_up * loffset;
+				spot2 = lfinish + v_up * loffset;
+				traceline (spot1, spot2, FALSE, lsource);
+				if (trace_ent.takedamage > DAMAGE_NO) lighthit = TRUE;
+				else {
+					spot1 = lstart - v_up * loffset;
+					spot2 = lfinish - v_up * loffset;
+					traceline (spot1, spot2, FALSE, lsource);
+					if (trace_ent.takedamage > DAMAGE_NO) lighthit = TRUE;
+				}
+			}
+		}
 	}
-	// Spawn a random smoke particle and chance of blood
-	SpawnProjectileSmoke(org, 200, 200);
-	if (random() < 0.4) SpawnProjectileMeat(org, 200, 200);
+
+	// Found a target to hit?
+	if (lighthit) {
+		// Check for any cell/lightning resistance
+		if (trace_ent.resist_cells > 0) {
+			ldamage = Resist_Damage(trace_ent, IT_CELLS, ldamage);
+			Resist_Lightning(trace_ent, trace_endpos);
+			if (ldamage > 0)
+				// classic damage from source with armour saves
+				T_Damage (trace_ent, lsource, lsource, ldamage, DAMARMOR);
+		}
+		else {
+			// Originally used 225 blood colour
+			SpawnBlood(trace_ent, trace_endpos, '0 0 100', ldamage*4);
+			T_Damage (trace_ent, lsource, lsource, ldamage, DAMARMOR);
+		}
+	}	
 };
 
 //----------------------------------------------------------------------
-void(vector p1, vector p2, entity from, float damage) LightningDamage =
+// This lightning damage check is designed for the lightning gun
+// with many modifiers designed for the player and MP combat
+// This function should not be used for general lightning damage
+//----------------------------------------------------------------------
+void(vector p1, vector p2, entity from, float damage) PlayerLightningDamage =
 {
 	local entity e1, e2;
 	local vector f;
@@ -607,7 +657,7 @@ void(vector p1, vector p2, entity from, float damage) LightningDamage =
 	if (lighthit) {
 		// Check for any cell/lightning resistance
 		if (trace_ent.resist_cells > 0) {
-			damage = damage * trace_ent.resist_cells;
+			damage = Resist_Damage(trace_ent, IT_CELLS, damage);
 			Resist_Lightning(trace_ent, trace_endpos);
 			if (damage > 0) {
 				// Need to fool T_Damage that damage is coming from LG
@@ -667,7 +717,7 @@ void() W_FireLightning =
 	WriteCoord (MSG_BROADCAST, trace_endpos_y);
 	WriteCoord (MSG_BROADCAST, trace_endpos_z);
 
-	LightningDamage (self.origin, trace_endpos + v_forward*4, self, DAMAGE_LGPLAYER);
+	PlayerLightningDamage (self.origin, trace_endpos + v_forward*4, self, DAMAGE_LGPLAYER);
 };
 
 /*======================================================================
@@ -696,52 +746,63 @@ void(entity targ) W_SetCurrentAmmo =
 		
 	if (targ.weapon == IT_AXE) {
 		targ.currentammo = 0;
-		if (targ.moditems & IT_UPGRADE_AXE) targ.weaponmodel = MODEL_VWEAP_UPAXE;
+		targ.weaponframe = 0;	// reset before setting model
+		if (targ.moditems & IT_UPGRADE_AXE) 
+			targ.weaponmodel = MODEL_VWEAP_UPAXE;
 		else targ.weaponmodel = MODEL_VWEAP_AXE;
 	}
 	else if (targ.weapon == IT_SHOTGUN) {
 		targ.currentammo = targ.ammo_shells;
+		targ.weaponframe = 0;	// reset before setting model
 		targ.weaponmodel = MODEL_VWEAP_SG;
 		targ.items = targ.items | IT_SHELLS;
 	}
 	else if (targ.weapon == IT_SUPER_SHOTGUN) {
 		targ.currentammo = targ.ammo_shells;
-		if (targ.moditems & IT_UPGRADE_SSG) targ.weaponmodel = MODEL_VWEAP_UPSSG;
+		targ.weaponframe = 0;	// reset before setting model
+		if (targ.moditems & IT_UPGRADE_SSG) 
+			targ.weaponmodel = MODEL_VWEAP_UPSSG;
 		else targ.weaponmodel = MODEL_VWEAP_SSG;
 		targ.items = targ.items | IT_SHELLS;
 	}
 	else if (targ.weapon == IT_NAILGUN) {
 		targ.currentammo = targ.ammo_nails;
+		targ.weaponframe = 0;	// reset before setting model
 		targ.weaponmodel = MODEL_VWEAP_NG;
 		targ.items = targ.items | IT_NAILS;
 	}
 	else if (targ.weapon == IT_SUPER_NAILGUN) {
 		targ.currentammo = targ.ammo_nails;
+		targ.weaponframe = 0;	// reset before setting model
 		targ.weaponmodel = MODEL_VWEAP_SNG;
 		targ.items = targ.items | IT_NAILS;
 	}
 	else if (targ.weapon == IT_GRENADE_LAUNCHER) {
 		targ.currentammo = targ.ammo_rockets;
+		targ.weaponframe = 0;	// reset before setting model
 		targ.weaponmodel = MODEL_VWEAP_GL;
 		targ.items = targ.items | IT_ROCKETS;
 	}
 	else if (targ.weapon == IT_ROCKET_LAUNCHER) {
 		targ.currentammo = targ.ammo_rockets;
+		targ.weaponframe = 0;	// reset before setting model
 		targ.weaponmodel = MODEL_VWEAP_RL;
 		targ.items = targ.items | IT_ROCKETS;
 	}
 	else if (targ.weapon == IT_LIGHTNING) {
 		targ.currentammo = targ.ammo_cells;
-		if (targ.moditems & IT_UPGRADE_LG) targ.weaponmodel = MODEL_VWEAP_UPLG;
+		targ.weaponframe = 0;	// reset before setting model
+		if (targ.moditems & IT_UPGRADE_LG) 
+			targ.weaponmodel = MODEL_VWEAP_UPLG;
 		else targ.weaponmodel = MODEL_VWEAP_LG;
 		targ.items = targ.items | IT_CELLS;
 	}
 	else {
 		// Bad situation no viewmodel
 		targ.currentammo = 0;
+		targ.weaponframe = 0;	// reset before setting model
 		targ.weaponmodel = "";
 	}
-	targ.weaponframe = 0;		// reset weapon frame
 };
 
 /*======================================================================
@@ -884,7 +945,7 @@ void() CycleWeaponCommand =
 {
 	local	float	am;
 	
-	if (intermission_running > 0) return;		// intermission or finale
+	if (intermission_running > 0) return;// intermission or finale
 	self.impulse = 0;			// reset impulse
 
 	// Keep cycling around weapon list until found a weapon with ammo

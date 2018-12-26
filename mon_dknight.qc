@@ -422,13 +422,19 @@ void(entity inflictor, entity attacker, float damage)	dknight_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			// Randomly pick which pain animation to play
 			if (random() < 0.85) dknight_painA1 ();	// classic, body recoil
 			else {
 				dknight_painD1 ();				// Cool stumble, hand over mouth
 				self.pain_finished = time + 2;	// long animation
 			}
+		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 1.1;
+			self.axhitme = 0;
+			dknight_painD1 ();
 		}
 	}
 };
@@ -447,7 +453,7 @@ void()	dknight_die8	=[	$death8,	dknight_die9	] {ai_forward(10);};
 void()	dknight_die9	=[	$death9,	dknight_die10	] {ai_forward(11);};
 void()	dknight_die10	=[	$death10,	dknight_die11	] {};
 void()	dknight_die11	=[	$death11,	dknight_die12	] {monster_death_postcheck();};
-void()	dknight_die12	=[	$death12,	dknight_die12	] {};
+void()	dknight_die12	=[	$death12,	dknight_die12	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	dknight_dieb1	=[	$deathb1,	dknight_dieb2	] {};
@@ -471,7 +477,7 @@ void()	dknight_dieb16	=[	$deathb16,	dknight_dieb17	] {};
 void()	dknight_dieb17	=[	$deathb17,	dknight_dieb18	] {};
 void()	dknight_dieb18	=[	$deathb18,	dknight_dieb19	] {};
 void()	dknight_dieb19	=[	$deathb19,	dknight_dieb20	] {monster_death_postcheck();};
-void()	dknight_dieb20	=[	$deathb20,	dknight_dieb20	] {};
+void()	dknight_dieb20	=[	$deathb20,	dknight_dieb20	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() dknight_die =
@@ -581,7 +587,7 @@ void() dknight_ghost_on = {
 	self.solid = SOLID_NOT;				// no world interaction
 	setmodel(self, self.mdl);					// Setup model
 	if (self.exactskin) self.skin = self.exactskin;
-	if (self.bbmins == '0 0 0') monster_bbox();
+	if (CheckZeroVector(self.bbmins)) monster_bbox();
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
 	self.velocity = self.avelocity = '0 0 0';	// Reset velocity
 	
@@ -679,6 +685,7 @@ void() monster_dknight =
 	self.gibhealth = -40;
 	self.gibbed = FALSE;
 	self.pain_flinch = 40;
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 1.5;			// Higher than a knight
 	self.steptype = FS_TYPEHEAVY;
 

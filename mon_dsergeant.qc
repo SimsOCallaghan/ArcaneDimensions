@@ -376,11 +376,13 @@ void() SergMissile =
 {
 	if (!self.enemy) return;
 	if (self.health < 1) return;
+	// Removing a fired homing missiles looks weird
+	//if (!visxray(self.enemy, self.attack_offset, '0 0 10', FALSE)) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "dknight/dserg_magic.wav", 1, ATTN_NORM);
 	self.attack_speed = SPEED_SERGMISSILE + (skill * SPEED_SERGSKILL);
-	Launch_HomingMissile ('0 0 10', '0 0 10', CT_PROJ_SERG, SPEED_SERGMISSILE);
+	Launch_HomingMissile (self.attack_offset, '0 0 10', CT_PROJ_SERG, self.attack_speed);
 };
 
 //----------------------------------------------------------------------
@@ -431,13 +433,19 @@ void(entity inflictor, entity attacker, float damage)	dsergeant_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			// Randomly pick which pain animation to play
 			if (random() < 0.85) dsergeant_painA1 ();	// classic, body recoil
 			else {
 				dsergeant_painD1 ();					// Cool stumble
 				self.pain_finished = time + 2;			// long animation
 			}
+		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 1.1;
+			self.axhitme = 0;
+			dsergeant_painD1 ();
 		}
 	}
 };
@@ -457,7 +465,7 @@ void()	dsergeant_die8	=[	$death8,	dsergeant_die9	] {ai_forward(10);};
 void()	dsergeant_die9	=[	$death9,	dsergeant_die10	] {ai_forward(11);};
 void()	dsergeant_die10	=[	$death10,	dsergeant_die11	] {};
 void()	dsergeant_die11	=[	$death11,	dsergeant_die12	] {monster_death_postcheck();};
-void()	dsergeant_die12	=[	$death12,	dsergeant_die12	] {};
+void()	dsergeant_die12	=[	$death12,	dsergeant_die12	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void()	dsergeant_dieb1	=[	$deathb1,	dsergeant_dieb2	] {};
 void()	dsergeant_dieb2	=[	$deathb2,	dsergeant_dieb3	] {monster_check_gib();};
@@ -480,7 +488,7 @@ void()	dsergeant_dieb16	=[	$deathb16,	dsergeant_dieb17	] {};
 void()	dsergeant_dieb17	=[	$deathb17,	dsergeant_dieb18	] {};
 void()	dsergeant_dieb18	=[	$deathb18,	dsergeant_dieb19	] {};
 void()	dsergeant_dieb19	=[	$deathb19,	dsergeant_dieb20	] {monster_death_postcheck();};
-void()	dsergeant_dieb20	=[	$deathb20,	dsergeant_dieb20	] {};
+void()	dsergeant_dieb20	=[	$deathb20,	dsergeant_dieb20	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void() dsergeant_die =
 {
@@ -580,11 +588,13 @@ void() monster_dsergeant =
 	self.gibhealth = -60;
 	self.gibbed = FALSE;
 	self.pain_flinch = 80;				// Take a lot to go into pain
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// Shambler like pain level
 	self.infightextra = 2;				// Double damage to other monsters
 	self.steptype = FS_TYPEHEAVY;		// Heavy Player feet
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
+	self.attack_offset = '0 0 10';
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

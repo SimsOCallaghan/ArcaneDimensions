@@ -256,6 +256,9 @@ float	DEAD_NO				= 0;
 float	DEAD_DYING			= 1;
 float	DEAD_DEAD			= 2;
 float	DEAD_RESPAWNABLE	= 3;
+float	DEAD_REMOVE			= 4;
+float	DEAD_EXPLODE		= 5;
+float	DEAD_FINISHED		= 6;
 
 // takedamage values
 float	DAMAGE_NO			= 0;
@@ -645,10 +648,12 @@ void() traceoff						= #30;
 void(entity e) eprint				= #31;	// prints an entire edict
 //----------------------------------------------------------------------
 .float movespeed;		// Movement speed (linked to skill)
+.float tetherlock;		// Is the monster locked from movement
 float(float yaw, float dist) walkmove_builtin = #32; // returns TRUE or FALSE
 float(float yaw, float dist) walkmove = {
 	if (self.attack_state == AS_TURRET) return FALSE;
 	if (self.movespeed < 0) return FALSE;
+	if (self.tetherlock == TRUE) return FALSE;
 	return walkmove_builtin(yaw,dist);
 };
 //----------------------------------------------------------------------
@@ -696,6 +701,7 @@ void(float step) movetogoal_builtin = #67;
 void(float step) movetogoal = {
 	if (self.attack_state == AS_TURRET) return;
 	if (self.movespeed < 0) return;
+	if (self.tetherlock == TRUE) return;
 	movetogoal_builtin(step);
 };
 //----------------------------------------------------------------------
@@ -709,6 +715,8 @@ void(string var, string s, string s) cvar_setlong = #72; // sets cvar.value
 .float suppressCenterPrint;
 void(entity client, string s) centerprint_builtin = #73;
 void(entity client, string s, string s) centerprint_msg = #73;
+void(entity client, string s, string s, string s) centerprint_msg3 = #73;
+void(entity client, string s, string s, string s, string s) centerprint_msg4 = #73;
 void(entity client, string s) centerprint = {
 	// Is the centerprint message being used by something else?
 	if (!client.suppressCenterPrint)
@@ -750,6 +758,10 @@ float intermission_running;
 float intermission_exittime;
 string nextmap;				// Used by GotoNextMap()
 .float dmgtime;				// Used by WaterMove()
+.float poisonous;			// A monster with poisonous attack
+void(entity targ) BleedDeBuff;
+void(entity targ) BurnDeBuff;
+void(entity targ) PoisonDeBuff;
 
 //	combat.qc
 float DAMARMOR = 1;
@@ -775,16 +787,6 @@ void() monster_death_use;
 void(float gib_no, float gib_qty) ThrowGib;
 void() monster_ThrowGib;
 
-// projectiles.qc
-void(float sprite_type, vector org, string expl_sound) SpawnExplosion;
-float EXPLODE_SMALL = 1;
-float EXPLODE_MED = 2;
-float EXPLODE_BIG = 3;
-float EXPLODE_SMALLP = 5;
-float EXPLODE_BIGP = 7;
-float EXPLODE_ELEC = 8;
-float EXPLODE_PUFF = 10;
-
 // subs.qc
 void() SUB_Null;
 void() SUB_UseTargets;
@@ -796,13 +798,16 @@ void() pendulum_setuparray;
 // weapon.qc
 entity multi_ent;
 float multi_damage;
-void(entity source, entity targ, float side) SpawnMeatSpray;
-void(entity targ, vector org, vector vel, float part_qty) SpawnBlood;
-void() BecomeExplosion;
 void(entity targ) W_ChangeWeapon;
 void(entity targ) W_SetCurrentAmmo;
 float(entity targ) W_BestWeapon;
 void() W_WeaponFrame;
+
+// ai_explosion.qc
+void(float sprite_type, vector org, string expl_sound) SpawnExplosion;
+void(vector org, float velrnd, float upbase, float uprnd) SpawnProjectileSmoke;
+void(entity source, entity targ, float side) SpawnMeatSpray;
+void(entity targ, vector org, vector vel, float part_qty) SpawnBlood;
 
 //======================================================================
 void() DummyFunction = //gets rid of the last compiler warnings ; - )

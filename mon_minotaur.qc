@@ -1,5 +1,5 @@
 /*==============================================================================
-MINOTAUR (aka The Shuffler from Marcher MOD) (Hexen2 model)
+MINOTAUR (Hexen2 model by Raven Software) (The Shuffler from Marcher MOD)
 also known as "The Nethergoat: Spawnmaster of the Elder World"
 ==============================================================================*/
 
@@ -277,7 +277,7 @@ void() mino_jump6 =[ $jump11, mino_jump7 ] {};
 void() mino_jump7 =[ $jump13, mino_jump8 ] {ai_face();};
 void() mino_jump8 =[ $jump15, mino_jump8 ] {
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; 	//random jump angle
 		self.think = mino_jump4;			// Keep jumping
 	}
@@ -355,7 +355,8 @@ void(entity handent, vector orgofs, float dbframe) minotaur_handball =
 	}
 	
 	// Generate attachment in hand (left)
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	// makevectors set in previous function (minotaur_hands)
+	org = self.origin + attack_vector(orgofs);
 	setorigin(handent, org);
 	handent.angles_y = rint(random()*359);
 	handent.frame = dbframe;
@@ -390,7 +391,7 @@ void(vector orgofs, float angofs) minotaur_fire =
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	self.attack_speed = SPEED_MINOBOLT + (skill * SPEED_MINOSKILL);
 	makevectors(self.angles);
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(orgofs);
 	dir = (self.enemy.origin - org) + (v_right*(angofs*30));
 	dir = normalize (dir);
 
@@ -448,7 +449,7 @@ void() mino_magic16 =[ $magic31, mino_run ] {ai_face();};
 // Spawn particles from body that float upwards during summons
 //----------------------------------------------------------------------
 void() mino_sumeffect = 
-{ particle_debuff(self.origin+'0 0 64', rint(4+random()*4), PARTICLE_BURST_GREEN);};
+{ particle_debuff(self.origin+'0 0 64', 16, rint(4+random()*4), PARTICLE_BURST_GREEN);};
 
 //----------------------------------------------------------------------
 // Display a green ball where the gargoyle is spawning
@@ -627,13 +628,19 @@ void(entity inflictor, entity attacker, float damage) mino_pain =
 		if (self.lip < 0.5) sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
 		else sound (self, CHAN_VOICE, self.pain_sound2, 1, ATTN_NORM);
 
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			// Minion spawning minotaur always goes short pain cycle
 			if (self.spawnflags & MON_MINOTAUR_MINIONS) mino_pain1();
 			else {
 				if (self.lip < 0.4) mino_pain1();
 				else mino_shake1();
 			}
+		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.8;
+			self.axhitme = 0;
+			mino_pain1();
 		}
 	}
 };
@@ -653,7 +660,7 @@ void() mino_death10 = [ $death19, mino_death11 ] {ai_forward(4);};
 void() mino_death11 = [ $death21, mino_death12 ] {ai_forward(7);};
 void() mino_death12 = [ $death23, mino_death13 ] {ai_forward(4);};
 void() mino_death13 = [ $death25, mino_death14 ] {monster_death_postcheck();};
-void() mino_death14 = [ $death25, mino_death14 ] {};
+void() mino_death14 = [ $death25, mino_death14 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() mino_die =
@@ -717,7 +724,7 @@ void() monster_minotaur =
 	precache_sound ("minotaur/attack1end.wav");		// Short roar
 	precache_sound ("minotaur/attack1long.wav");	// Enter rage mode
 	precache_sound ("minotaur/bolt_fire.wav");		// fire projectile
-	precache_sound ("weapons/plasma_hit.wav");		// impact sounds
+	precache_sound (SOUND_PLASMA_HIT);				// impact sounds
 
 	precache_sound ("minotaur/death.wav");
 	self.pain_sound = "minotaur/pain1.wav";
@@ -735,8 +742,10 @@ void() monster_minotaur =
 	self.gibhealth = -60;			// Same as Shambler
 	self.gibbed = FALSE;			// Still in one piece
 	self.pain_flinch = 200;			// Demon level
+	self.pain_longanim = TRUE;		// can be chopped with shadow axe
 	self.pain_timeout = 2;			// Does not repeat pain
-	self.infightextra = 2;			// Double damage to other monsters
+	// Double damage to other monsters
+	if (!self.infightextra) self.infightextra = 2;
 	self.steptype = FS_TYPELARGE;	// Giant sound
 	self.blockudeath = TRUE;		// No humanoid death
 	self.part_style = PARTICLE_BURST_BLUE;

@@ -52,6 +52,14 @@ void() entity_state_disable = {
 void() entity_state_reset = { 
 	if (self.estate_reset) self.estate_reset();
 };
+void() entity_state_aframe = {
+	// Only switch frames if the entity has a function defintion
+	// This will restrict to entities designed for this change
+	if (self.estate_aframe) {
+		if (other.state == 0) self.frame = 0;
+		else self.frame = 1;
+	}
+};
 
 //----------------------------------------------------------------------
 void() entity_state_use =
@@ -62,6 +70,7 @@ void() entity_state_use =
 		else if (other.estate_trigger & ESTATE_OFF) entity_state_off();
 		else if (other.estate_trigger & ESTATE_DISABLE) entity_state_disable();
 		else if (other.estate_trigger & ESTATE_RESET) entity_state_reset();
+		else if (other.estate_trigger & ESTATE_AFRAME) entity_state_aframe();
 	}
 	else {
 		// Check if disabled first
@@ -151,4 +160,13 @@ void() trigger_entitystate_reset =
 	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_RESET;
+};
+
+//----------------------------------------------------------------------
+void() trigger_entitystate_aframe =
+{
+	self.classtype = CT_ESTATE;
+	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
+	if (self.targetname != "") self.use = trigger_entitystate_use;
+	self.estate_trigger = ESTATE_AFRAME;
 };

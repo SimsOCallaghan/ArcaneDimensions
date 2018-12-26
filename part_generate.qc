@@ -39,11 +39,11 @@ float() emit_checksource =
 };
 
 //----------------------------------------------------------------------
-void() emitdpp_default = {
+void() emitdpp_particle = {
 	
 	// Check source entity and style type are valid
 	if (emit_checksource()) return;
-
+	
 	if (self.pemit_target) {
 		self.dpp_vel = vectoangles(self.pemit_target.origin - self.pemit_source.origin);
 		self.dpp_vel_z = 0;
@@ -51,10 +51,24 @@ void() emitdpp_default = {
 		self.dpp_vel = normalize(v_forward);
 	}
 
+	// Check for volume particle spawning
+	if (!CheckZeroVector(self.part_vol)) {
+
+		// Check if owner is a Bmodel? (different origin location)
+		if (self.pemit_source.bsporigin)
+			self.pos1 = self.pemit_source.origin + bmodel_origin(self.pemit_source);
+		else self.pos1 = self.pemit_source.origin;
+
+		self.pos1_x = self.pos1_x + ( (random()*(self.part_vol_x*2)) - self.part_vol_x);
+		self.pos1_y = self.pos1_y + ( (random()*(self.part_vol_y*2)) - self.part_vol_y);
+		self.pos1_z = self.pos1_z + ( (random()*(self.part_vol_z*2)) - self.part_vol_z);
+	}
+	else self.pos1 = self.pemit_source.origin;
+
 	// Generate particles (DP Engine)
 	// DP particles are designed to go at origin, not origin+offset
-	pointparticles(particleeffectnum(self.dpp_name), self.pemit_source.origin, self.pemit_source.dpp_vel, 1);
-	self.think = emitdpp_default;
+	pointparticles(particleeffectnum(self.dpp_name), self.pos1, self.dpp_vel, 1);
+	self.think = emitdpp_particle;
 	self.nextthink = time + self.dpp_wait + (random() * self.dpp_rnd);
 };
 
@@ -83,17 +97,154 @@ void() emitdpp_fcircle =
 	}
 
 	// Draw bright pulse ring texture over the floor pattern
-	pointparticles(particleeffectnum(DPP_FCIRCLE_RING), self.pemit_source.origin, '0 0 0', 1);
+	// Only draw this if the circle is the original shape
+	if (self.part_vol_x == 56)
+		pointparticles(particleeffectnum(DPP_FCIRCLE_RING), self.pemit_source.origin, '0 0 0', 1);
 	
 	self.think = emitdpp_fcircle;
 	self.nextthink = time + self.dpp_wait + (random() * self.dpp_rnd);
 };
 
+//======================================================================
+// Particle weather system
+//======================================================================
+// splash animation (runs at 20fps)
+void() pe_splash1 = [0, pe_splash2] {self.nextthink = time+0.05;};
+void() pe_splash2 = [1, pe_splash3] {self.nextthink = time+0.05;};
+void() pe_splash3 = [2, pe_splash4] {self.nextthink = time+0.05;};
+void() pe_splash4 = [3, pe_splash5] {self.nextthink = time+0.05;};
+void() pe_splash5 = [4, pe_splash6] {self.nextthink = time+0.05;};
+void() pe_splash6 = [5, finish_particle] {self.nextthink = time+0.05;};
+
 //----------------------------------------------------------------------
-void(entity gibent) DPP_blood_trail =
+void() emitepp_weather = 
 {
-	if (random() < 0.2) gibent.traileffectnum = particleeffectnum(DPP_ITSBLOOD);
-	else gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
+	// Check for variable wind direction
+	if (self.attack_speed < time && self.speed > 0) {
+		self.attack_speed = time + self.speed + (random()*self.speed);
+		self.pos3_x = crandom() * self.pos2_x;
+		self.pos3_y = crandom() * self.pos2_y;
+	}
+		
+	// Work out random colour range
+	self.t_width = self.pos1_x + random()*self.pos1_z;
+	// Vary the count by +/- 25% of total
+	self.t_length = self.count * 0.75 + ((random() * 0.5) * self.count);
+	// Vary the wind speed by +/- 25% of total
+	self.pos3_z = self.pos2_z * 0.75 + ((random() * 0.5) * self.pos2_z);
+
+	// DP volume particle system parameters
+	// vector mins     : minimum corner of the cube
+	// vector maxs     : maximum corner of the cube
+	// vector velocity : velocity of particles
+	// short count     : number of particles
+	// byte color      : 8bit palette color
+	
+	if (self.spawnflags & PARTICLE_WEATHER_SNOW)
+		te_particlesnow(self.bbmins, self.bbmaxs, self.pos3, self.t_length, self.t_width);
+	else te_particlerain(self.bbmins, self.bbmaxs, self.pos3, self.t_length, self.t_width);
+
+	self.think = emitepp_weather;
+	self.nextthink = time + 0.1;
+};
+
+//----------------------------------------------------------------------
+void() emit_weather_think =
+{
+	if (self.origin_z < (self.pos2_z-4)) {
+		self.movetype = MOVETYPE_NONE;
+		setorigin(self, self.pos2 + '0 0 12');
+		setmodel(self, self.headmdl);
+		self.velocity = '0 0 0';
+		pe_splash1();
+	}
+	else {
+		self.think = emit_weather_think;
+		self.nextthink = time + 0.1;
+	}
+};
+
+//----------------------------------------------------------------------
+void() emit_weather =
+{
+	// Check source entity and style type are valid
+	if (emit_checksource()) return;
+
+	// Setup next particle (loop)
+	self.think = emit_weather;
+
+	// make sure player distance check is available
+	if (!self.enemy) self.enemy = find(world, classname, "player");
+	if ( !(self.enemy.flags & FL_CLIENT) ) {
+		self.nextthink = time + 0.1;
+		return;
+	}
+
+	// Is the particle emitter close to the player?
+	if (range_distance(self.enemy, TRUE) < self.wakeup_dist) {		
+		
+		// Normal think timer, player within range
+		self.nextthink = time + self.spawn_base + (random()*self.spawn_rand);
+
+		// Is there anymore particles left to spawn? 
+		if (self.pemit_tcount < self.part_limit) {
+			part = fetch_particle();
+			// Only preceed if a particle has been returned
+			if (part.classtype == CT_PARTICLE) {
+				part.owner = self;
+				self.pemit_tcount = self.pemit_tcount + 1;
+				part.movetype = self.part_movetype;
+				setmodel(part, self.spr_name1);
+				part.headmdl = self.spr_name2;
+				setsize(part, VEC_ORIGIN, VEC_ORIGIN);
+				part.velocity_x = self.part_velrand_x * random();
+				part.velocity_y = self.part_velrand_y * random();
+				part.velocity_z = self.part_velrand_z * random();
+				part.velocity = part.velocity + self.part_vel;
+				part.velocity_z = -part.velocity_z;
+			
+				// Pick a random point across the top of volume
+				part.pos1_x = self.pos1_x * random();
+				part.pos1_y = self.pos1_y * random();
+				part.pos1_z = 0;
+				part.pos1 = part.pos1 + self.pos2;
+				setorigin(part, part.pos1);
+				
+				// trace down to find travel distance
+				traceline (part.pos1, part.pos1 + '0 0 -4096', TRUE, self);
+				part.pos2 = trace_endpos;
+				
+				// Find out if any liquid in the way
+				if (trace_inwater) self.height = 8;
+				else self.count = 0;
+
+				// Binary divide the distance to find water surface
+				while (self.height > 0) {
+					// Break out early from loop if <8 from water surface
+					if (fabs(part.pos2_z-part.pos1_z) < 8) self.height = 0;
+					// Calculate midway point between origin and endtrace
+					part.pos3 = part.pos1;
+					part.pos3_z = part.pos1_z + ((part.pos2_z - part.pos1_z)*0.5);
+
+					// Test which half has water and shift top/bottom positions
+					traceline (part.pos1, part.pos3, TRUE, self);
+					if (trace_inwater) part.pos2 = part.pos3;
+					else part.pos1 = part.pos3;
+					// Only loop a limited amount of times
+					self.height = self.height - 1;
+				}
+				
+				// Check travel distance
+				part.think = emit_weather_think;
+				part.nextthink = time + 0.1;
+				
+			}
+		}
+	}
+	else {
+		// If no player within range of the emitter, slower think timer
+		self.nextthink = time + self.wakeup_timer + (random()*self.spawn_rand);
+	}
 };
 
 //----------------------------------------------------------------------
@@ -132,7 +283,7 @@ void() emit_particle =
 				
 				// Select particle type
 				randno = random();
-
+	
 				//----------------------------------------------------------------------
 				// Setup SPRITE particle (string and frame no)
 				//----------------------------------------------------------------------
@@ -199,8 +350,11 @@ void() emit_particle =
 				else {
 					// Check if owner is a Bmodel? (different origin location)
 					if (self.pemit_source.bsporigin) {
-						part.pos1 = self.pemit_source.origin + bmodel_origin(self.owner);
+						part.pos1 = self.pemit_source.origin + bmodel_origin(self.pemit_source);
 						part.origin = part.pos1;
+						// Double check the bmodel volume has been setup correctly (not zero)
+						// Particle emitters can be started before bmodel has initialized
+						if (CheckZeroVector(self.part_vol)) self.part_vol = self.pemit_source.size * 0.5;
 					}
 					else part.origin = self.pemit_source.origin + self.part_ofs;
 
@@ -209,7 +363,7 @@ void() emit_particle =
 					part.origin_z = part.origin_z + ( (random()*(self.part_vol_z*2)) - self.part_vol_z);
 					setorigin (part, part.origin);
 				}
-
+				
 				//----------------------------------------------------------------------
 				// VELOCITY (Particle speed/direction - uses ANGLES key)
 				//
@@ -507,6 +661,70 @@ void(entity part_ent, vector part_org, float expl_style) explosion_style =
 };	
 
 /*======================================================================
+ Particle Implode
+ 
+ e_org		: center of particle implode
+ e_qty		: quantity of particle burst
+ e_speed	: Particle speed towards center
+ e_dist		: circumference of implosion circle
+ p_style	: sprite style (check function particle_style above)
+======================================================================*/
+void(vector e_org, float e_qty, float e_speed, float e_dist, float p_style) particle_implode = 
+{
+	local float e_loop, e_len, e_traveltime;
+	local vector e_dir, e_vdestdelta, e_finaldest;
+	local string dpp_string;
+
+	// Have particles been enabled via serverflags?
+	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
+
+	// Are there any free particles?
+	// Check for maximim amount of particles available
+	if ( (part_total+e_qty) >= part_max - 1) return;
+
+	if (ext_dppart) {
+		// Setup DP particle style based on supplied style
+		if (p_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_BURSTPARTY;
+		else if (p_style & PARTICLE_BURST_GREEN) dpp_string = DPP_BURSTPARTG;
+		else if (p_style & PARTICLE_BURST_RED) dpp_string = DPP_BURSTPARTR;
+		else if (p_style & PARTICLE_BURST_BLUE) dpp_string = DPP_BURSTPARTB;
+		else if (p_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_BURSTPARTP;
+		else dpp_string = DPP_BURSTPARTW;
+	}
+	//	pointparticles(particleeffectnum(dpp_string), e_org, '0 0 0', e_qty);
+
+	e_loop = 0;
+	while (e_loop < e_qty) {
+		e_loop = e_loop + 1;	// Keep on loopin!
+		part = fetch_particle();
+		// Only preceed if a particle has been returned
+		if (part.classtype == CT_PARTICLE) {
+			part.owner = self;
+			particle_style(part, p_style);
+			
+			// Work out random direction from origin center
+			e_dir = normalize(vecrand(0,50,TRUE));
+			e_finaldest = e_org + e_dir * (e_dist + random()*50);
+			
+			// Calculate distance and time travelled
+			e_vdestdelta = e_org - e_finaldest;
+			e_len = vlen(e_vdestdelta);
+			e_traveltime = e_len / (e_speed + random()*50);
+						
+			// Move to outer edge of implosion circle
+			setorigin(part, e_finaldest);
+			setsize (part, VEC_ORIGIN, VEC_ORIGIN);
+			part.movetype = MOVETYPE_NOCLIP;
+
+			// Setup inward velocity and time to kill
+			part.velocity = e_vdestdelta * (1/e_traveltime);
+			part.nextthink = time + e_traveltime;
+			part.think = finish_particle;
+		}
+	}
+};
+
+/*======================================================================
  Particle explosion
  
  e_org		: center of particle explosion
@@ -523,6 +741,8 @@ void(vector e_org, float e_qty, float e_time, float p_style, float e_style) part
 
 	// Have particles been enabled via serverflags?
 	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
+	// Can only have integer particle quantity
+	e_qty = rint(e_qty);
 
 	if (ext_dppart) {
 		// DP hammer impact, 1=regular 2=shockwave
@@ -532,11 +752,11 @@ void(vector e_org, float e_qty, float e_time, float p_style, float e_style) part
 		}
 		else {
 			// Setup DP particle style based on supplied style
-			if (e_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_BURSTPARTY;
-			else if (e_style & PARTICLE_BURST_GREEN) dpp_string = DPP_BURSTPARTG;
-			else if (e_style & PARTICLE_BURST_RED) dpp_string = DPP_BURSTPARTR;
-			else if (e_style & PARTICLE_BURST_BLUE) dpp_string = DPP_BURSTPARTB;
-			else if (e_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_BURSTPARTP;
+			if (p_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_BURSTPARTY;
+			else if (p_style & PARTICLE_BURST_GREEN) dpp_string = DPP_BURSTPARTG;
+			else if (p_style & PARTICLE_BURST_RED) dpp_string = DPP_BURSTPARTR;
+			else if (p_style & PARTICLE_BURST_BLUE) dpp_string = DPP_BURSTPARTB;
+			else if (p_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_BURSTPARTP;
 			else dpp_string = DPP_BURSTPARTW;
 			pointparticles(particleeffectnum(dpp_string), e_org, '0 0 0', e_qty);
 		}
@@ -566,9 +786,9 @@ void(vector e_org, float e_qty, float e_time, float p_style, float e_style) part
 //----------------------------------------------------------------------
 // Slowly rising cloud of particle dots
 //----------------------------------------------------------------------
-void(vector debuff_center, float debuff_qty, float debuff_style) particle_debuff =
+void(vector debuff_center, float debuff_volsize, float debuff_qty, float debuff_style) particle_debuff =
 {
-	local float debuff_loop, debuff_volsize, debuff_time;
+	local float debuff_loop, debuff_time;
 	local vector debuff_org, debuff_vol;
 	local string dpp_string;
 
@@ -592,7 +812,6 @@ void(vector debuff_center, float debuff_qty, float debuff_style) particle_debuff
 
 	debuff_loop = 0;
 	debuff_time = 2;
-	debuff_volsize = 16;
 	
 	while (debuff_loop < debuff_qty) {
 		debuff_vol = vecrand(0,debuff_volsize,TRUE);

@@ -98,14 +98,12 @@ void()	garg_run10	=[	$fly19,	garg_run1	] {ai_run(8);};
 //============================================================================
 void() garg_fbthrow =
 {
-	local vector org, dir, orgofs;
+	local vector org, dir;
 	
-	self.attack_speed = SPEED_GARGMISSILE + (skill * SPEED_GARGSKILL);
 	makevectors (self.angles);
-	orgofs = '16 28 22';
-
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(self.attack_offset);
 	dir = normalize(SUB_orgEnemyTarget() - org);
+	self.attack_speed = SPEED_GARGMISSILE + (skill * SPEED_GARGSKILL);
 	
 	Launch_Missile (org, dir, '0 0 0', CT_PROJ_GARG, self.attack_speed);
 };
@@ -189,18 +187,19 @@ void()	garg_perch12=[	$perch24,	garg_perch1	] {ai_stand();};
 
 //----------------------------------------------------------------------
 // Sightsound and very quick animation while moving forward
-void()	garg_wakeup1	=[	$flyup2,	garg_wakeup2	] {monster_sightsound();};
+void()	garg_wakeup1	=[	$flyup2,	garg_wakeup2	] {};
 void()	garg_wakeup2	=[	$flyup4,	garg_wakeup3	] {ai_forward(4);};
 void()	garg_wakeup3	=[	$flyup6,	garg_wakeup4	] {ai_forward(8);};
 void()	garg_wakeup4	=[	$flyup14,	garg_wakeup5	] {ai_forward(8);gargoylewings();};
 void()	garg_wakeup5	=[	$flyup16,	garg_wakeup6	] {ai_forward(4);};
 void()	garg_wakeup6	=[	$flyup20,	garg_run1	] {
-	FoundHuntTarget(TRUE);		// Setup goals and warn other monsters
 	self.spawnstatue = FALSE;	// No longer stationary
 	self.th_stand = garg_idle1;	// Restore all think state functions
 	self.th_walk = garg_walk1;
 	self.th_run = garg_run1;
 	self.th_missile = garg_fire1;
+	monster_targets();			// Find target (angry/path_corner)
+	self.nextthink = time + 0.1;// Next frame
 };
 
 //----------------------------------------------------------------------
@@ -328,7 +327,7 @@ void()	garg_death4	=[	$death7,	garg_death5	] {};
 void()	garg_death5	=[	$death9,	garg_death6	] {};
 void()	garg_death6	=[	$death11,	garg_death7	] {};
 void()	garg_death7	=[	$death13,	garg_death8	] {monster_death_postcheck();};
-void()	garg_death8	=[	$death14,	garg_death8	] {};
+void()	garg_death8	=[	$death14,	garg_death8	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() garg_die =
@@ -347,8 +346,8 @@ void() garg_die =
 	if (self.attachment) {
 		if (self.attachment.state == STATE_ON) {
 			self.gibondeath = TRUE;
-			SpawnProjectileSmoke(self.origin, 200, 200);
-			SpawnProjectileSmoke(self.origin, 200, 200);
+			SpawnProjectileSmoke(self.origin, 200, 50, 150);
+			SpawnProjectileSmoke(self.origin, 200, 50, 150);
 			particle_explode(self.origin-'0 0 16', 50+random()*50, 2, PARTICLE_BURST_FIRE, PARTICLE_BURST_UPWARD);
 			makevectors(self.angles);
 			self.oldorigin = self.origin + v_forward*8;
@@ -447,8 +446,12 @@ void() setup_gargoyle =
 	self.gibbed = FALSE;				// no falling apart
 	self.pain_flinch = 70;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
-	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
-	self.attack_offset = '-32 22 38';	// fireball start location
+	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	self.attack_offset = '16 28 22';	// fireball start location
+	
+	// Always reset Ammo Resistance to be consistent
+	self.resist_shells = self.resist_nails = 0;
+	self.resist_rockets = self.resist_cells = 0;
 
 	self.th_checkattack = GargoyleCheckAttack;
 	self.th_pain = garg_pain; 
@@ -487,6 +490,7 @@ void() setup_gargoyle =
 		self.think1 = gargoyle_wakeup;		// Wakeup statue angry at player
 		self.skin = 1;						// Stone like skin
 		self.gib1skin = self.gib2skin = 1;
+		//self.resist_nails = 0.5;			// Stone resistance
 		// Work out random starting pose
 		self.pos1_x = $perch1;
 		self.pos1_y = $perch24;
@@ -508,10 +512,6 @@ void() setup_gargoyle =
 		self.th_missile = garg_fire1;
 	}
 	
-	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = self.resist_cells = 0;
-
 	monster_start();
 };
 
@@ -541,6 +541,9 @@ void(vector minion_org, entity minion_targ) minion_gargoyle =
 	minion.classgroup = CG_DEMON;			// Don't turn on master
 	minion.minion_active = TRUE;			// Minion flag
 	minion.bodyfadeaway = TRUE;				// Get rid of body
+	
+	// Adopt parameters from host spawner
+	minion.infightextra = self.infightextra;
 	
 	minion.mdl = "progs/mon_gargoyle.mdl";
 	minion.headmdl = "progs/h_gargoyle.mdl";

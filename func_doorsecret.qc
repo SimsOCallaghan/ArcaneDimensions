@@ -301,21 +301,36 @@ void () func_door_secret =
 	precache_sound (self.noise2);
 	precache_sound (self.noise3);
 
-	// angles has to be 0 0 0 otherwise brush model is twisted
-	// save angles to mangle for use later by movement code
-	self.mangle = self.angles;
-	self.angles = '0 0 0';
-
 	self.classtype = CT_FUNCSECDOOR;
+	self.classgroup = CG_FUNCMOVER;
 	self.bsporigin = TRUE;
 	self.mdl = self.model;
+	// Save any angle value first (original behaviour)
+	self.mangle = self.angles;
 	
+	// Allow for angles up/down by using movedir instead
+	if (CheckZeroVector(self.angles)) self.angles = '0 360 0';
+	SetMovedir ();	// Setup move direction base on angles
+
 	if(!self.speed)	self.speed = 50;	// Movement speed (per phase)
 	if(!self.yaw_speed) self.yaw_speed = self.speed;
 	if (!self.wait) self.wait = 5;		// 5 seconds before closing
 	if (!self.dmg) self.dmg = 2;
 	self.state = STATE_BOTTOM;
 
+	// Add sec door to world to work out movement
+	self.movetype = MOVETYPE_PUSH;
+	self.solid = SOLID_BSP;
+	setmodel (self, self.mdl);
+	self.dest0 = self.origin;
+	setorigin (self, self.origin);	
+	setsize (self, self.mins , self.maxs);
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+	
 	if (self.message != "") self.touch = func_door_secret_touch;
 	self.blocked = func_door_secret_blocked;
 
@@ -335,18 +350,12 @@ void () func_door_secret =
 		self.th_die = func_door_secret_killed;
 	}
 
-	// Add sec door to world to work out movement
-	self.movetype = MOVETYPE_PUSH;
-	self.solid = SOLID_BSP;
-	setmodel (self, self.mdl);
-	self.dest0 = self.origin;
-	setorigin (self, self.origin);	
-	setsize (self, self.mins , self.maxs);
-
 	// Calculate the sec door movement during spawn stage
 	// This was originally done when the sec door was used
 	self.lip = 1 - (self.spawnflags & SECRET_1ST_LEFT);	// 1 or -1
-	makevectors(self.mangle);
+	// Original worked out v_forward based on angle/mangle
+	// Using movedir instead so up/down directions can be used
+	// makevectors(self.mangle);
 
 	// Work out FIRST (t_width) direction to move
 	if (!self.t_width) {
@@ -357,8 +366,9 @@ void () func_door_secret =
 	else self.dest1 = self.origin + v_right * (self.t_width * self.lip);
 		
 	// Work out SECOND (t_length) direction to move
-	if (!self.t_length) self.t_length = fabs(v_forward * self.size);
-	self.dest2 = self.dest1 + v_forward * self.t_length;
+	// using pre-defined movedir instead of v_forward
+	if (!self.t_length) self.t_length = fabs(self.movedir * self.size);
+	self.dest2 = self.dest1 + self.movedir * self.t_length;
 
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;

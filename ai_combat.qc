@@ -72,7 +72,7 @@ void(entity targ, entity attacker) Killed =
 		// Completely fuckup setup for the oldone boss with a weird target
 		// field and mess of triggers around it! This elseif is just an
 		// exception so it works, anyway no one fights the oldone!
-		else if (!self.deadflag && self.classtype == CT_MONOLDONE) {
+		else if (!self.deadflag && self.classtype == CT_MONIDSHUB) {
 			self.deadflag = DEAD_DEAD;
 			killed_monsters = killed_monsters + 1;
 			WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
@@ -130,12 +130,15 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	// co-op team play damage avoidance
 	if ( (teamplay == 1) && (targ.team > 0) && (targ.team == attacker.team) ) return;
 
-	// If a zombie falls into slime or lava, instant death
+	// Poor zombies, they have so many exceptional ways to die!
 	if (targ.classgroup == CG_ZOMBIE) {
+		// If a zombie falls into slime or lava, instant death
 		if (targ.watertype == CONTENT_SLIME || targ.watertype == CONTENT_LAVA) {
 			damage = fabs(targ.gibhealth * 4);
-			dprint("\b[T_DAMAGE]\b Instant death, in slime or lava\n");
+			//dprint("\b[T_DAMAGE]\b Instant death, in slime or lava\n");
 		}
+		// Exploding boils always destroy zombies
+		if (attacker.classtype == CT_MONBOIL) damage = fabs(targ.gibhealth * 2);
 	}
 	
 	// Are monsters infighting and is there a damage modifier active?
@@ -153,7 +156,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 				damage = (targ.health - targ.gibhealth);
 			// Big blue sprite explosion + particles
 			particle_explode(targ.origin-'0 0 16', 50+random()*50, 2, PARTICLE_BURST_BLUE, PARTICLE_BURST_UPWARD);
-			SpawnExplosion(EXPLODE_BIGP, inflictor.origin+'0 0 8', SOUND_REXP3);
+			SpawnExplosion(EXPLODE_PLASMA_BIG, inflictor.origin+'0 0 8', SOUND_REXP3);
 		}
 	}
 	
@@ -283,16 +286,28 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	// No reaction if attacker is world (env trap, door, etc) 
 	//----------------------------------------------------------------------
 	if ( (self.flags & FL_MONSTER) && attacker != world) {
+		// Check if attack target is dead, otherwise will be stuck
+		if (self.switchattacker.health < 0) self.switchattacker = world;
+		// Has the monster kept track of any previous attackers?
+		// Low Random chance the monster will switch targets regardless
+		if (!self.switchattacker || random() < 0.02) self.switchattacker = attacker;
+		// if the monster is rapidly (>1s) switching targets, this blocks it
+		// This fixes infighting deadlocks and coop fights stuck switching targets
+		if (self.switchattacker != attacker) self.switchtimer = time + 1;
+		else self.switchtimer = 0;
+		
 		// Is the current attacker not self and not current enemy target?
 		if (self != attacker && attacker != SUB_entEnemyTarget()) {
-			if ( self.noinfighting && attacker.flags & FL_MONSTER ) {
-				// Prevent monsters from infighting, but let them react to players
+			if ( self.noinfighting && attacker.flags & FL_MONSTER 
+				|| attacker.noinfighting) {
+				// Prevent monsters from infighting
+				// but let them react to the player
 			}
 			else {
 				// Is the attacker a different classgroup and switching target available?
-				if ( self.classgroup != attacker.classgroup && self.switchtarget < time) {
+				if ( self.classgroup != attacker.classgroup && self.switchtimer < time) {
 					// Prevent the monster from rapidily switching targets
-					self.switchtarget = time + 1;
+					self.switchtimer = time + 1;
 					// Shift previous enemy to old enemy ready for new target
 					// Only switch if the new enemy is the player! (id logic)
 					// Check for new enemy target system before switching
@@ -322,6 +337,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	oldself = self;
 	self = targ;
 	//----------------------------------------------------------------------
+
 	if (self.th_pain && self.pain_finished < time) {
 		// Save pain finished state for later		
 		self.pain_finstate = self.pain_finished;
@@ -340,9 +356,9 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 		// Block pain re-trigger event
 		self.pain_finished = time + self.pain_timeout;
 		
-		// Ignore pain frames when being attacked by other monsters
+		// Ignoring pain from other monsters? (infighting)
 		if (self.pain_ignore && attacker.flags & FL_MONSTER)
-			self.pain_finished = self.pain_finished + 2;
+			self.pain_finished = self.pain_finished + 1 + random();
 		else {
 			// If accumulated pain is higher, use that instead
 			// Added classgroup exception otherwise damage qty is wrong
@@ -351,7 +367,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 			else self.th_pain (inflictor, attacker, take);
 	
 			// nightmare mode monsters don't go into pain frames often
-			if (skill == SKILL_NIGHTMARE) self.pain_finished = time + 5;
+			if (skill == SKILL_NIGHTMARE && targ.classgroup != CG_ZOMBIE) self.pain_finished = time + 5;
 
 			// Exceptions to pain not being blocked (even nightmare!)
 			// If the monster is in slime or lava always go into pain
@@ -400,19 +416,30 @@ void(entity inflictor, entity attacker, float damage, entity ignore, float check
 				else {
 					// Can be damaged and NOT immune to radius (splash) damage
 					if (head.takedamage > 0 && head.noradiusdmg == 0) {
+						// This formula is using bounding box size which means
+						// the damage amount is lower if the monster is larger
+						// It should really be based on bounding box edge
+						// not monster origin
 						org = head.origin + (head.mins + head.maxs)*0.5;
 						points = 0.5*vlen (imporg - org);
 						if (points < 0) points = 0;
 						points = damage - points;
+						
+						// Half damage if caught by own explosion
 						if (head == attacker) points = points * 0.5;
+
 						if (points > 0 && head.health > 0) {
 							// Need CanDamage to check for anything blocking LoS
 							// It will do several traces (source->target) to check
 							// for any blocking entities (lifts, doors, walls etc)
 							if (CanDamage (head, inflictor)) {
-								if (head.resist_rockets > 0) 
-									points = points * head.resist_rockets;
-								T_Damage (head, inflictor, attacker, points, DAMARMOR);
+								// Splash damage is part of rocket resistance
+								if (head.resist_rockets > 0)
+									points = Resist_Damage(head, IT_ROCKETS, points);
+								
+								// Any damage left? Check for poison as well
+								if (points > 0) T_Damage (head, inflictor, attacker, points, DAMARMOR);
+								if (attacker.poisonous) PoisonDeBuff(head);
 							}
 						}
 					}

@@ -25,7 +25,16 @@ void()	tbaby_jump1;
 void()	tbaby_jump5;
 
 //============================================================================
-void()	tbaby_stand1	=[	$walk1,		tbaby_stand1	] {ai_stand();};
+void()	tbaby_stand1	=[	$walk1,		tbaby_stand2	] {ai_stand();};
+void()	tbaby_stand2	=[	$walk2,		tbaby_stand3	] {ai_stand();};
+void()	tbaby_stand3	=[	$walk3,		tbaby_stand4	] {ai_stand();};
+void()	tbaby_stand4	=[	$walk4,		tbaby_stand5	] {ai_stand();};
+void()	tbaby_stand5	=[	$walk5,		tbaby_stand6	] {ai_stand();
+self.nextthink = 0.1 + random()*0.3;};
+void()	tbaby_stand6	=[	$walk4,		tbaby_stand7	] {ai_stand();};
+void()	tbaby_stand7	=[	$walk3,		tbaby_stand8	] {ai_stand();};
+void()	tbaby_stand8	=[	$walk2,		tbaby_stand1	] {ai_stand();
+self.nextthink = 0.1 + random()*0.3;};
 
 void()	tbaby_hang1		=[	$walk1,		tbaby_hang1	] {ai_stand();};
 
@@ -38,23 +47,23 @@ void()	tbaby_walk5	=[	$walk5,		tbaby_walk6	] {ai_turn();};
 void()	tbaby_walk6	=[	$walk6,		tbaby_walk7	] {ai_turn();};
 void()	tbaby_walk7	=[	$walk7,		tbaby_walk8	] {ai_turn();};
 void()	tbaby_walk8	=[	$walk8,		tbaby_walk9	] {ai_turn();};
-void()	tbaby_walk9	=[	$walk9,		tbaby_walk10	] {ai_turn();};
-void()	tbaby_walk10	=[	$walk10,		tbaby_walk11	] {ai_turn();};
-void()	tbaby_walk11	=[	$walk11,		tbaby_walk12	] {ai_walk(2);};
-void()	tbaby_walk12	=[	$walk12,		tbaby_walk13	] {ai_walk(2);};
-void()	tbaby_walk13	=[	$walk13,		tbaby_walk14	] {ai_walk(2);};
-void()	tbaby_walk14	=[	$walk14,		tbaby_walk15	] {ai_walk(2);};
-void()	tbaby_walk15	=[	$walk15,		tbaby_walk16	] {ai_walk(2);};
-void()	tbaby_walk16	=[	$walk16,		tbaby_walk17	] {ai_walk(2);};
-void()	tbaby_walk17	=[	$walk17,		tbaby_walk18	] {ai_walk(2);};
-void()	tbaby_walk18	=[	$walk18,		tbaby_walk19	] {ai_walk(2);};
-void()	tbaby_walk19	=[	$walk19,		tbaby_walk20	] {ai_walk(2);};
-void()	tbaby_walk20	=[	$walk20,		tbaby_walk21	] {ai_walk(2);};
-void()	tbaby_walk21	=[	$walk21,		tbaby_walk22	] {ai_walk(2);};
-void()	tbaby_walk22	=[	$walk22,		tbaby_walk23	] {ai_walk(2);};
-void()	tbaby_walk23	=[	$walk23,		tbaby_walk24	] {ai_walk(2);};
-void()	tbaby_walk24	=[	$walk24,		tbaby_walk25	] {ai_walk(2);};
-void()	tbaby_walk25	=[	$walk25,		tbaby_walk1	] {ai_walk(2);};
+void()	tbaby_walk9	=[	$walk9,		tbaby_walk10] {ai_turn();};
+void()	tbaby_walk10=[	$walk10,	tbaby_walk11] {ai_turn();};
+void()	tbaby_walk11=[	$walk11,	tbaby_walk12] {ai_walk(2);};
+void()	tbaby_walk12=[	$walk12,	tbaby_walk13] {ai_walk(2);};
+void()	tbaby_walk13=[	$walk13,	tbaby_walk14] {ai_walk(2);};
+void()	tbaby_walk14=[	$walk14,	tbaby_walk15] {ai_walk(2);};
+void()	tbaby_walk15=[	$walk15,	tbaby_walk16] {ai_walk(2);};
+void()	tbaby_walk16=[	$walk16,	tbaby_walk17] {ai_walk(2);};
+void()	tbaby_walk17=[	$walk17,	tbaby_walk18] {ai_walk(2);};
+void()	tbaby_walk18=[	$walk18,	tbaby_walk19] {ai_walk(2);};
+void()	tbaby_walk19=[	$walk19,	tbaby_walk20] {ai_walk(2);};
+void()	tbaby_walk20=[	$walk20,	tbaby_walk21] {ai_walk(2);};
+void()	tbaby_walk21=[	$walk21,	tbaby_walk22] {ai_walk(2);};
+void()	tbaby_walk22=[	$walk22,	tbaby_walk23] {ai_walk(2);};
+void()	tbaby_walk23=[	$walk23,	tbaby_walk24] {ai_walk(2);};
+void()	tbaby_walk24=[	$walk24,	tbaby_walk25] {ai_walk(2);};
+void()	tbaby_walk25=[	$walk25,	tbaby_walk1	] {ai_walk(2);};
 
 //============================================================================
 void()	tbaby_run1	=[	$run1,		tbaby_run2	] {ai_face();};
@@ -94,7 +103,15 @@ void()	Tar_JumpTouch =
 	if (other.takedamage && other.classname != self.classname) {
 		if ( vlen(self.velocity) > 400 ) {
 			ldmg = 10 + 10*random();
-			T_Damage (other, self, self, ldmg, DAMARMOR);	
+			// Can only poison the player
+			if (other.flags & FL_CLIENT && self.poisonous) {
+				// Check if player is posioned already?
+				if (other.poisoned) T_Damage (other, self, self, ldmg * 0.25, DAMARMOR);
+				// Make sure player is posioned
+				else PoisonDeBuff(other);
+			}
+			// Everything else gets the usual tarbaby thump!
+			else T_Damage (other, self, self, ldmg, DAMARMOR);
 			sound (self, CHAN_WEAPON, "blob/hit1.wav", 1, ATTN_NORM);
 		}
 	}
@@ -170,7 +187,7 @@ void(entity inflictor, entity attacker, float damage)	tbaby_pain =
 void() tbaby_die1 =[ $exp, tbaby_die2 ] {};
 void() tbaby_die2 =[ $exp, tbaby_run1 ] {
 	// Tarbabies explode when they die
-	T_RadiusDamage (self, self, DAMAGE_TARBABY, world, DAMAGEALL);
+	T_RadiusDamage (self, self, self.death_dmg, world, DAMAGEALL);
 
 	sound (self, CHAN_BODY, "blob/death1.wav", 1, ATTN_NORM);
 	self.origin = self.origin - 8*normalize(self.velocity);
@@ -180,10 +197,12 @@ void() tbaby_die2 =[ $exp, tbaby_run1 ] {
 	WriteCoord (MSG_BROADCAST, self.origin_x);
 	WriteCoord (MSG_BROADCAST, self.origin_y);
 	WriteCoord (MSG_BROADCAST, self.origin_z);
-	// Play original explosion sound
-	sound(self, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
-	
-	BecomeExplosion ();
+	// Sprite explosion for Fitz engines
+	// Check for DP particle system as visuals is done with TE_TAREXPLOSION
+	if (!ext_dppart) SpawnExplosion(EXPLODE_SMALL, self.origin, SOUND_REXP3);
+	else sound(self, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
+	// Hide monster, do not remove, still playing sound
+	entity_hide(self);
 };
 
 //----------------------------------------------------------------------
@@ -203,7 +222,7 @@ void() monster_tarbaby =
 {
 	if (deathmatch) { remove(self); return; }
 
-	self.mdl = "progs/tarbaby.mdl";
+	self.mdl = "progs/mon_tarbaby.mdl";
 	self.headmdl = string_null;
 	precache_model (self.mdl);
 
@@ -224,6 +243,11 @@ void() monster_tarbaby =
 	self.gibhealth = MON_NEVERGIB;		// Cannot be gibbed by weapons
 	self.gibbed = FALSE;
 	self.pain_flinch = 20;
+	
+	// Allow for extra functionality (death damage and poison)
+	if (self.death_dmg < 1) self.death_dmg = DAMAGE_TARBABY;
+	if (self.poisonous < 1) self.poisonous = FALSE;
+	else self.poisonous = TRUE;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

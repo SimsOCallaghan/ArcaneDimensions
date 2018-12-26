@@ -191,6 +191,8 @@ void() trap_pendulum_touch =
 {
 	// Blade can still hurt if touched, except when OFF = not visible
 	if (self.estate & ESTATE_OFF) return;
+	// Double check if dead monster body!
+	if (trigger_check_body(other,DEAD_EXPLODE)) return;
 	if (other.health < 1 || other.takedamage == DAMAGE_NO) return;
 	if (self.attack_finished > time) return;
 	if (self.waitmin > 0) self.attack_finished = time + self.waitmin;
@@ -302,11 +304,17 @@ void() trap_pendlong =
 	precache_sound (self.noise2);
 
 	self.classtype = CT_PENDULUM;
-	if (self.dmg < 0) self.dmg = 5;		// Default touch damage
+	if (self.dmg == 0) self.dmg = 5;	// Default touch damage
+	if (self.dmg < 0) self.dmg = 0;		// Use -1 for no damage option
 	if (self.wait <= 0) self.wait = 0;	// Default starting delay
 	if (!self.waitmin) self.waitmin = 0.5;	// Damage throttle
 	self.state = STATE_OFF;
 
+	// Error - Check for targetname for trigger event
+	if (self.targetname == "") {
+		dprint("\b[PENDULUM]\b missing targetname, cannot be triggered!\n");
+	}
+	
 	// Rotate model and swing on X axis instead
 	if (self.spawnflags & PEND_XSWING) self.angles = '0 270 0';
 	else self.angles = '0 0 0';

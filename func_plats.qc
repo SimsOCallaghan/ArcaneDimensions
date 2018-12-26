@@ -5,6 +5,7 @@ float PLAT_LOW_TRIGGER = 1;
 float PLAT_MIN_TRIGGER = 4;
 float PLAT_START_LOWER = 8;
 float PLAT_START_OPEN = 16;
+float PLAT_STARTDIS = 32;		// Platform starts in disabled state
 
 /*======================================================================
 /*QUAKED func_plat (0 .5 .8) ? LOW_TRIGGER x MIN_TRIGGER START_LOWER START_OPEN x STARTOFF x
@@ -148,13 +149,20 @@ void() func_plat_on =
 	self.movetype = MOVETYPE_PUSH;
 	self.solid = SOLID_BSP;
 	setmodel (self, self.mdl);
-	
+
 	if (self.state != STATE_DISABLED) {
 		// Reset health, state and frame back to default
 		setorigin(self, self.pos2);
 		self.state = STATE_BOTTOM;
 		self.think = SUB_Null;
 	}
+
+	// If platform started disable, release to lower position
+	if (self.spawnflags & PLAT_STARTDIS) {
+		// No longer need this spawnflag, remove it
+		self.spawnflags = self.spawnflags - (self.spawnflags & PLAT_STARTDIS);
+		if (self.state == STATE_DISABLED) func_plat_go_down();
+	}	
 };
 
 //----------------------------------------------------------------------
@@ -168,13 +176,22 @@ void() func_plat_off =
 	self.solid = SOLID_NOT;
 	setmodel (self, "");
 	
+	// Stop all movement sounds
+	sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
+
 	if (self.state != STATE_DISABLED) {
 		// Reset health, position and frame back to default
-		sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
 		setorigin(self, self.pos2);
 		self.state = STATE_BOTTOM;
 		self.think = SUB_Null;
 	}
+};
+
+//----------------------------------------------------------------------
+void() func_plat_disable =
+{
+	// Lock platform in current location
+	self.estate = ESTATE_DISABLE;
 };
 
 //----------------------------------------------------------------------
@@ -207,15 +224,15 @@ void() func_plat =
 	}
 	precache_sound (self.noise);
 	precache_sound (self.noise1);
-
+	
+	self.classtype = CT_FUNCPLAT;
+	self.classgroup = CG_FUNCMOVER;
+	self.bsporigin = TRUE;
+	self.mdl = self.model;
 	// angles has to be 0 0 0 otherwise brush model is twisted
 	// save angles to mangle for use later by movement code
 	self.mangle = self.angles;
 	self.angles = '0 0 0';
-
-	self.classtype = CT_FUNCPLAT;
-	self.bsporigin = TRUE;
-	self.mdl = self.model;
 
 	// This is not used anywhere, old code ideas from ID
 	if (!self.t_length) self.t_length = 80;
@@ -223,14 +240,34 @@ void() func_plat =
 	if (!self.speed) self.speed = 150;
 	self.state = STATE_BOTTOM;	// Default state (lower)
 
-	self.blocked = func_plat_blocked;
-
 	self.solid = SOLID_BSP;
 	self.movetype = MOVETYPE_PUSH;
 	setorigin (self, self.origin);	
 	setmodel (self, self.mdl);
 	setsize (self, self.mins , self.maxs);
 
+	// Cannot have a platform start off or disabled
+	// with no targetname, how can it be actived!?!
+	if (self.spawnflags & PLAT_STARTDIS && self.targetname == "") {
+		dprint("\b[PLAT]\b Starting DISABLED with no targetname!\n");
+		self.oldorigin = bmodel_origin(self);
+		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
+		entity_hide(self);
+		return;
+	}	
+	if (self.spawnflags & ENT_STARTOFF && self.targetname == "") {
+		dprint("\b[PLAT]\b Starting OFF with no targetname!\n");
+		self.oldorigin = bmodel_origin(self);
+		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
+		entity_hide(self);
+		return;
+	}	
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+	
 	// Move the platform up to open position (lighting issues)
 	// Need to update mins/maxs so that spawn trigger is correct
 	// otherwise it will be in original position and spawn low
@@ -246,9 +283,10 @@ void() func_plat =
 	if (self.height) self.pos2_z = self.origin_z - fabs(self.height);
 	else self.pos2_z = self.origin_z - self.size_z + 8;
 
-	// Setup touch trigger
+	// Setup touch trigger and block function
 	func_plat_trigger_spawn ();
-
+	self.blocked = func_plat_blocked;
+	
 	// Damn annoying that the targetname is being used like this because
 	// there could have been a better way to do this type of functionality
 	// == "" Platform starts in lower position (default)
@@ -263,7 +301,12 @@ void() func_plat =
 	self.estate_on = func_plat_on;
 	self.estate_off = func_plat_off;
 	self.estate_use = func_plat_use;
-	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+	self.estate_disable = func_plat_disable;
+	
+	// Check for the easy way to start a platform disabled
+	if (self.spawnflags & PLAT_STARTDIS) self.estate_disable();
+	// Check for starting override for entity state
+	else if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 	else self.estate_on();
 };
 

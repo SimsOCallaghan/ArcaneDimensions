@@ -82,7 +82,7 @@ void() enforcer_fire =
 	sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);
 
 	makevectors (self.angles);
-	org = self.origin + v_forward * 28 + v_right * 8.5 + '0 0 16';
+	org = self.origin + attack_vector(self.attack_offset);
 	vec = normalize(self.enemy.origin - self.origin);
 
 	launch_projectile(org, vec, CT_PROJ_LASER, SPEED_LASER);
@@ -118,7 +118,7 @@ void() defender_ssg =
 	sound (self, CHAN_WEAPON, "enforcer/def_ssg_fire.wav", 1, ATTN_NORM);	
 	
 	// Choose between a projectile or hit-scan system
-	if (query_configflag(SVR_PROJSHOTG)) 
+	if (query_configflag(SVR_SHOTGPROJ)) 
 		FireBullets (QUANTITY_DEFENDER, SPREAD_DEF);
 	else {
 		Launch_Shells(QUANTITY_DEFENDER, SPREAD_DEF, CT_PROJ_SG);
@@ -151,7 +151,10 @@ void()	def_atkgl4	=[	$attack4,	def_atkgl5	] {ai_face();
 void()	def_atkgl5	=[	$attack5,	def_atkgl6	] {ai_face();
 	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed); };
 void()	def_atkgl6	=[	$attack6,	def_atkgl7	] {ai_face();
-	MonsterFireGrenade(self.origin, self.enemy.origin);};
+	makevectors(self.angles);
+	self.pos1 = self.origin + attack_vector(self.attack_offset);
+	MonsterFireGrenade(self.pos1, self.enemy.origin);
+};
 void()	def_atkgl7	=[	$attack7,	def_atkgl8	] {};
 void()	def_atkgl8	=[	$attack8,	def_atkgl9	] {};
 void()	def_atkgl9	=[	$attack9,	def_atkgl10] {ai_face();};
@@ -171,7 +174,7 @@ void() eliminator_fire =
 	sound (self, CHAN_WEAPON, "weapons/plasma_fire.wav", 1, ATTN_NORM);
 
 	makevectors (self.angles);
-	org = self.origin + v_forward * 30 + v_right * 8.5 + '0 0 16';
+	org = self.origin + attack_vector(self.attack_offset);
 	vec = normalize(self.enemy.origin - self.origin);
 
 	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
@@ -264,8 +267,9 @@ void(entity inflictor, entity attacker, float damage) enf_pain =
 		}
 		// The new axe forces monsters into long pain animations
 		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 1.9;
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
 			enf_paind1 ();
 		}
 	}
@@ -286,7 +290,7 @@ void()	enf_die10	=[	$death10,	enf_die11	] {ai_forward(5);};
 void()	enf_die11	=[	$death11,	enf_die12	] {ai_forward(5);};
 void()	enf_die12	=[	$death12,	enf_die13	] {ai_forward(5);};
 void()	enf_die13	=[	$death13,	enf_die14	] {monster_death_postcheck();};
-void()	enf_die14	=[	$death14,	enf_die14	] {};
+void()	enf_die14	=[	$death14,	enf_die14	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	enf_fdie1	=[	$fdeath1,	enf_fdie2	] {};
@@ -300,7 +304,7 @@ void()	enf_fdie7	=[	$fdeath7,	enf_fdie8	] {};
 void()	enf_fdie8	=[	$fdeath8,	enf_fdie9	] {};
 void()	enf_fdie9	=[	$fdeath9,	enf_fdie10	] {};
 void()	enf_fdie10	=[	$fdeath10,	enf_fdie11	] {monster_death_postcheck();};
-void()	enf_fdie11	=[	$fdeath11,	enf_fdie11	] {};
+void()	enf_fdie11	=[	$fdeath11,	enf_fdie11	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() enf_die =
@@ -328,6 +332,7 @@ void() monster_base_enforcer =
 	precache_model (self.headmdl);
 	precache_model (self.gib1mdl);
 	
+	self.gib1sound = GIB_IMPACT_WOOD;
 	precache_sound ("enforcer/death1.wav");
 	self.pain_sound = "enforcer/pain1.wav";
 	self.pain_sound2 = "enforcer/pain2.wav";
@@ -342,6 +347,7 @@ void() monster_base_enforcer =
 	self.pain_flinch = 20;				// low pain threshold
 	self.pain_longanim = TRUE;			// Long pain animation for axe
 	self.steptype = FS_TYPEHEAVY;		// heavy player
+	self.attack_offset = '28 8.5 16';	// End of Gun
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -417,6 +423,8 @@ void() monster_defender =
 	self.th_missile = def_atkgl1;
 	self.th_melee = def_atkssg1;
 	self.th_checkattack = DefenderCheckAttack;
+	// Grenade bounce off body
+	self.bouncegrenade = TRUE;
 
 	monster_base_enforcer();
 };
@@ -443,8 +451,8 @@ void() monster_eliminator =
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("enforcer/elim_pg_load.wav");
-	precache_sound ("weapons/plasma_fire.wav");
-	precache_sound ("weapons/plasma_hit.wav");
+	precache_sound (SOUND_PLASMA_FIRE);
+	precache_sound (SOUND_PLASMA_HIT);
 	
 	self.th_missile = elim_atk1;
 	self.th_checkattack = EliminatorCheckAttack;

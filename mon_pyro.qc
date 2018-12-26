@@ -1,5 +1,6 @@
 /*=============================================================================
-PYRO -  - Originally from Rubicon2 by John Fitzgibbons
+PYRO - Originally from Rubicon2 by John Fitzgibbons
+FUMIGATOR - Green/Poison version of the Pyro
 ==============================================================================*/
 $cd id1/models/enforcer
 $origin 0 -6 24
@@ -33,7 +34,7 @@ void() pyro_soundreset =
 {
 	//turn off flame sound
 	if (self.attack_finished > time)
-		sound (self, CHAN_WEAPON, "enforcer/pyro_flameoff.wav", 1, ATTN_NORM);
+		sound (self, CHAN_WEAPON, self.noise4, 1, ATTN_NORM);
 	//play sound anyway to be sure the channel is silent
 	else sound (self, CHAN_WEAPON, SOUND_EMPTY, 0, ATTN_NORM);
 };
@@ -92,8 +93,25 @@ void() pyroflame_touch =
 	if (other != world) self.velocity = self.movedir;
 	else self.velocity = '0 0 0';
 	
+	// Block sprite burst from damage again
 	self.attack_finished = time + 1;
-	ApplyFireDmg(other, DAMAGE_PYROFLAME, DAMAGE_MONFLAME);
+	
+	// Check owner is a Pyro?
+	if (self.owner.classtype == CT_MONPYRO) {
+		// damage and debuff are same function
+		ApplyFireDmg(other, DAMAGE_PYROFLAME, DAMAGE_MONFLAME);
+	}
+	else {
+		// Can only poison the player
+		if (other.flags & FL_CLIENT) {
+			// Check if player is posioned already?
+			if (other.poisoned) T_Damage (other, self, self, DAMAGE_FUMPOISON, DAMARMOR);
+			// Make sure player is posioned
+			else PoisonDeBuff(other);
+		}
+		// Poison anything else (very quick death, high damage)
+		else T_Damage (other, self, self, DAMAGE_MONFLAME, DAMARMOR);
+	}
 };
 
 //----------------------------------------------------------------------
@@ -118,7 +136,7 @@ void(vector org, vector dir) pyroflame_spawn =
 	
 	newmis = spawn();
 	newmis.classtype = CT_TEMPSTREAM;
-	newmis.classname = "PFlame";
+	newmis.classname = "PBurst";
 	newmis.owner = self;
 	newmis.frame = newmis.cnt = 0;
 
@@ -127,23 +145,36 @@ void(vector org, vector dir) pyroflame_spawn =
 	else newmis.movetype = MOVETYPE_FLY;	// Standard flame size
 	newmis.solid = SOLID_TRIGGER;			// collision, touch required
 
-	// Switch particles between fire and smoke based on contents
-	pointc = pointcontents(self.origin);
-	if (pointc <= CONTENT_WATER) {
-		if (ext_dppart) {
-			// Use special DP smoke and empty sprite for collision
-			pointparticles(particleeffectnum(DPP_PYROFLAME2), org, dir, 1);
-			setmodel (newmis, "progs/s_dpflame.spr");
+	// The Pyro and Fumigator have different flame types
+	// Pyro = fire, Fum = Poison
+	//-----------------------------------------------
+	if (self.classtype == CT_MONPYRO) {
+		// Switch particles between fire and smoke based on contents
+		pointc = pointcontents(self.origin);
+		if (pointc <= CONTENT_WATER) {
+			if (ext_dppart) {
+				// Use special DP smoke and empty sprite for collision
+				pointparticles(particleeffectnum(DPP_PYROFLAME2), org, dir, 1);
+				setmodel (newmis, SBURST_FLAMEDP);
+			}
+			else setmodel (newmis, SBURST_SMOKE);
 		}
-		else setmodel (newmis, "progs/s_smoke.spr");
+		else {
+			if (ext_dppart) {
+				// Use special DP flames and empty sprite for collision
+				pointparticles(particleeffectnum(DPP_PYROFLAME1), org, dir, 1);
+				setmodel (newmis, SBURST_FLAMEDP);
+			}
+			else setmodel (newmis, SBURST_FLAME);
+		}
 	}
 	else {
 		if (ext_dppart) {
 			// Use special DP flames and empty sprite for collision
-			pointparticles(particleeffectnum(DPP_PYROFLAME1), org, dir, 1);
-			setmodel (newmis, "progs/s_dpflame.spr");
+			pointparticles(particleeffectnum(DPP_PYROFLAME3), org, dir, 1);
+			setmodel (newmis, SBURST_POISONDP);
 		}
-		else setmodel (newmis, "progs/s_flame.spr");
+		else setmodel (newmis, SBURST_POISON);
 	}
 	
 	setorigin (newmis, org);
@@ -175,7 +206,7 @@ void() pyro_fire =
 	if (self.health < 1) return;
 	
 	makevectors (self.angles);
-	org = self.origin + v_forward * 24 + v_right * 8.5 + '0 0 16';
+	org = self.origin + attack_vector(self.attack_offset);
 	// point the flames at the feet of the player
 	if (self.enemy.flags & FL_CLIENT) targ_org = self.enemy.origin - '0 0 20';
 	else targ_org = self.enemy.origin - self.enemy.view_ofs;
@@ -187,7 +218,7 @@ void() pyro_fire =
 void()	pyro_atk1	=[	$attack1,	pyro_atk2	] {ai_face();};
 void()	pyro_atk2	=[	$attack3,	pyro_atk3	] {ai_face();};
 void()	pyro_atk3	=[	$attack5,	pyro_atk4	] {ai_face();
-	sound (self, CHAN_WEAPON, "enforcer/pyro_flameon.wav", 1, ATTN_NORM);
+	sound (self, CHAN_WEAPON, self.noise3, 1, ATTN_NORM);	// ON
 	pyro_fire(); 
 	self.attack_finished = time + 0.3;
 };
@@ -198,7 +229,7 @@ void()	pyro_atk4	=[	$attack5,	pyro_atk5	] {ai_face();
 		self.think = pyro_atk4;
 };
 void()	pyro_atk5	=[	$attack10,	pyro_run1	] {ai_face();
-	sound (self, CHAN_WEAPON, "enforcer/pyro_flameoff.wav", 1, ATTN_NORM);
+	sound (self, CHAN_WEAPON, self.noise4, 1, ATTN_NORM);	// OFF
 	SUB_CheckRefire (pyro_atk1);
 };
 
@@ -239,11 +270,17 @@ void(entity inflictor, entity attacker, float damage) pyro_pain =
 		else sound (self, CHAN_VOICE, self.pain_sound2, 1, ATTN_NORM);
 	
 		// Not using long pain animation (need to be agile)
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			// Randomly pick which pain animation to play
 			if (self.lip < 0.3) pyro_paina1 ();
 			else if (self.lip < 0.6) pyro_painb1 ();
 			else pyro_painc1 ();
+		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.8;
+			self.axhitme = 0;
+			pyro_painc1 ();
 		}
 	}
 };
@@ -263,7 +300,7 @@ void()	pyro_die10	=[	$death10,	pyro_die11	] {ai_forward(5);};
 void()	pyro_die11	=[	$death11,	pyro_die12	] {ai_forward(5);};
 void()	pyro_die12	=[	$death12,	pyro_die13	] {ai_forward(5);};
 void()	pyro_die13	=[	$death13,	pyro_die14	] {monster_death_postcheck();};
-void()	pyro_die14	=[	$death14,	pyro_die14	] {};
+void()	pyro_die14	=[	$death14,	pyro_die14	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	pyro_fdie1	=[	$fdeath1,	pyro_fdie2	] {};
@@ -277,7 +314,7 @@ void()	pyro_fdie7	=[	$fdeath7,	pyro_fdie8	] {};
 void()	pyro_fdie8	=[	$fdeath8,	pyro_fdie9	] {};
 void()	pyro_fdie9	=[	$fdeath9,	pyro_fdie10	] {};
 void()	pyro_fdie10	=[	$fdeath10,	pyro_fdie11	] {monster_death_postcheck();};
-void()	pyro_fdie11	=[	$fdeath11,	pyro_fdie11	] {};
+void()	pyro_fdie11	=[	$fdeath11,	pyro_fdie11	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() pyro_die =
@@ -324,11 +361,13 @@ void() monster_pyro =
 	precache_sound ("enforcer/sight4.wav");
 
 	// Extra sound/sprite assets (from Rubicon2 MOD)
-	precache_sound ("enforcer/pyro_flameon.wav");
-	precache_sound ("enforcer/pyro_flameoff.wav");
-	precache_model ("progs/s_flame.spr");	// Flame on
-	precache_model ("progs/s_smoke.spr");	// Underwater
-	precache_model ("progs/s_dpflame.spr");	// Empty for DP
+	self.noise3 = "enforcer/pyro_flameon.wav";
+	self.noise4 = "enforcer/pyro_flameoff.wav";
+	precache_sound (self.noise3);
+	precache_sound (self.noise4);
+	precache_model (SBURST_FLAME);		// Flame on
+	precache_model (SBURST_SMOKE);		// Underwater
+	precache_model (SBURST_FLAMEDP);	// DP Collision
 	
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;
@@ -338,10 +377,12 @@ void() monster_pyro =
 	self.gibbed = FALSE;
 	self.yaw_speed = 35;				// Can turn really fast
 	self.pain_flinch = 100;				// extremely high pain tolerance
-	self.pain_longanim = FALSE;			// Not using D pain, too slow
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.steptype = FS_TYPEHEAVY;		// heavy feet
+	self.attack_offset = '24 8.5 16';	// End of Gun
 	self.ammo_shells = 4;				// drops armor shards instead
 	if (!self.exactskin) self.randomskin = 4;
+	
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;
@@ -357,6 +398,82 @@ void() monster_pyro =
 	self.th_missile = pyro_atk1;		// For monster_turret function
 
 	self.classtype = CT_MONPYRO;
+	self.classgroup = CG_ENFORCER;
+	self.classmove = MON_MOVEWALK;
+	monster_start();
+};
+
+/*======================================================================
+ QUAKED monster_fumigator (1 0 0) (-16 -16 -24) (16 16 40) Ambush
+======================================================================*/
+void() monster_fumigator =
+{
+	if (deathmatch) { remove(self); return; }
+	
+	self.mdl = "progs/mon_fumigator.mdl";
+	self.headmdl = "progs/h_pyro.mdl";
+	self.gib1mdl = "progs/w_enforcergun.mdl";	// Unique weapon
+	precache_model (self.mdl);
+	precache_model (self.headmdl);
+	precache_model (self.gib1mdl);
+	self.gib1sound = GIB_IMPACT_WOOD;
+	self.gib1skin = 4;
+
+	precache_sound ("enforcer/death1.wav");
+	self.pain_sound = "enforcer/pain1.wav";
+	self.pain_sound2 = "enforcer/pain2.wav";
+	precache_sound (self.pain_sound);
+	precache_sound (self.pain_sound2);
+
+	self.idle_sound = "enforcer/idle1.wav";
+	precache_sound (self.idle_sound);
+	self.sight_sound = "enforcer/sight1.wav";
+	precache_sound (self.sight_sound);
+	precache_sound ("enforcer/sight2.wav");
+	precache_sound ("enforcer/sight3.wav");
+	precache_sound ("enforcer/sight4.wav");
+
+	// Extra sound/sprite assets (from Rubicon2 MOD)
+	self.noise3 = "enforcer/fum_poisonon.wav";
+	self.noise4 = "enforcer/fum_poisonoff.wav";
+	precache_sound (self.noise3);
+	precache_sound (self.noise4);
+	precache_model (SBURST_POISON);		// Poison on
+	precache_model (SBURST_POISONDP);	// DP Collision
+
+	precache_poisongibs();					// precache gibs
+	
+	self.solid = SOLID_NOT;
+	self.movetype = MOVETYPE_NONE;
+	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
+	if (self.health < 1) self.health = 100;
+	self.gibhealth = -35;
+	self.gibbed = FALSE;
+	self.yaw_speed = 35;				// Can turn really fast
+	self.pain_flinch = 100;				// extremely high pain tolerance
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
+	self.steptype = FS_TYPEHEAVY;		// heavy feet
+	self.attack_offset = '24 8.5 16';	// End of Gun
+	self.ammo_shells = 4;				// drops armor shards instead
+	self.poisonous = TRUE;				// Oh yeah! Poison!
+	self.gibtype = GIBTYPE_POISON;		// Poison gibs!
+	self.no_liquiddmg = TRUE;			// Immune to slime/lava
+	if (!self.exactskin) self.randomskin = 4;
+
+	// Always reset Ammo Resistance to be consistent
+	self.resist_shells = 0; self.resist_nails = 0.5;
+	self.resist_rockets = self.resist_cells = 0;
+
+	self.th_checkattack = PyroCheckAttack;
+	self.th_stand = pyro_stand1;
+	self.th_walk = pyro_walk1;
+	self.th_run = pyro_run1;
+	self.th_pain = pyro_pain;
+	self.th_die = pyro_die;
+	self.th_melee = pyro_atk1;
+	self.th_missile = pyro_atk1;		// For monster_turret function
+
+	self.classtype = CT_MONFUMIGATOR;
 	self.classgroup = CG_ENFORCER;
 	self.classmove = MON_MOVEWALK;
 	monster_start();

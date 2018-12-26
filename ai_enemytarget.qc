@@ -168,12 +168,13 @@ void(entity targ, float zoffset, float rndtimer) SUB_setupEnemyTarget =
 		self.enemytarget.movetype = MOVETYPE_NONE;
 		self.enemytarget.solid = SOLID_NOT;
 		// Plenty of functions test for health and damage
-		self.enemytarget.health = 100000;
+		self.enemytarget.health = LARGE_TIMER;
 		self.enemytarget.takedamage = DAMAGE_YES;
 	}
 	
 	// If attacking a monster stay up high out its way, else move up and down
 	if (targ.flags & FL_MONSTER) self.enemytarget.wait = 0;
+	else if (self.bossflag) self.enemytarget.wait = 0;
 	else self.enemytarget.wait = rndtimer;
 
 	// Setup parameters and enable update routine

@@ -1,5 +1,5 @@
 /*==============================================================================
-SKULL WIZARD (Hexen2 model)
+SKULL WIZARD (Hexen2 model by Raven Software)
 ==============================================================================*/
 
 // Fall backwards, vanish and robes fall down
@@ -316,12 +316,11 @@ void(vector orgofs) skullw_fire =
 	if (random() < 0.5) sound (self, CHAN_WEAPON, "skullwiz/skull1.wav", 1, ATTN_NORM);
 	else sound (self, CHAN_WEAPON, "skullwiz/skull2.wav", 1, ATTN_NORM);
 
-	self.attack_speed = SPEED_SWIZMISSILE + (skill * SPEED_SWIZSKILL);
 	makevectors (self.angles);
-
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(orgofs);
 	dir = normalize(self.enemy.origin - org);
 
+	self.attack_speed = SPEED_SWIZMISSILE + (skill * SPEED_SWIZSKILL);
 	if (self.spawnflags & MON_SKULLWIZ_GUARDIAN) proj_type = CT_PROJ_SKULLWP;
 	else proj_type = CT_PROJ_SKULLW;
 	Launch_Missile (org, dir, '0 0 0', proj_type, self.attack_speed);
@@ -391,7 +390,7 @@ void() skullw_guardian =
 		newmis.classtype = CT_TEMPSTREAM;
 		newmis.movetype = MOVETYPE_FLY;		// Fly, no gravity
 		newmis.solid = SOLID_TRIGGER;
-		setmodel(newmis, "progs/s_poison.spr");
+		setmodel(newmis, SBURST_POISON);
 
 		org = self.origin;
 		org_z = org_z + (crandom() * 24);
@@ -470,7 +469,7 @@ void(vector orgofs, float dbframe) skullw_sumball =
 
 	// Generate attachment in hand (left)
 	makevectors(self.angles);
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(orgofs);
 	setorigin(self.attachment, org);
 	self.attachment.angles_y = rint(random()*359);
 	self.attachment.frame = dbframe;
@@ -479,7 +478,7 @@ void(vector orgofs, float dbframe) skullw_sumball =
 	// once lost soul is spawning, then switch particle location
 	if (self.aflag == TRUE) particle_explode(self.pos2, 3, 1, self.part_style, PARTICLE_BURST_MINOTAUR);
 	// Need to cut down on particles, too much visual noise
-	//	else particle_debuff(self.origin, rint(4+random()*4), self.part_style);
+	//	else particle_debuff(self.origin, 16, rint(4+random()*4), self.part_style);
 };
 
 //----------------------------------------------------------------------
@@ -669,16 +668,20 @@ void() skullw_fadeaway =
 };
 
 //----------------------------------------------------------------------
-void()	skullw_death1	=[	$death2,	skullw_death2	] {ai_face();};
-void()	skullw_death2	=[	$death3,	skullw_death3	] {ai_face();};
-void()	skullw_death3	=[	$death4,	skullw_death4	] {ai_face();self.solid = SOLID_NOT;};
-void()	skullw_death4	=[	$death5,	skullw_death5	] {ai_face();};
-void()	skullw_death5	=[	$death6,	skullw_death6	] {
+void() skullw_explode =
+{
 	self.health = MON_NOGIBVELOCITY;	// Low gib directional modifier
 	particle_explode(self.origin, 100, 3, PARTICLE_BURST_WHITE, PARTICLE_BURST_SKULLUP);
 	self.gib2skin = self.exactskin;		// Update book skin
 	ThrowGib(11,1); ThrowGib(12,1);		// Throw head and book
 };
+
+//----------------------------------------------------------------------
+void()	skullw_death1	=[	$death2,	skullw_death2	] {ai_face();};
+void()	skullw_death2	=[	$death3,	skullw_death3	] {ai_face();};
+void()	skullw_death3	=[	$death4,	skullw_death4	] {ai_face();self.solid = SOLID_NOT;};
+void()	skullw_death4	=[	$death5,	skullw_death5	] {ai_face();};
+void()	skullw_death5	=[	$death6,	skullw_death6	] {skullw_explode();};
 void()	skullw_death6	=[	$death7,	skullw_death7	] {};
 void()	skullw_death7	=[	$death8,	skullw_death8	] {};
 void()	skullw_death8	=[	$death9,	skullw_death9	] {};
@@ -699,16 +702,32 @@ void() skullw_die =
 	// Play fade away/death sound
 	sound (self, CHAN_BODY, "skullwiz/death.wav", 1, ATTN_NORM);
 
-	// Large particle explosion upwards
-	skullw_fadeaway();
-
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
 	skullw_remove_attachment();
-	//delete_minionspace();
 
-	// Skull wizards don't gib, just fade away
-	skullw_death1 ();
+	// Special death, Instantly vaporize cloak
+	// This is really a gib death without the gibs!
+	if (self.health < -40) {
+		// Typical Grenade explosion
+		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+		WriteByte (MSG_BROADCAST, TE_EXPLOSION);
+		WriteCoord (MSG_BROADCAST, self.origin_x);
+		WriteCoord (MSG_BROADCAST, self.origin_y);
+		WriteCoord (MSG_BROADCAST, self.origin_z);
+		SpawnExplosion(EXPLODE_MED, self.origin, SOUND_REXP3);
+
+		self.health = MON_NOGIBVELOCITY;	// Low gib directional modifier
+		self.gib2skin = self.exactskin;		// Update book skin
+		ThrowGib(11,1); ThrowGib(12,1);		// Throw head and book
+		entity_hide(self);
+	}
+	// Regular death, collapse and fade away
+	else {
+		// Large particle explosion upwards
+		particle_explode(self.origin, 100, 3, self.part_style, PARTICLE_BURST_SKULLUP);
+		skullw_death1();
+	}
 };
 
 /*======================================================================
@@ -723,7 +742,7 @@ void() monster_skullwiz =
 	precache_model (MODEL_PROJ_SWSKULL);		// explosive flaming skull
 	precache_model (MODEL_PROJ_SWSKULLP);		// explosive poison skull
 	precache_model (MODEL_PROJ_SWBALL);			// Purple minion ball
-	precache_model ("progs/s_poison.spr");		// Poison explosion
+	precache_model (SBURST_POISON);				// Poison explosion
 
 	self.gib1mdl = "progs/h_skullwiz.mdl";		// Skull head
 	self.gib2mdl = "progs/w_skullbook.mdl";		// Unique book item
@@ -875,7 +894,7 @@ void() info_skullwiz_destination =
 	// which is expensive if lots of entities are around
 	if (self.targetname == "" || self.target == "") {
 		dprint("\b[SKULLWIZ_DEST]\b missing target or targetname\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}

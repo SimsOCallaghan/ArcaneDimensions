@@ -7,20 +7,36 @@ float TRIG_TELEPLAYER = 1;		// Player only
 float TRIG_TELESILENT = 2;		// No teleport sound
 float TRIG_TELEALWAYSON = 4;	// Trigger teleports starts on
 float TRIG_HURTMONSTER = 4;		// Only hurt monsters
+float TRIG_HURTFALLING = 32;	// Only hurt if player falling
 float TRIG_PUSHONCE = 1;		// Switch off after one use
 float TRIG_PUSHSILENT = 2;		// No wind sound for player
 float TRIG_PUSHNOMONSTER = 4;	// Monsters cannot use this push trigger
 float TRIG_CMAPNOPAUSE = 1;		// No info screen, next map
 float TRIG_CMAPRESETINV = 2;	// Reset inventory (shotgun+25shells)
-float TRIG_CMAPSECSPAWN = 2;	// Spawn at the second spawn point
+float TRIG_CMAPSECSPAWN = 4;	// Spawn at the second spawn point
 float TRIG_MONJUMPFLY = 2;		// Will affect flying units
 float TRIG_MONJUMPSWIM = 4;		// Will affect swimming units
+float TRIG_TSOUNDWGEO = 4;		// World Geometry interaction
+float TRIG_TSOUNDDRAIN = 8;		// Drain effect when disabled
 float TRIG_VOIDNOCLIENT = 1;	// Clients will suffer no damage
 float TRIG_VOIDNOMONSTER = 2;	// Monsters will be immune to the void
 float TRIG_VOIDNOAMMO = 4;		// Ammo projectiles will pass through
 float TRIG_VOIDNOGG = 8;		// Minion eggs will ignore the void
 float TRIG_VOIDNOTEMP = 16;		// Temporary entities will exist longer
 float TRIG_VOIDNOITEM = 32;		// All items will carry on as before
+
+//======================================================================
+// If a dead body has touched a trigger, setup removal
+//======================================================================
+float(entity body_ent, float body_death) trigger_check_body =
+{
+	if (body_ent.flags & FL_MONSTER && body_ent.deadflag == DEAD_DEAD) {
+		body_ent.deadflag = body_death;
+		body_ent.touchedvoid = TRUE;
+		return TRUE;
+	}
+	return FALSE;
+};
 
 //======================================================================
 // Setup/Spawn/Remove bubbles inside a trigger volume
@@ -56,6 +72,8 @@ void() trigger_setup_bubbles =
 	self.oldorigin_z = self.mins_z;
 	self.t_width = (self.size_x/2);
 	self.t_length = (self.size_y/2);
+	// Default spawn rate for bubbles
+	if (self.yaw_speed <= 0) self.yaw_speed = 0.5;
 };
 
 //----------------------------------------------------------------------
@@ -130,12 +148,12 @@ void() trigger_spawn_bubbles =
 
 	// Keep spawning bubbles until told not too!
 	self.think = trigger_spawn_bubbles;
-	self.nextthink = time + 0.1 + random();
+	self.nextthink = time + self.yaw_speed + random()*self.yaw_speed;
 };
 
 /*======================================================================
 /*QUAKED trigger_multiple (0.5 0 0.5) ? NOTOUCH x x x MODCHECK MONSTERS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
-Variabled sized bmodel that uses multiple times
+Variable sized bmodel that uses multiple times
 ------- KEYS --------
 targetname : trigger entity (works with entity state system)
 target  : trigger all these targets
@@ -155,7 +173,7 @@ MODCHECK : Will remove this entity if THIS mod is active
 MONSTER  : can be touched/triggered by monsters
 STARTOFF : Requires trigger to activate
 ------- NOTES --------
-Variabled sized bmodel that uses multiple times
+Variable sized bmodel that uses multiple times
 
 ======================================================================*/
 void() trigger_multiple =
@@ -172,7 +190,7 @@ void() trigger_multiple =
 
 /*======================================================================
 /*QUAKED trigger_once (0.5 0 0.5) ? NOTOUCH x x INVIEW MODCHECK MONSTER STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
-Variabled sized bmodel that uses once
+Variable sized bmodel that uses once
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
 target  : trigger all these targets
@@ -194,7 +212,7 @@ MODCHECK : Will remove this entity if THIS mod is active
 MONSTER  : can be touched/triggered by monsters
 STARTOFF : Requires trigger to activate
 -------- NOTES --------
-Variabled sized bmodel that uses once
+Variable sized bmodel that uses once
 
 ======================================================================*/
 void() trigger_once =
@@ -461,7 +479,7 @@ void() trigger_teleport =
 	if (self.target == "") {
 		dprint("\b[TRIGGER_TELEPORT]\b Missing target\n");
 		self.oldorigin = bmodel_origin(self);
-		spawn_marker(self.oldorigin);
+		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -767,7 +785,7 @@ void() trigger_rune =
 	if (self.customkey == 0) {
 		dprint("\b[TRIG_RUNE]\b No runes setup!\n");
 		self.oldorigin = bmodel_origin(self);
-		spawn_marker(self.oldorigin);
+		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
 		remove(self);
 		return;		
 	}
@@ -802,6 +820,8 @@ void() trigger_push_fire =
 	// to the trigger activator has to go through 'bmodel_act'
 	if (self.estate & ESTATE_BLOCK) return;
 	if (self.attack_finished > time) return;
+	// Check for any dead monster bodies (no exceptions)
+	if (trigger_check_body(self.bmodel_act,DEAD_EXPLODE)) return;
 	// Check for no monster exception
 	if (self.spawnflags & TRIG_PUSHNOMONSTER && self.bmodel_act.flags & FL_MONSTER) return;
 
@@ -844,9 +864,11 @@ void() trigger_push =
 	self.spawnflags = self.spawnflags | TRIG_ALWAYTOUCH | TRIG_NODAMAGE;
 	if (!self.speed) self.speed = 1000;
 
-	// Wind push sound when touching trigger
-	if (self.spawnflags & TRIG_PUSHSILENT) self.noise = SOUND_EMPTY;
-	else self.noise = "ambience/windfly.wav";
+	// Setup default wind sound if no custom sound found
+	// else if silent trigger, use misc/empty sound
+	if ( !(self.spawnflags & TRIG_PUSHSILENT) && self.noise == "")
+		self.noise = "ambience/windfly.wav";
+	if (self.noise == "") self.noise = SOUND_EMPTY;
 	precache_sound (self.noise);
 	
 	if (self.spawnflags & TRIG_PUSHONCE) self.wait = -1;
@@ -982,7 +1004,7 @@ void() trigger_fog_fire =
 	// to the trigger activator has to go through 'bmodel_act'
 	if (self.estate & ESTATE_BLOCK) return;
 	if (self.attack_finished > time) return;
-	
+
 	if (query_configflag(SVR_NOFOGCMDS)) {
 		dprint("\b[FOG]\b quake.rc disabled, removing!\n");
 		self.attack_finished = LARGE_TIMER;
@@ -1015,6 +1037,7 @@ void() trigger_fog_fire =
 	
 	// Is the trigger repeatable?
 	if (self.wait > 0) {
+		if (self.wait < self.speed) self.wait = self.speed + 0.1;
 		self.attack_finished = time + self.wait;
 		self.nextthink = self.attack_finished;
 		self.think = self.estate_on;
@@ -1023,6 +1046,20 @@ void() trigger_fog_fire =
 	else {
 		self.attack_finished = LARGE_TIMER;
 		self.estate_off();
+	}
+};
+
+//----------------------------------------------------------------------
+void() trigger_fog_waitforcontrol =
+{
+	if (fog_control && fog_active) {
+		// Setup Entity State functionality
+		self.estate_fire = trigger_fog_fire;
+		trigger_bmodel_setup();
+	}
+	else {
+		self.think = trigger_fog_waitforcontrol;
+		self.nextthink = time + 0.1 + random();
 	}
 };
 
@@ -1045,15 +1082,80 @@ void() trigger_fog =
 	if (self.fog_density < 0) self.lefty = TRUE;
 	// Default density/colour
 	if (!self.fog_density) self.fog_density = 0.1;
-	if (self.fog_colour == '0 0 0') self.fog_colour = '0.1 0.1 0.1';
+	if (CheckZeroVector(self.fog_colour)) self.fog_colour = '0.1 0.1 0.1';
 
-	// Setup Entity State functionality
-	self.estate_fire = trigger_fog_fire;
-	trigger_bmodel_setup();
+	trigger_fog_waitforcontrol();
 };
 
 /*======================================================================
-/*QUAKED trigger_monsterjump (.5 .5 .5) ? x FLYING SWIMING x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_nomonjump (.5 .5 .5) ? x x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+Stop monsters from using jump attack
+-------- KEYS --------
+targetname : trigger entity (works with entity state system)
+wait   : -1 = trigger_once functionality
+delay  : time to delay jump attack by (def=0.5s)
+waitmin: Re-trigger timer to stop touch flooding (def=0.1s)
+noise1 : specify classname that CAN use this trigger (noise1=monster_dog)
+-------- SPAWNFLAGS --------
+STARTOFF : Starts off and waits for trigger
+-------- NOTES --------
+Stop monsters from using jump attack
+
+======================================================================*/
+void() trigger_nomonjump_fire =
+{
+	// This is after bmodel _use, _killed and _touch, so any reference
+	// to the trigger activator has to go through 'bmodel_act'
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+	
+	// Block non-monsters
+	if (!(self.bmodel_act.flags & FL_MONSTER)) return;
+
+	// Is there any classname exception setup?
+	if (self.noise1 != "") {
+		if (self.bmodel_act.classname != self.noise1) return;
+	}
+	
+	// Check for any extra triggers, fire them once!
+	if (self.target != "") {
+		trigger_strs(self.target, activator);
+		self.target = "";
+	}
+	
+	// Update jump flag to block jump attacks
+	self.bmodel_act.jump_flag = time + self.delay;
+	// Restrict the trigger to 0.1s re-triggering
+	self.attack_finished = time + self.waitmin;
+
+	// Setup to trigger push once?
+	if (self.wait < 0) {
+		self.attack_finished = LARGE_TIMER;
+		self.estate_off();
+	}
+};
+
+//----------------------------------------------------------------------
+void() trigger_nomonjump =
+{
+	self.classtype = CT_TRIGNOJUMP;
+	if (!self.delay) self.delay = 0.5;
+	if (!self.waitmin) self.waitmin = 0.1;
+	// Work out dimensions of trigger
+	InitTrigger ();
+		
+	// No trigger damage functionality and always touchable!
+	self.spawnflags = self.spawnflags | TRIG_ALWAYTOUCH | TRIG_NODAMAGE;
+	
+	// Setup Entity State functionality
+	self.estate_fire = trigger_nomonjump_fire;
+	self.touch = trigger_bmodel_anytouch;
+	trigger_bmodel_setup();
+
+};
+
+/*======================================================================
+/*QUAKED trigger_monsterjump (.5 .5 .5) ? x FLYING SWIMMING x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Push monsters in a certain direction
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -1065,7 +1167,7 @@ height : the speed thrown upwards (def 200)
 noise1 : specify classname that CAN use this trigger (noise1=monster_dog)
 -------- SPAWNFLAGS --------
 FLYING   : Will affect flying monsters
-SWIMING  : Will affect swimming monsters
+SWIMMING  : Will affect swimming monsters
 STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
 Push monsters in a certain direction
@@ -1093,7 +1195,7 @@ void() trigger_monsterjump_fire =
 	if (self.noise1 != "") {
 		if (self.bmodel_act.classname != self.noise1) return;
 		// extra special condition for enraged drole's
-		if (self.bmodel_act.classname == self.noise1 && !self.bmodel_act.attack_rage) return;
+		if (self.bmodel_act.classtype == CT_MONDROLE && !self.bmodel_act.attack_rage) return;
 	}
 	
 	// Check for any triggers, fire them once!
@@ -1102,7 +1204,7 @@ void() trigger_monsterjump_fire =
 		self.target = "";
 	}
 	
-	// Flying/Swiming monsters only need a push in the right direction
+	// Flying/Swimming monsters only need a push in the right direction
 	if (self.bmodel_act.flags & FL_FLY || self.bmodel_act.flags & FL_SWIM) {
 		self.bmodel_act.velocity = self.movedir * self.speed;
 	}
@@ -1223,20 +1325,22 @@ void() trigger_monsterturret =
 };
 
 /*======================================================================
-/*QUAKED trigger_hurt (.5 .5 .5) ? x BUBBLES MONSTER_ONLY x MODCHECK x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_hurt (.5 .5 .5) ? x BUBBLES MONSTER_ONLY x MODCHECK FALLING STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Will hurt any touching entity
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
 dmg     : damage from contact with trigger (def=5)
 wait    : time between pain contact (def=1s)
 angle   : Facing Direction for trigger to work, use "360" for angle 0.
+speed   : used by falling spawnflag for velocity check (def=300)
 height  : Maximum travel distance up for bubbles (default trigger size)
 count   : total amount of active bubbles at once (default 5)
 style   : 1-15 (grey,brown1,blue1,green1,red1,brown2,pinkyel,brown3,purp1,purp2,brown4,green2,yellow,blue2,red2)
 -------- SPAWNFLAGS --------
 BUBBLES  : Spawn bubbles within trigger volume when active
-MODCHECK : Will remove this entity if THIS mod is active
 MONSTER_ONLY : Will only affect monsters
+MODCHECK : Will remove this entity if THIS mod is active
+FALLING  : Only hurts if the player is falling (speed=velocity)
 STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
 Will hurt any touching entity that can take damage
@@ -1247,10 +1351,21 @@ void() trigger_hurt_fire =
 {
 	// This is after bmodel _use, _killed and _touch, so any reference
 	// to the trigger activator has to go through 'bmodel_act'
-
 	if (self.attack_finished > time) return;
 	if (self.bmodel_act.takedamage == DAMAGE_NO) return;
 	if (self.spawnflags & TRIG_HURTMONSTER && !(self.bmodel_act.flags & FL_MONSTER)) return;
+	// Check for falling damage conditions (player + flying + speeding)
+	if (self.spawnflags & TRIG_HURTFALLING) {
+		if (self.bmodel_act.flags & FL_MONSTER) return;
+		if (self.bmodel_act.flags & FL_ONGROUND) return;
+		if (fabs(self.bmodel_act.velocity_z) < self.speed) return;
+	}
+	
+	// Check for any dead monster bodies (no exceptions)
+	if (trigger_check_body(self.bmodel_act,DEAD_EXPLODE)) return;
+
+	// Check for godmode players taking screenshots!
+	if (self.bmodel_act.flags & FL_CLIENT && self.bmodel_act.flags & FL_GODMODE) return;
 	
 	// Block touch function based on wait time
 	self.attack_finished = time + self.wait;
@@ -1276,19 +1391,25 @@ void() trigger_hurt =
 	InitTrigger ();
 	// No trigger damage functionality and always touchable!
 	self.spawnflags = self.spawnflags | TRIG_ALWAYTOUCH | TRIG_NODAMAGE;
-	if (!self.dmg) self.dmg = 5;
+	if (self.dmg < 0) self.dmg = 0;
+	else if (self.dmg == 0) self.dmg = 5;
 	if (self.wait <= 0) self.wait = 1;
 
 	// Setup bubble model/counter/volume
 	if (self.spawnflags & TRIG_SPAWNBUBBLES) trigger_setup_bubbles();
+	
+	// Setup default falling damage speed
+	if (self.spawnflags & TRIG_HURTFALLING && self.speed < 1) self.speed = 300;
 
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_on = trigger_hurt_on;
 	self.estate_off = trigger_bmodel_off;
 	self.estate_disable = trigger_bmodel_disable;
-	self.estate_fire = trigger_hurt_fire;
-	self.touch = trigger_bmodel_anytouch;
+	if (self.dmg > 0) {
+		self.estate_fire = trigger_hurt_fire;
+		self.touch = trigger_bmodel_anytouch;
+	}
 
 	// Switch on OR off?
 	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
@@ -1313,6 +1434,7 @@ message2 : centerprints when healing function has expired
 height  : Maximum travel distance up for bubbles (default trigger size)
 count   : total amount of active bubbles at once (default 5)
 style   : 1-15 (grey,brown1,blue1,green1,red1,brown2,pinkyel,brown3,purp1,purp2,brown4,green2,yellow,blue2,red2)
+yaw_speed : spawning rate (def=0.5) for bubbles (speed + random() x speed)
 -------- SPAWNFLAGS --------
 BUBBLES  : Spawn bubbles within trigger volume when active
 STARTOFF : Starts off and waits for trigger
@@ -1430,12 +1552,180 @@ void() trigger_heal =
 };
 
 /*======================================================================
+/*QUAKED trigger_touchsound (.5 .5 .5) ? x x WORLDGEO DRAIN x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+Plays sounds when touched by the player
+------- KEYS --------
+targetname : trigger entity (works with entity state system)
+sounds     : 1=Water (def) 2=Slime 3=Lava 4=silent 5=custom
+noise      : Custom trigger touch sound
+noise1     : Custom trigger exit sound
+noise2     : Custom draining sound
+speed      : Time (def=1.5s) to drain liquid
+yaw_speed  : Vertical drain speed (def=0.05)
+water_alpha: Alpha value for liquid (override worldspawn)
+-------- SPAWNFLAGS --------
+WORLDGEO : Will draw bmodel (not just a trigger)
+DRAIN    : Drain effect when trigger_disabled
+STARTOFF : Requires trigger to activate
+------- NOTES --------
+Plays sounds when touched by the player
+
+======================================================================*/
+void() trigger_tsound_touch =
+{
+	if (self.estate & ESTATE_BLOCK) return;		// Function off/disabled
+	if (self.attack_finished > time) return;	// Touch blocked (temporary)
+	if ( !(other.flags & FL_CLIENT) ) return;	// Only works with clients
+	if (other.health < 1 ) return;				// other is dead
+
+	if (other.touchedliquid < time)
+		sound (other, CHAN_BODY, self.noise, 1, ATTN_NORM);
+	other.touchedliquid = time + 0.1;
+	other.touchedsound = self.noise1;
+	self.attack_finished = time + 0.05;
+};
+
+//----------------------------------------------------------------------
+void() trigger_tsound_on =
+{
+	// No longer need this spawnflag, remove it
+	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
+	
+	self.estate = ESTATE_ON;
+	self.movetype = MOVETYPE_NONE;
+	self.solid = SOLID_TRIGGER;
+	self.origin = self.oldorigin;
+	self.alpha = self.water_alpha;
+	if (self.spawnflags & TRIG_TSOUNDWGEO) setmodel (self, self.mdl);
+};
+
+//----------------------------------------------------------------------
+void() trigger_tsound_fade =
+{
+	// Take draining time and divide by time passed
+    self.lip = self.speed - ((time - self.ltime) / self.speed);
+	// Start at current alpha value and move towards 0
+	self.alpha = self.lip * (self.water_alpha / self.speed);
+	// Slowly sink into the ground as alpha fading
+	self.origin_z = self.origin_z - (self.speed * self.yaw_speed);
+	// Exit condition
+    if (self.alpha <= 0) {
+        self.alpha = 0.01;
+		self.model = "";
+		self.estate = ESTATE_OFF;
+        return;
+    }
+	// Keep on loop (using minimum QS time segment)
+    self.nextthink = time + FADEMODEL_TIME;
+};
+
+//----------------------------------------------------------------------
+void() trigger_tsound_drain =
+{ sound(self, CHAN_AUTO, self.owner.noise2, 1, ATTN_NORM); };
+
+//----------------------------------------------------------------------
+void() trigger_tsound_disable =
+{
+	if (self.estate & ESTATE_BLOCK) return;
+	self.solid = SOLID_NOT;
+	self.estate = ESTATE_DISABLE;
+	
+	if (self.spawnflags & TRIG_TSOUNDDRAIN) {
+		// Allow for bmodel timer to alpha correctly
+		self.ltime = time;
+		// Gradually fade and lower bmodel
+		self.think = trigger_tsound_fade;
+		self.nextthink = time + FADEMODEL_TIME;
+		// Start playing draining sound
+		self.sound_emitter.think = trigger_tsound_drain;
+		self.sound_emitter.nextthink = time + self.super_time;
+	}
+};
+
+//----------------------------------------------------------------------
+void() trigger_tsound_syncalpha =
+{
+	// Allow for trigger to override global water alpha
+	if (self.water_alpha > 0) self.alpha = self.water_alpha;
+	else if (liquid_alpha > 0) self.alpha = liquid_alpha;
+	else self.alpha = 1;
+	// Save this value for later
+	self.water_alpha = self.alpha;
+	if (!(self.spawnflags & ENT_STARTOFF)) self.estate_on();
+};
+
+//----------------------------------------------------------------------
+void() trigger_touchsound =
+{
+	self.classtype = CT_TRIGTSOUND;
+	self.mdl = self.model;
+	InitTrigger ();
+	
+	if (!self.speed) self.speed = 1.5;
+	if (!self.yaw_speed) self.yaw_speed = 0.05;
+	if (self.super_time < 0.1) self.super_time = 0.1;
+	self.attack_finished = 0;
+	self.oldorigin = self.origin;
+
+	// Default sounds (water)
+	if (self.sounds < 1) self.sounds = 1;
+	
+	// Precache all sounds
+	if (self.sounds == 1) {
+		if (self.noise == "") self.noise = "player/inh2o.wav";
+		if (self.noise1 == "") self.noise1 = "misc/outwater.wav";
+	}
+	else if (self.sounds == 2) {
+		if (self.noise == "") self.noise = "player/slimbrn2.wav";
+		if (self.noise1 == "") self.noise1 = "misc/outwater.wav";
+	}
+	else if (self.sounds == 3) {
+		if (self.noise == "") self.noise = "player/inlava.wav";
+		if (self.noise1 == "") self.noise1 = "misc/outwater.wav";
+	}
+	// make sure there is always a sound (empty) defined
+	if (self.noise == "") self.noise = SOUND_EMPTY;
+	if (self.noise1 == "") self.noise1 = SOUND_EMPTY;
+
+	precache_sound(self.noise);
+	precache_sound(self.noise1);	
+	
+	if (self.spawnflags & TRIG_TSOUNDDRAIN) {
+		if (self.noise2 == "") self.noise2 = "ambience/liquid_drain.wav";
+		precache_sound(self.noise2);
+		// Create an entity to play drain sound
+		// bmodel origins are at 0,0,0 so never play properly
+		self.sound_emitter = spawn();
+		self.sound_emitter.owner = self;
+		self.sound_emitter.origin = bmodel_origin(self) + '0 0 32';
+		self.sound_emitter.solid = SOLID_NOT;
+		self.sound_emitter.movetype = MOVETYPE_NONE;
+		setmodel(self.sound_emitter, MODEL_EMPTY);
+		setorigin(self.sound_emitter, self.sound_emitter.origin);
+	}
+	
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_on = trigger_tsound_on;
+	self.estate_off = trigger_bmodel_off;
+	self.estate_disable = trigger_tsound_disable;
+	self.touch = trigger_tsound_touch;
+
+	// Switch off?
+	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+	
+	// Sync the water alpha console variable
+	self.think = trigger_tsound_syncalpha;
+	self.nextthink = time + 0.1 + random();
+};
+
+/*======================================================================
 /*QUAKED trigger_void (.5 .5 .5) ? NO_CLIENT NO_MONSTER NO_AMMO NO_EGG NO_TEMP NO_ITEM STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Garbage collector for bottom of skyboxes
 ------- KEYS --------
 targetname : trigger entity (works with entity state system)
 -------- SPAWNFLAGS --------
-NO_CLIENT  : Ignore cients (anything flagged as a client)
+NO_CLIENT  : Ignore clients (anything flagged as a client)
 NO_MONSTER : Ignore monsters (anything flagged as a monster)
 NO_AMMO    : Ignore ammo types (all ammo projectile types)
 NO_EGG     : Ignore minion eggs (affects shalrath, wraiths)
@@ -1450,6 +1740,10 @@ void() trigger_void_touch =
 	// Exception, entity state and particles!
 	if (self.estate & ESTATE_BLOCK) return;
 	if (other.classtype == CT_PARTICLE) return;
+
+	// Check for any dead monster bodies (no exceptions)
+	if (trigger_check_body(other,DEAD_REMOVE)) return;
+	
 	// Process spawnflag exceptions
 	if (self.spawnflags & TRIG_VOIDNOCLIENT && other.flags & FL_CLIENT) return;
 	if (self.spawnflags & TRIG_VOIDNOMONSTER && other.flags & FL_MONSTER) return;
@@ -1488,7 +1782,11 @@ void() trigger_void_touch =
 		else if (other.classgroup == CG_MINIONEGG) entity_remove(other,0.1);
 		else if (other.classgroup == CG_TEMPENT) entity_remove(other,0.1);
 		else if (other.classgroup == CG_WEAPON) entity_hide(other);
-		else if (other.classgroup == CG_AMMOITEM) entity_hide(other);
+		else if (other.classgroup == CG_AMMOITEM) {
+			entity_hide(other);
+			// Hide any shell/nail lids
+			if (other.attachment) entity_hide(other.attachment);
+		}
 		else if (other.classgroup == CG_ARMOR) entity_hide(other);
 		else if (other.classgroup == CG_KEY) entity_hide(other);
 		else if (other.classgroup == CG_RUNE) entity_hide(other);

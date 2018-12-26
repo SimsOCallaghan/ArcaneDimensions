@@ -86,7 +86,6 @@ void() dcrossbow_hold1;
 void() dcrossbow_slide1;
 void() dcrossbow_checkmelee;
 void() dcrossbow_crossbow_sound;
-vector DCROSS_MUZZLEPOINT = '20 12 28';
 float CROSS_DOWN = 1;
 float CROSS_UP = 2;
 float CROSS_TIMEOUT = 1;
@@ -309,7 +308,7 @@ void() dcrossbow_shot =
 	self.attack_speed = SPEED_DCROSS + (skill*SPEED_BOLTSKILL);
 
 	makevectors (self.angles);
-	org = self.origin + DCROSS_MUZZLEPOINT_x * v_forward + DCROSS_MUZZLEPOINT_y * v_right + DCROSS_MUZZLEPOINT_z * v_up;
+	org = self.origin + attack_vector(self.attack_offset);
 
 	//It certainly was really cool to write the code for tracking and
 	//lots of fun to watch how the AI adapts to the player movement,
@@ -365,13 +364,13 @@ void() dcrossbow_checkattack =
 		if (visible(self.enemy)) {
 			self.weaponswitch = time + CROSS_TIMEOUT;
 			// Is the enemy blocked by another enemy?
-			if (!visblocked_wide(self.enemy, '0 0 28', '0 0 0')) {
+			if (!visblocked_wide(self.enemy, self.attack_offset, '0 0 0')) {
 				// Is the enemy within melee range?
 				if (ai_checkmelee(MONAI_MELEEKNIGHT)) self.th_melee();
 				else {
 					// Skill level adjustment for bolt speed
 					boltspeed = SPEED_DCROSS + (skill*SPEED_BOLTSKILL);
-					self.attack_track = SUB_Tracking(self.attack_track, DCROSS_MUZZLEPOINT, self.enemy, boltspeed);
+					self.attack_track = SUB_Tracking(self.attack_track, self.attack_offset, self.enemy, boltspeed);
 		
 					// Chance of attack? start out low and get better chance+tracking over time	
 					self.attack_chance = self.attack_chance + 0.2;
@@ -562,10 +561,10 @@ void(entity inflictor, entity attacker, float damage)	dcrossbow_pain =
 				self.pain_finished = time + 2;	// long animation
 			}
 		}
-		// The new axe forces monsters into long pain animations
 		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 1.1;
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
 			dcrossbow_painD1 ();
 		}
 	}
@@ -584,7 +583,7 @@ void()	dcrossbow_die8	=[	$death8,	dcrossbow_die9	] {ai_forward(10);
 	sound (self, CHAN_WEAPON, GIB_SOUND_WOOD, 1, ATTN_NORM);};
 void()	dcrossbow_die9	=[	$death9,	dcrossbow_die10	] {ai_forward(11);};
 void()	dcrossbow_die10	=[	$death10,	dcrossbow_die11	] {monster_death_postcheck();};
-void()	dcrossbow_die11	=[	$death11,	dcrossbow_die11	] {};
+void()	dcrossbow_die11	=[	$death11,	dcrossbow_die11	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void()	dcrossbow_dieb1	=[	$deathb1,	dcrossbow_dieb2	] {};
 void()	dcrossbow_dieb2	=[	$deathb2,	dcrossbow_dieb3	] {monster_check_gib();};
@@ -607,7 +606,7 @@ void()	dcrossbow_dieb16	=[	$deathb16,	dcrossbow_dieb17	] {};
 void()	dcrossbow_dieb17	=[	$deathb17,	dcrossbow_dieb18	] {};
 void()	dcrossbow_dieb18	=[	$deathb18,	dcrossbow_dieb19	] {};
 void()	dcrossbow_dieb19	=[	$deathb19,	dcrossbow_dieb20	] {monster_death_postcheck();};
-void()	dcrossbow_dieb20	=[	$deathb20,	dcrossbow_dieb20	] {};
+void()	dcrossbow_dieb20	=[	$deathb20,	dcrossbow_dieb20	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void() dcrossbow_die =
 {
@@ -691,6 +690,7 @@ void() monster_dcrossbow =
 	self.weaponstate = CROSS_DOWN;		// Maintain crossbow state
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
+	self.attack_offset = '20 12 28';
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

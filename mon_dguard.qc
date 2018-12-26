@@ -376,7 +376,7 @@ void()	dguard_dieA8	=[	$deathA8,	dguard_dieA9	] {ai_forward(10);};
 void()	dguard_dieA9	=[	$deathA9,	dguard_dieA10	] {ai_forward(11);};
 void()	dguard_dieA10	=[	$deathA10,	dguard_dieA11	] {};
 void()	dguard_dieA11	=[	$deathA11,	dguard_dieA12	] {monster_death_postcheck();};
-void()	dguard_dieA12	=[	$deathA12,	dguard_dieA12	] {};
+void()	dguard_dieA12	=[	$deathA12,	dguard_dieA12	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void()	dguard_dieB1	=[	$deathB1,	dguard_dieB2	] {};
 void()	dguard_dieB2	=[	$deathB2,	dguard_dieB3	] {monster_check_gib();};
@@ -399,7 +399,7 @@ void()	dguard_dieB16	=[	$deathB16,	dguard_dieB17	] {};
 void()	dguard_dieB17	=[	$deathB17,	dguard_dieB18	] {};
 void()	dguard_dieB18	=[	$deathB18,	dguard_dieB19	] {};
 void()	dguard_dieB19	=[	$deathB19,	dguard_dieB20	] {monster_death_postcheck();};
-void()	dguard_dieB20	=[	$deathB20,	dguard_dieB20	] {};
+void()	dguard_dieB20	=[	$deathB20,	dguard_dieB20	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void()	dguard_dieC1	=[	$deathC1,	dguard_dieC2	] {ai_forward(5);};
 void()	dguard_dieC2	=[	$deathC2,	dguard_dieC3	] {monster_check_gib();ai_forward(8);};
@@ -416,7 +416,7 @@ void()	dguard_dieC10	=[	$deathC10,	dguard_dieC11	] {};
 void()	dguard_dieC11	=[	$deathC11,	dguard_dieC12	] {};
 void()	dguard_dieC12	=[	$deathC12,	dguard_dieC13	] {};
 void()	dguard_dieC13	=[	$deathC13,	dguard_dieC14	] {monster_death_postcheck();};
-void()	dguard_dieC14	=[	$deathC14,	dguard_dieC14	] {};
+void()	dguard_dieC14	=[	$deathC14,	dguard_dieC14	] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 // The sideways death happens to quick and looks odd when finished
 // Skipping this death sequence
@@ -436,7 +436,7 @@ void()	dguard_dieD11	=[	$deathD11,	dguard_dieD12	] {};
 void()	dguard_dieD12	=[	$deathD12,	dguard_dieD13	] {};
 void()	dguard_dieD13	=[	$deathD13,	dguard_dieD14	] {};
 void()	dguard_dieD14	=[	$deathD14,	dguard_dieD15	] {monster_death_postcheck();};
-void()	dguard_dieD15	=[	$deathD15,	dguard_dieD15 ] {};
+void()	dguard_dieD15	=[	$deathD15,	dguard_dieD15 ] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void() dguard_die =
 {

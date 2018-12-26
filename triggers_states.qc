@@ -155,7 +155,7 @@ void() trigger_bmodel_touch =
 	if ( !(self.spawnflags & TRIG_MONSTERS) && !(other.flags & FL_CLIENT) ) return;
 	
 	// Did the trigger have an angle key setup?
-	if (self.movedir != '0 0 0') {
+	if (CheckZeroVector(self.movedir) == FALSE) {
 		makevectors (other.angles);
 		if (v_forward * self.movedir < 0) return;		
 	}
@@ -206,6 +206,11 @@ void() trigger_bmodel_restore =
 
 	// Restore bounding box (dev testing visual thing)
 	setsize (self, self.bbmins, self.bbmaxs);
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
 };
 
 //----------------------------------------------------------------------

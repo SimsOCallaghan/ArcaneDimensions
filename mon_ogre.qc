@@ -95,7 +95,7 @@ void(float side, float dmgmultipler) chainsaw =
 	if (self.health < 1) return;
 
 	ai_damagebreakable(20);							// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEEOGRE)) return;	// Too far away
+	if (!ai_checkmelee(self.meleerange)) return;	// Too far away
 
 	// Can the target bleed? - generate blood
 	if (!CanDamage (self.enemy, self)) return;
@@ -165,6 +165,8 @@ void() ogre_shoot6	=[	$shoot5,		ogre_shoot7	] {};
 void() ogre_shoot7	=[	$shoot6,		ogre_run1	] {ai_face();};
 
 //======================================================================
+// Lots of different pain animations (falling over is a classic
+//======================================================================
 void()	ogre_pain1	=[	$pain1,		ogre_pain2	] {};
 void()	ogre_pain2	=[	$pain2,		ogre_pain3	] {};
 void()	ogre_pain3	=[	$pain3,		ogre_pain4	] {};
@@ -220,7 +222,7 @@ void()	ogre_paine14=[	$paine14,	ogre_paine15	] {};
 void()	ogre_paine15=[	$paine15,	ogre_run1	] {};
 
 //----------------------------------------------------------------------
-void(entity inflictor, entity attacker, float damage)	ogre_pain =
+void(entity inflictor, entity attacker, float damage) ogre_pain =
 {
 	// Check all pain conditions and set up what to do next
 	monster_pain_check(attacker, damage);
@@ -248,14 +250,21 @@ void(entity inflictor, entity attacker, float damage)	ogre_pain =
 		}
 		if (self.pain_check == 2) {
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
-			if (random() < 0.3) ogre_paind1 ();	// Fall to ground
-			else ogre_paine1 ();				// Stagger backwards
+			if (random() < 0.5) {
+				self.pain_finished = time + 1.6;
+				ogre_paind1 ();	// Fall to ground
+			}
+			else {
+				self.pain_finished = time + 1.5;
+				ogre_paine1 ();	// Stagger backwards
+			}
 		}
 	}
 };
 
-//============================================================================
+//======================================================================
+// DIE Ogre DIE!?!
+//======================================================================
 void()	ogre_die1	=[	$death1,	ogre_die2	] {};
 void()	ogre_die2	=[	$death2,	ogre_die3	] {monster_check_gib();};
 void()	ogre_die3	=[	$death3,	ogre_die4	] {monster_check_gib();
@@ -270,7 +279,7 @@ void()	ogre_die10	=[	$death10,	ogre_die11	] {};
 void()	ogre_die11	=[	$death11,	ogre_die12	] {};
 void()	ogre_die12	=[	$death12,	ogre_die13	] {};
 void()	ogre_die13	=[	$death13,	ogre_die14	] {monster_death_postcheck();};
-void()	ogre_die14	=[	$death14,	ogre_die14	] {};
+void()	ogre_die14	=[	$death14,	ogre_die14	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void()	ogre_bdie1	=[	$bdeath1,	ogre_bdie2	] {};
@@ -283,7 +292,7 @@ void()	ogre_bdie6	=[	$bdeath6,	ogre_bdie7	] {ai_forward(7);};
 void()	ogre_bdie7	=[	$bdeath7,	ogre_bdie8	] {ai_forward(25);};
 void()	ogre_bdie8	=[	$bdeath8,	ogre_bdie9	] {};
 void()	ogre_bdie9	=[	$bdeath9,	ogre_bdie10	] {monster_death_postcheck();};
-void()	ogre_bdie10	=[	$bdeath10,	ogre_bdie10	] {};
+void()	ogre_bdie10	=[	$bdeath10,	ogre_bdie10	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() ogre_die =
@@ -314,13 +323,212 @@ void() ogre_wakeup7	=[	$smash12,	ogre_wakeup8 ] {};
 void() ogre_wakeup8	=[	$smash13,	ogre_wakeup9 ] {};
 void() ogre_wakeup9	=[	$smash14,	ogre_run1	] {};
 
+//======================================================================
+// From the crazy mind of Madfox, comes fishing ogre!?!
+//======================================================================
+float OGREFISH_FISHY = 0;
+float OGREFISH_FISHING = 19;
+float OGREFISH_CATCH = 79;
+float ANIMATION_OGREFLAP = 18;
+float ANIMATION_OGREFISH = 59;
+float ANIMATION_OGRECATCH = 25;
+
+//----------------------------------------------------------------------
+// Special idle animation - Flappy the fish waggles tail
+//----------------------------------------------------------------------
+void() ogre_flappyfish =
+{
+	// If dead, no more updates
+	if (self.health < 1) return;
+
+	self.nextthink = time + 0.1;
+	self.frame = OGREFISH_FISHY + self.walkframe;
+
+	// Check for special frame conditions
+	if (self.walkframe == 0)
+		sound (self, CHAN_VOICE, "ogre/ogrefish_flappy.wav", 1, ATTN_NORM);
+	
+	// Move frame forward, check for conditions
+	self.walkframe = self.walkframe + 1;
+	if (self.walkframe > ANIMATION_OGREFLAP) {
+		self.walkframe = 0;
+		self.think = self.th_altstand;
+	}
+	else self.think = ogre_flappyfish;
+};
+
+//----------------------------------------------------------------------
+// Special idle animation - Ogre finally catches something!
+//----------------------------------------------------------------------
+void() ogre_catchfish =
+{
+	// If dead, no more updates
+	if (self.health < 1) return;
+
+	self.nextthink = time + 0.1;
+	self.frame = OGREFISH_CATCH + self.walkframe;
+
+	// Check for special frame conditions
+	if (self.walkframe == 6)
+		sound (self, CHAN_VOICE, "ogre/ogrefish_out.wav", 1, ATTN_NORM);
+	if (self.walkframe == 24)
+		sound (self, CHAN_VOICE, "ogre/ogrefish_in.wav", 1, ATTN_NORM);
+	
+	// Move frame forward, check for conditions
+	self.walkframe = self.walkframe + 1;
+	if (self.walkframe > ANIMATION_OGRECATCH) {
+		self.walkframe = 0;
+		self.think = self.th_altstand;
+	}
+	else self.think = ogre_catchfish;
+};
+
+//----------------------------------------------------------------------
+void() ogre_fishing =
+{
+	// If dead, no more updates
+	if (self.health < 1) return;
+
+	self.idlebusy = FALSE;
+	self.nextthink = time + 0.1;
+	self.frame = OGREFISH_FISHING + self.walkframe;
+
+	// Check for fishing idle animations
+	if (self.walkframe == 0) {
+		self.lip = random();
+		// Finally caught a fish?
+		if (self.lip < 0.1) {
+			self.think = ogre_catchfish;
+			self.idlebusy = TRUE;
+		}
+		// Flappy the fish gasping for air
+		else if (self.lip < 0.2) {
+			self.think = ogre_flappyfish;
+			self.idlebusy = TRUE;
+		}
+		// Classic ogre idle + water
+		else if (self.lip < 0.3) 
+			sound (self, CHAN_VOICE, "ogre/ogrefish_idle.wav", 1, ATTN_NORM);
+	}
+	
+	if (self.idlebusy == FALSE) {
+		// Move frame forward, check for conditions
+		self.walkframe = self.walkframe + 1;
+		if (self.walkframe > ANIMATION_OGREFISH) self.walkframe = 0;
+		self.think = ogre_fishing;
+	}
+};
+
+//----------------------------------------------------------------------
+// Re-using fall down pain animation
+//----------------------------------------------------------------------
+void()	ogre_fishd6	=[ $paind6,	ogre_fishd7	] {};
+void()	ogre_fishd7	=[ $paind7,	ogre_fishd8	] {};
+void()	ogre_fishd8	=[ $paind8,	ogre_fishd9	] {};
+void()	ogre_fishd9	=[ $paind9,	ogre_fishd10 ] {};
+void()	ogre_fishd10=[ $paind10, ogre_fishd11 ] {monster_footstep(FALSE);};
+void()	ogre_fishd11=[ $paind11, ogre_fishd12 ] {};
+void()	ogre_fishd12=[ $paind12, ogre_fishd13 ] {monster_footstep(FALSE);};
+void()	ogre_fishd13=[ $paind13, ogre_fishd14 ] {};
+void()	ogre_fishd14=[ $paind14, ogre_fishd15 ] {};
+void()	ogre_fishd15=[ $paind15, ogre_fishd16 ] {};
+void()	ogre_fishd16=[ $paind16, ogre_run1 ] {
+	// Restore pain/damage functionality
+	self.flags = self.flags | FL_MONSTER;
+	self.health = self.max_health;
+	
+	// Fishing ogre is wearing a grenade bounce shirt!
+	self.takedamage = DAMAGE_YES;
+	self.noradiusdmg = FALSE;
+	self.use = monster_use;
+	
+	// Does not feel much pain and attacks more often
+	self.pain_flinch = 200;
+	self.pain_timeout = 3;
+	
+	// Restore animation/game logic
+	self.th_stand = ogre_stand1;
+	self.th_walk = ogre_walk1;
+	self.th_run = ogre_run1;
+	self.th_melee = ogre_melee;
+	self.th_missile = ogre_shoot1;
+	self.th_pain = ogre_pain;
+	self.th_die = ogre_die;
+};
+
+//----------------------------------------------------------------------
+void() ogre_fishwakeup = {
+	self.use = SUB_Null;	// Stop re-triggering
+	monster_sightsound();	// Classic wakeup sound
+
+	// Make sure no more pain or damage
+	self.takedamage = DAMAGE_NO;
+	self.pain_finished = time + 2;
+	
+	// Check for model in original ogre position
+	// This is to save the space for the returning ogre
+	if (self.attachment) {
+		setmodel(self.attachment, "");
+		self.attachment.solid = SOLID_NOT;
+		self.attachment.movetype = MOVETYPE_NONE;
+	}
+	
+	// Check for any wakeup triggers
+	if (self.target2 != "") {
+		trigger_strs(self.target2, self);
+		self.target2 = "";
+	}
+	
+	// Shift ogre into pain (on floor) state
+	setmodel(self, self.mdl);
+	self.frame = $paind6;	// Has to be set after model change
+	setorigin(self, self.pos1);
+	setsize (self, self.bbmins, self.bbmaxs);
+	ogre_fishd6();
+};
+
+//----------------------------------------------------------------------
+void(entity inf, entity att, float dam) ogre_fishpain = {ogre_fishwakeup();};
+void() ogre_fishdie = {};
+
+//----------------------------------------------------------------------
+void() ogre_fishsetup =
+{
+	// Take direct damage only and grenades bounce!
+	self.takedamage = DAMAGE_YES;
+	self.noradiusdmg = TRUE;
+	self.health = MEGADEATH;
+	self.use = ogre_fishwakeup;
+	
+	// Create a temporary entity to fill up space behind ogre
+	// Prevent anthing getting in the way when ogre wakes up
+	if (!self.attachment) {
+		self.attachment = spawn();
+		setmodel(self.attachment, MODEL_EMPTY);
+		setorigin(self.attachment, self.origin);
+		setsize (self.attachment, self.bbmins, self.bbmaxs);
+		self.attachment.solid = SOLID_BBOX;
+		self.attachment.movetype = MOVETYPE_STEP;
+	}
+	
+	setmodel(self, self.weaponglow);	// Setup fishing model pose
+	self.pos1 = self.origin;			// Save current origin for later
+	
+	// Move ogre into fishing animation position
+	makevectors(self.angles);
+	self.pos2 = self.origin + attack_vector('36 0 -24');
+	setorigin(self, self.pos2);
+	// Got to reset bounding box after model change
+	setsize (self, self.bbmins, self.bbmaxs);
+	self.walkframe = 0;
+	ogre_fishing();
+};
+
 /*======================================================================
  QUAKED monster_ogre (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
-void() monster_ogre =
+void() monster_ogre_precache =
 {
-	if (deathmatch) { remove(self); return; }
-		
 	self.mdl = "progs/mon_ogre.mdl";		// Rogue Ogre
 	self.headmdl = "progs/h_ogre.mdl";
 	self.gib1mdl = "progs/w_chainsaw.mdl";	// Chainsaw
@@ -353,6 +561,15 @@ void() monster_ogre =
 
 	self.sight_sound = "ogre/ogwake.wav";
 	precache_sound (self.sight_sound);
+};
+
+//----------------------------------------------------------------------
+void() monster_ogre =
+{
+	if (deathmatch) { remove(self); return; }
+
+	// Precache basic ogre models and sounds
+	monster_ogre_precache();
 
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
@@ -361,10 +578,12 @@ void() monster_ogre =
 	if (self.bboxtype < 1) self.bboxtype = BBOX_WIDE;
 	self.gibhealth = -80;
 	self.gibbed = FALSE;
-	self.pain_flinch = 30;
-	self.pain_longanim = TRUE;
-	self.steptype = FS_TYPESLOW;
-	self.no_zaware = TRUE;
+	self.pain_flinch = 30;				// Low pain flinch
+	self.pain_longanim = TRUE;			// Can be chopped with shadow axe
+	self.steptype = FS_TYPESLOW;		// Small sounding feet
+	self.meleerange = MONAI_MELEEOGRE;	// Chainsaw range
+	self.no_zaware = TRUE;				// Always not zware
+	if (!self.ammo_rockets) self.ammo_rockets = 2;	// Default ammo drop
 
 	// Standard ogre health 200 with green+ option
 	if (self.health < 1) self.health = 200;
@@ -381,13 +600,12 @@ void() monster_ogre =
 	self.th_stand = ogre_stand1;
 	self.th_walk = ogre_walk1;
 	self.th_run = ogre_run1;
-	self.th_die = ogre_die;
 	self.th_melee = ogre_melee;
 	self.th_missile = ogre_shoot1;
 	self.th_pain = ogre_pain;
+	self.th_die = ogre_die;
 	self.th_wakeup = ogre_wakeup1;
-	
-	self.ammo_rockets = 2;
+		
 	self.classtype = CT_MONOGRE;		// Old style ogre
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
 	self.classmove = MON_MOVEWALK;
@@ -397,3 +615,71 @@ void() monster_ogre =
 
 //----------------------------------------------------------------------
 void() monster_ogre_marksman = { monster_ogre (); };
+
+//----------------------------------------------------------------------
+void() monster_ogre_fishing =
+{
+	if (deathmatch) { remove(self); return; }
+		
+	// Precache basic ogre models and sounds
+	monster_ogre_precache();
+
+	// Extra fishing ogre precache stuff
+	self.weaponglow = "progs/mon_ogrefish.mdl";
+	precache_model (self.weaponglow);
+	precache_sound ("ogre/ogrefish_out.wav");
+	precache_sound ("ogre/ogrefish_in.wav");
+	precache_sound ("ogre/ogrefish_idle.wav");
+	precache_sound ("ogre/ogrefish_flappy.wav");
+
+	self.solid = SOLID_NOT;			// No interaction with world
+	self.movetype = MOVETYPE_NONE;	// Static item, no movement
+	if (self.bboxtype < 1) self.bboxtype = BBOX_WIDE;
+	self.gibhealth = -80;
+	self.gibbed = FALSE;
+	self.pain_flinch = 1;			// Pain is the wakeup trigger
+	self.pain_longanim = FALSE;		// Cannot be chopped with shadow axe
+	self.steptype = FS_TYPESLOW;	// Small sounding feet
+	self.no_zaware = FALSE;			// Fishing ogre has perfect aim!
+	self.bouncegrenade = TRUE;		// Grenades bounce off!
+	self.meleerange = MONAI_MELEEOGRE;	// Chainsaw range
+	self.exactskin = 0;				// Skin defined by spawnflag
+	self.noinfighting = TRUE;		// No infighting
+	self.pain_ignore = TRUE;		// Will not wake up from monsters
+	self.movespeed = 0;				// This is not a turret
+	self.lip = 0;
+
+	// Remove spawnflag options not needed for this monster
+	if (self.spawnflags & MON_OGRE_GREEN) self.lip = self.lip | MON_OGRE_GREEN;
+	if (self.spawnflags & MON_SPAWN_NOGFX) self.lip = self.lip | MON_SPAWN_NOGFX;
+	if (self.spawnflags & MON_SPAWN_DELAY) self.lip = self.lip | MON_SPAWN_DELAY;
+	self.spawnflags = self.lip;
+	
+	// Special event monster has unique HP setup
+	if (self.spawnflags & MON_OGRE_GREEN) {
+		self.ammo_rockets = 6;	// Tons of rockets!
+		self.health = 350;		// Much stronger
+		self.skin = 1;			// Green (Rogue) skin
+	}
+	else {
+		self.ammo_rockets = 4;	// More rockets than fish!
+		self.health = 150;		// Lower HP than regular
+	}
+
+	// Always reset Ammo Resistance to be consistent
+	self.resist_shells = self.resist_nails = 0;
+	self.resist_rockets = 0.5;	// Rocket resistance
+	self.resist_cells = 0;
+
+	self.th_checkattack = OgreCheckAttack;
+	self.th_stand = self.th_walk = self.th_run = ogre_fishsetup;
+	self.th_altstand = ogre_fishing;
+	self.th_pain = ogre_fishpain;
+	self.th_die = ogre_fishdie;
+
+	self.classtype = CT_MONOGREFISH;
+	self.classgroup = CG_OGRE;			// One big happy ogre family!
+	self.classmove = MON_MOVEWALK;
+
+	monster_start();
+}

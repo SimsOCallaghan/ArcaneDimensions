@@ -9,6 +9,7 @@
  * It was a cool idea for its time (1996) but a horrible solution nowadays
    It would be much better to do this in the engine (rotation collision)
    Unfortunately most popular quake clients (QS/Fitz) refuse to add it
+ * Added target2 to func_rotate_door to allow alternative start positions
  
 ------------------------------------------------------------------------
 /*QUAKED info_rotate (0 0.5 0) (-4 -4 -4) (4 4 4)
@@ -40,6 +41,11 @@ Creates a door that rotates between two positions around a point of
 rotation each time it's triggered.
 
 ------------------------------------------------------------------------
+Most modern compilers will expect the rotate_object to always
+target a info_rotate (entity) so that it can sort out texture offset
+All func_rotating objects DO NOT start at 0,0,0 like other bmodels
+
+------------------------------------------------------------------------
 Explaination of func_rotating objects (by Mechtech)
 
 func_rotating_train (controller for rotation)
@@ -55,6 +61,14 @@ rotate_movewall (pretends to do collision)
 path_rotate (entity chain for train to follow)
 targetname -> Used for reference
 target -> next entity in chain to follow
+
+------------------------------------------------------------------------
+Func rotating doors cannot be moved on start so extra key added
+
+func_rotate_door (controller for rotation)
+targetname -> trigger to start/activate two state door
+target -> rotate_object (bmodel) AND rotate_movewall (bmodel)
+target2 -> info_rotate (entity) starting location for bmodel
 
 ======================================================================*/
 
@@ -148,8 +162,11 @@ void() info_rotate =
 {
 	// remove self after a little while, to make sure that entities that
 	// have targeted it have had a chance to spawn
-   self.nextthink = time + 5;
-   self.think = SUB_Remove;
+	// Not sure why this entity is removed, maybe there was entity
+	// limits in the old days, but that is long gone!
+	// Leaving entity in map, no advantage to removal anymore
+	//self.nextthink = time + 5;
+	//self.think = SUB_Remove;
 };
 
 //----------------------------------------------------------------------
@@ -376,7 +393,7 @@ rotate : The rate of rotation in degrees
 speed  : time taken to go from zero to full speed and vice-versa
 -------- SPAWNFLAGS --------
 TOGGLE  : allows the rotation to be toggled on/off
-STARTON : wether the entity is spinning when spawned.  
+STARTON : whether the entity is spinning when spawned.  
 If TOGGLE is 0, entity can be turned on, but not off.
 -------- NOTES --------
 Basic rotating object
@@ -530,14 +547,14 @@ void() rotate_train_next =
 	current = self.goalentity;
 	targ = find (world, targetname, self.path );
 	if ( targ.classname != "path_rotate" )
-		objerror( "Next target is not path_rotate" );
+		dprint("\b[ROT TRAIN]\b Next target is not path_rotate\n");
 
 	if ( self.goalentity.noise1 ) self.noise1 = self.goalentity.noise1;
 	sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
 
 	self.goalentity = targ;
 	self.path = targ.target;
-	if (!self.path ) objerror ("rotate_train_next: no next target");
+	if (!self.path ) dprint("\b[ROT TRAIN]\b No next target\n");
 
 	if ( targ.spawnflags & TRAIN_STOP ) self.think1 = rotate_train_stop;
 	else if (targ.wait) self.think1 = rotate_train_wait;
@@ -601,7 +618,7 @@ void() rotate_train_next =
 		else {
 			// check if there's a speed change
 			if (current.speed>0) self.speed = current.speed;
-			if (!self.speed) objerror("No speed is defined!");
+			if (!self.speed) dprint("\b[ROT TRAIN]\b No speed is defined!\n");
 
 			// divide by speed to get time to reach dest
 			traveltime = len / self.speed;
@@ -647,7 +664,7 @@ void() rotate_train_find =
 	// the second target is the path.
 	targ = find ( world, targetname, self.path);
 	if ( targ.classname != "path_rotate" )
-		objerror( "Next target is not path_rotate" );
+		dprint("\b[ROT TRAIN]\b Next target is not path_rotate\n");
 
 	// Save the current entity
 	self.goalentity = targ;
@@ -681,7 +698,7 @@ Trains are moving platforms that players can ride
 path   : Starts at'path_rotate' position
 speed  : travel speed (def=100)
 dmg    : blocking damage (def=0)
-sounds : 1 = ratchet metal
+sounds : 0=Silent, 1=ratchet metal
 noise  : sound to play when train stops
 noise1 : sound to play when train moves
 -------- SPAWNFLAGS --------
@@ -695,22 +712,22 @@ targeted by it.
 //======================================================================
 void() rotate_train =
 {
-	objerror ("rotate_train entities should be changed to rotate_object with\nfunc_rotate_train controllers\n");
+	dprint("\b[ROTATE]\b rotate_train not supported anymore!\n");
 };
 
 //----------------------------------------------------------------------
 void() func_rotate_train =
 {
 	if (!self.speed) self.speed = 100;
-	if (!self.target) objerror ("rotate_train without a target");
+	if (!self.target) dprint("\b[ROT TRAIN]\b missing target!\n");
 
 	if ( !self.noise ) {
-		if (self.sounds == 0) self.noise = ("misc/null.wav");
-		if (self.sounds == 1) self.noise = ("plats/train2.wav");
+		if (self.sounds == 0) self.noise = SOUND_EMPTY;
+		if (self.sounds == 1) self.noise = "plats/train2.wav";
 	}
 	if ( !self.noise1 ) {
-		if (self.sounds == 0) self.noise1 = ("misc/null.wav");
-		if (self.sounds == 1) self.noise1 = ("plats/train1.wav");
+		if (self.sounds == 0) self.noise1 = SOUND_EMPTY;
+		if (self.sounds == 1) self.noise1 = "plats/train1.wav";
 	}
 
 	precache_sound( self.noise );
@@ -853,14 +870,34 @@ Defines a bmodel object to be rotated
 Used as the target of func_rotate_door
 */
 //======================================================================
+void() rotate_object_move =
+{
+	local entity ent;
+	
+	ent = find( world, targetname, self.target2);
+	if (ent.classname == "info_rotate") {
+		// Move origin to new location
+		self.oldorigin = ent.origin;
+		setorigin( self, self.oldorigin );
+	}
+};
+
+//----------------------------------------------------------------------
 void() rotate_object =
 {
 	self.classname = "rotate_object";
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;
+	self.bsporigin = TRUE;		// bmodel origin 0,0,0
 	setmodel (self,self.model);
 	setsize( self, self.mins, self.maxs );
-	self.think = SUB_Null;
+	
+	// Check for a target (info_rotate) to move the object
+	if (self.target2 != "") {
+		self.think = rotate_object_move;
+		self.nextthink = time + 1;
+	}
+	else self.think = SUB_Null;
 };
 
 //----------------------------------------------------------------------
@@ -996,9 +1033,11 @@ void() rotate_door_use =
 /*QUAKED func_rotate_door (0 .5 .8) (-8 -8 -8) (8 8 8) STAYOPEN
 Rotating door moving around a point of rotation
 -------- KEYS --------
-dmg    : Damage caused when blocked (def=2) negative numbers =no damage
-speed  : Time taken to rotate open/close
-sounds : 1=medieval 2=metal 3=base (def=1)
+target  : Points to the rotate_object bmodel entity
+target2 : Move on spawn to this entity (info_rotate) location
+dmg     : Damage caused when blocked (def=2) negative numbers =no damage
+speed   : Time taken to rotate open/close
+sounds  : 1=medieval 2=metal 3=base 4=Silent (def=1)
 -------- SPAWNFLAGS --------
 STAYOPEN : Reopen after closing, stops a once only door from closing if blocked
 -------- NOTES --------
@@ -1007,7 +1046,7 @@ Rotating door moving around a point of rotation
 //======================================================================
 void() func_rotate_door =
 {
-	if (!self.target) objerror( "rotate_door without target." );
+	if (!self.target) dprint("\b[ROT DOOR]\b missing target!\n");
 
 	self.dest1 = '0 0 0';
 	self.dest2 = self.angles;
@@ -1022,27 +1061,29 @@ void() func_rotate_door =
 
 	if (self.sounds == 0) self.sounds = 1;
 	if (self.sounds == 1) {
-		precache_sound ("doors/latch2.wav");
-		precache_sound ("doors/winch2.wav");
-		precache_sound ("doors/drclos4.wav");
 		self.noise1 = "doors/latch2.wav";
 		self.noise2 = "doors/winch2.wav";
 		self.noise3 = "doors/drclos4.wav";
 	}
 	if (self.sounds == 2) {
-		precache_sound ("doors/airdoor1.wav");
-		precache_sound ("doors/airdoor2.wav");
 		self.noise2 = "doors/airdoor1.wav";
 		self.noise1 = "doors/airdoor2.wav";
 		self.noise3 = "doors/airdoor2.wav";
 	}
 	if (self.sounds == 3) {
-		precache_sound ("doors/basesec1.wav");
-		precache_sound ("doors/basesec2.wav");
 		self.noise2 = "doors/basesec1.wav";
 		self.noise1 = "doors/basesec2.wav";
 		self.noise3 = "doors/basesec2.wav";
 	}
+	if (self.sounds == 4) {
+		self.noise1 = SOUND_EMPTY;
+		self.noise2 = SOUND_EMPTY;
+		self.noise3 = SOUND_EMPTY;
+	}
+	
+	precache_sound (self.noise1);
+	precache_sound (self.noise2);
+	precache_sound (self.noise3);
 
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;

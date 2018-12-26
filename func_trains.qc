@@ -26,7 +26,7 @@ _shadow     : Will cast shadows on other models and itself
 _shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 STARTON  : Start moving straight away if targetname is used
-NONSOLID : No coliision or blocking functionality (uses bmodel)
+NONSOLID : No collision or blocking functionality (uses bmodel)
 MODEL    : Model with no collision (use mdl key, def=empty model)
 TOUCH    : Nonsolid or model trains have touch damage (dmg)
 REVERSE  : Start going backward through path_corner chain
@@ -478,6 +478,7 @@ void() func_train =
 	}
 	
 	self.classtype = CT_FUNCTRAIN;
+	self.classgroup = CG_FUNCMOVER;
 	self.state = STATE_OFF;
 	self.angles = '0 0 0';
 

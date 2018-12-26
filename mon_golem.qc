@@ -359,8 +359,8 @@ void() golem_rockstorm =
 	while (shotcount > 0) {
 		// Randomly spawn projectiles from golems chest
 		yrand = (crandom()*30)*v_right;
-		zrand = (30 + (crandom()*30))*v_up;
-		org = self.origin + v_forward*10 + yrand + zrand;
+		zrand = (crandom()*30)*v_up;
+		org = self.origin + attack_vector(self.attack_offset) + yrand + zrand;
 
 		// Straight line velocity from source to target
 		dir = (self.enemy.origin - org) + (v_right*(crandom()*50));
@@ -435,9 +435,15 @@ void(entity inflictor, entity attacker, float damage) golem_pain =
 	if (self.pain_check > 0) {
 		if (random() < 0.5) sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
 		else sound (self, CHAN_VOICE, self.pain_sound2, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) {
+		if (self.pain_check == 1) {
 			if (self.lip < 0.4) golem_painB1();	// Long
 			else golem_painA1();				// Short
+		}
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.axhitme = 0;
+			self.pain_finished = time + 0.9;
+			golem_painB1 ();
 		}
 	}
 };
@@ -464,19 +470,18 @@ void() golem_death18 = [ $death18, golem_death19] {ai_forward(2);};
 void() golem_death19 = [ $death19, golem_death20] {ai_forward(2);};
 void() golem_death20 = [ $death20, golem_death21] {ai_forward(2);};
 void() golem_death21 = [ $death21, golem_death22] {ai_forward(2);monster_death_postcheck();};
-void() golem_death22 = [ $death22, golem_death22] {};
+void() golem_death22 = [ $death22, golem_death22] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() golem_die =
 {
-	// Statues don't die!
-	if (self.spawnflags & MON_STATUE) return;
-
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
-	SpawnProjectileSmoke(self.origin, 200, 200);
-	SpawnProjectileSmoke(self.origin, 300, 200);
-	SpawnProjectileSmoke(self.origin, 200, 300);
+	
+	// Spawn some extra rubble before dying
+	SpawnProjectileSmoke(self.origin, 200, 50, 150);
+	SpawnProjectileSmoke(self.origin, 300, 50, 150);
+	SpawnProjectileSmoke(self.origin, 200, 50, 250);
 
 	// regular death
 	if (!self.gibbed) {
@@ -489,7 +494,7 @@ void() golem_die =
 // Wakeup From Statue form
 //============================================================================
 void() golem_birth = {
-	if (random() < 0.8) SpawnProjectileSmoke(self.origin, 200, 300);
+	if (random() < 0.8) SpawnProjectileSmoke(self.origin, 200, 50, 250);
 	self.nextthink = time + 0.05;
 };
 
@@ -550,6 +555,9 @@ void() golem_tranB13 = [ $tranB13, golem_run14 ] {golem_wakefinished(); monster_
 //----------------------------------------------------------------------
 void() golem_wakeup =
 {
+	// Check for sudden death!
+	if (self.health < 0) return;
+	
 	// Only call wakeup function once
 	self.use = SUB_Null;
 	self.th_stand = self.th_walk = self.th_run = SUB_Null;
@@ -562,6 +570,9 @@ void() golem_statue =
 {
 	local float targ_angle, new_frame;
 
+	// Check for sudden death!
+	if (self.health < 0) return;
+	
 	if (random() < MON_IDLE_SOUND && self.pos1_z > 1) {
 		new_frame = TRUE;
 		self.oldenemy = checkclient();
@@ -640,6 +651,7 @@ void() monster_golem =
 	self.gibhealth = -60;			// Same as shambler
 	self.gibbed = FALSE;			// Still in one piece
 	self.pain_flinch = 200;			// Demon level
+	self.pain_longanim = FALSE;		// resistant to shadow axe
 	self.pain_timeout = 2;			// Does not repeat pain
 	self.infightextra = 3;			// Triple damage to other monsters
 	self.steptype = FS_TYPEGIANT;	// Giant sound
@@ -647,7 +659,10 @@ void() monster_golem =
 	self.bleedcolour = 16;			// Brown dust/dirt
 	self.no_liquiddmg = TRUE;		// Immune to slime/lava
 	self.meleerange = MONAI_MELEEGOLEM;
+	self.attack_offset = '10 0 30';		// Rock storm
+	
 	self.th_checkattack = GolemCheckAttack;
+	self.th_die = golem_die;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;
@@ -685,7 +700,6 @@ void() monster_golem =
 		self.th_missile = golem_magic1;
 		self.th_slide = golem_stomp1;
 		self.th_pain = golem_pain;
-		self.th_die = golem_die;
 	}
 		
 	self.classtype = CT_MONGOLEM;

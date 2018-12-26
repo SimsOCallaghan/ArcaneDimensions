@@ -20,7 +20,6 @@
 .float		burning_qty;		// Total amount of damage stored (DoT)
 
 .float		poisoned;			// Poison debuff status
-.float		poisonous;			// A monster with poisonous attack
 .float		poisoned_time;		// Timer (1s tick) for screen/sound update
 .float		poisoned_qty;		// Total amount of damage stored (DoT)
 
@@ -224,9 +223,9 @@ void() ClientDeBuff =
 		if (self.cshift_time < time) {
 			// Generate some particles based on debuff
 			// Priority is bleeding > poisoned > burning
-			if (self.bleeding) particle_debuff(self.origin, rint(1+random()*4), PARTICLE_BURST_RED);
-			else if (self.poisoned) particle_debuff(self.origin, rint(1+random()*4), PARTICLE_BURST_GREEN);
-			else if (self.burning) particle_debuff(self.origin, rint(1+random()*4), PARTICLE_BURST_YELLOW);
+			if (self.bleeding) particle_debuff(self.origin, 16, rint(1+random()*4), PARTICLE_BURST_RED);
+			else if (self.poisoned) particle_debuff(self.origin, 16, rint(1+random()*4), PARTICLE_BURST_GREEN);
+			else if (self.burning) particle_debuff(self.origin, 16, rint(1+random()*4), PARTICLE_BURST_YELLOW);
 
 			// Count down density and check for reset condition
 			self.cshift_den = self.cshift_den - self.cshift_step;

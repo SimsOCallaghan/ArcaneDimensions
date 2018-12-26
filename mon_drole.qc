@@ -324,9 +324,9 @@ void() drole_fire =
 	
 	ai_face();
 	self.attack_speed = 80;
+	
 	makevectors (self.angles);
-
-	org = self.origin + '0 0 34';
+	org = self.origin + attack_vector(self.attack_offset);
 	dir = normalize((self.enemy.origin+'0 0 -8') - org);
 	avel = avel = vecrand(100,200,FALSE);
 	
@@ -364,7 +364,13 @@ void(entity inflictor, entity attacker, float damage) drole_pain =
 		if (self.attack_rage) sound (self, CHAN_VOICE, "drole/enrage.wav", 0.5, ATTN_NORM);
 		else sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
 
-		if (self.pain_check == 1 || self.pain_check == 2) drole_pain1 ();
+		if (self.pain_check == 1) drole_pain1 ();
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.6;
+			self.axhitme = 0;
+			drole_pain1 ();
+		}
 	}
 };
 
@@ -395,7 +401,7 @@ void() drole_death22 = [ $death22, drole_death23 ] {};
 void() drole_death23 = [ $death23, drole_death24 ] {};
 void() drole_death24 = [ $death24, drole_death25 ] {};
 void() drole_death25 = [ $death25, drole_death26 ] {monster_death_postcheck();};
-void() drole_death26 = [ $death26, drole_death26 ] {};
+void() drole_death26 = [ $death26, drole_death26 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() drole_die =
@@ -454,12 +460,14 @@ void() monster_drole =
 	self.gibhealth = -60;				// Hard to gib
 	self.gibbed = FALSE;
 	self.pain_flinch = 200;				// takes alot to pain
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// High pain threshold
 	self.steptype = FS_TYPEHEAVY;		// heavy feet
 	self.blockudeath = TRUE;			// no humanoid death sound
+	self.attack_offset = '0 0 34';		// Middle of chest
 
 	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = 0.5; self.resist_nails = 0;
+	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
 	
 	self.th_checkattack = DroleCheckAttack;

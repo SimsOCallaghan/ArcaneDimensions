@@ -4,10 +4,10 @@ defs.qc
 defscustom.qc
 dpextensions.qc
 mathlib.qc
-hiprot.qc
 
 subs.qc
 subs_soc.qc
+hiprot.qc
 estate.qc
 globalfog.qc
 settings.qc
@@ -21,6 +21,9 @@ ai_gibs.qc
 ai_enemytarget.qc
 ai_pathcorner.qc
 ai_checkattack.qc
+ai_tether.qc
+ai_explosion.qc
+ai_ammoresist.qc
 ai_subs.qc
 ai_states.qc
 ai_combat.qc
@@ -50,15 +53,12 @@ misc.qc
 misc_textbook.qc
 misc_targetdummy.qc
 traps.qc
-traps_lightning.qc
 traps_pendulum.qc
 traps_sawblade.qc
 lights.qc
 sounds.qc
 
 // Monsters
-mon_boss.qc
-mon_oldone.qc
 mon_demon.qc
 mon_dog.qc
 mon_fish.qc
@@ -74,7 +74,7 @@ mon_wizard.qc
 mon_zombie.qc
 
 // New Monsters
-mon_firetopboss.qc
+mon_boil.qc
 mon_centurion.qc
 mon_dcrossbow.qc
 mon_dfury.qc
@@ -82,6 +82,7 @@ mon_dguard.qc
 mon_dknight.qc
 mon_drole.qc
 mon_dsergeant.qc
+mon_freddie.qc
 mon_gargoyle.qc
 mon_gaunt.qc
 mon_golem.qc
@@ -93,8 +94,24 @@ mon_lostsoul.qc
 mon_minotaur.qc
 mon_pyro.qc
 mon_scorpion.qc
+mon_seeker.qc
 mon_skullwiz.qc
 mon_spider.qc
 mon_voreling.qc
 mon_wraith.qc
 mon_zombiek.qc
+
+// ID Bosses
+mon_bossidchthon.qc
+mon_bossidshub.qc
+mon_bossxxchthon.qc
+mon_bossxxshub.qc
+
+// New Bosses
+mon_bossboglord.qc
+mon_bosseidolon.qc
+mon_bossfiretop.qc
+mon_bossicegolem.qc
+mon_bosslichfiend.qc
+mon_bossnour.qc
+

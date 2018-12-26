@@ -126,7 +126,7 @@ void(entity inflictor, entity attacker, float damage) misc_targetdummy_pain =
 	newmis.classtype = CT_DEVMARKER;
 	newmis.movetype = MOVETYPE_NONE;
 	newmis.solid = SOLID_NOT;
-	setmodel(newmis, MODEL_BROKEN);
+	setmodel(newmis, MODEL_IMPACT);
 	// Randomize between 8 yellow skins
 	newmis.skin = rint(random()*7);
 	// Take projectile impact location
@@ -213,6 +213,7 @@ void() misc_targetdummy =
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
 	precache_sound (self.pain_sound);
+	precache_model (MODEL_IMPACT);			// Impact model marker
 
 	self.classtype = CT_TARGETDUMMY;
 	self.classgroup = CG_MONSTERS;

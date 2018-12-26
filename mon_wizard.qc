@@ -153,6 +153,27 @@ void()	wiz_fast9	=[	$magatt3,		wiz_fast10] {ai_face();};
 void()	wiz_fast10=[	$magatt2,		wiz_run1	] {WizardAttackFinished (); ai_face();};
 
 //============================================================================
+void()	wiz_wakeup =[ $hover1, wiz_run1 ] {
+	// Is the wizard stuck? cannot move?
+	if (pointcontents(self.origin) == CONTENT_SOLID) {
+		// Time to die!
+		self.health = self.gibhealth;
+		Killed(self, self);
+	}
+	else {
+		monster_sightsound();
+		// Setup goals and warn other monsters
+		FoundHuntTarget(TRUE);
+		// Restore all think state functions
+		self.th_stand = wiz_stand1;
+		self.th_walk = wiz_walk1;
+		self.th_run = wiz_run1;
+		self.th_missile = wiz_fast1;
+		self.th_slide = wiz_side1;
+	}
+};
+
+//============================================================================
 void()	wiz_pain1	=[	$pain1,		wiz_pain2	] {};
 void()	wiz_pain2	=[	$pain2,		wiz_pain3	] {};
 void()	wiz_pain3	=[	$pain3,		wiz_pain4	] {};
@@ -167,11 +188,10 @@ void(entity inflictor, entity attacker, float damage) wiz_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1) {
-			wiz_pain1 ();
-		}
-		// The new axe forces monsters into long pain animations
+		if (self.pain_check == 1) wiz_pain1 ();
 		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.4;
 			self.axhitme = 0;
 			wiz_pain1 ();
 		}
@@ -187,7 +207,7 @@ void()	wiz_death4	=[	$death4,		wiz_death5	] {};
 void()	wiz_death5	=[	$death5,		wiz_death6	] {};
 void()	wiz_death6	=[	$death6,		wiz_death7	] {};
 void()	wiz_death7	=[	$death7,		wiz_death8	] {monster_death_postcheck();};
-void()	wiz_death8	=[	$death8,		wiz_death8	] {};
+void()	wiz_death8	=[	$death8,		wiz_death8	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() wiz_die =
@@ -208,6 +228,7 @@ void() wiz_die =
 /*======================================================================
 QUAKED monster_wizard (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
+void() setup_wizard;
 void() monster_wizard =
 {
 	if (deathmatch) { remove(self); return; }
@@ -240,6 +261,19 @@ void() monster_wizard =
 	self.sight_sound = "wizard/wsight.wav";
 	precache_sound (self.sight_sound);
 
+	// Cache gargoyle is a special class used for precache only
+	if (self.classtype != CT_CACHEWIZARD) setup_wizard();
+};
+
+//----------------------------------------------------------------------------
+void() monster_nourminion = { 
+	self.classtype = CT_CACHEWIZARD; 
+	monster_wizard();
+};
+
+//----------------------------------------------------------------------------
+void() setup_wizard =
+{
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
@@ -248,28 +282,76 @@ void() monster_wizard =
 	self.pain_flinch = 70;				// high pain threshold
 	self.pain_longanim = TRUE;			// Has long pain animation for Shadow Axe
 	self.blockudeath = TRUE;			// no humanoid death sound
-	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
+	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
 	self.attack_offset = '0 0 30';		// Acid spit start location
 
 	// Allow wizards to keep a certain distance above the enemy
 	if (self.spawnflags & MON_WIZARD_ABOVE) self.th_checkattack = GargoyleCheckAttack;
 	else self.th_checkattack = WizardCheckAttack;
+	self.th_pain = wiz_pain;
+	self.th_die = wiz_die;
 		
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
 
-	self.th_stand = wiz_stand1;
-	self.th_walk = wiz_walk1;
-	self.th_run = wiz_run1;
-	self.th_missile = wiz_fast1;
-	self.th_slide = wiz_side1;
-	self.th_pain = wiz_pain;
-	self.th_die = wiz_die;
-		
-	self.classtype = CT_MONWIZARD;
-	self.classgroup = CG_WIZARD;
+	if(!self.classtype) self.classtype = CT_MONWIZARD;
+	if (!self.classgroup) self.classgroup = CG_WIZARD;
 	self.classmove = MON_MOVEFLY;
 	
+	if (self.classtype == CT_MINIONWIZARD) {
+		self.th_stand = self.th_walk = self.th_run = wiz_wakeup;
+		self.th_missile = self.th_slide = wiz_wakeup;
+	}
+	else {
+		self.th_stand = wiz_stand1;
+		self.th_walk = wiz_walk1;
+		self.th_run = wiz_run1;
+		self.th_missile = wiz_fast1;
+		self.th_slide = wiz_side1;
+	}
+		
 	monster_start();
+};
+
+//----------------------------------------------------------------------------
+// A code way to spawn wizards (requires monster_nourminion entity)
+//----------------------------------------------------------------------------
+void(vector minion_org, entity minion_targ, float minion_sflag) minion_wizard =
+{
+	local entity minion;
+
+	// Check if there is space to spawn entity
+	if (entity_pcontent(minion_org)) return;
+	
+	// Self = minotaur, there is no egg 
+	update_minioncount(self, 1);			// Update spawn counters
+	
+	minion = spawn();
+	minion.classname = "monster_wizard";	// For function searching
+	setorigin(minion, minion_org);			// Move to new location
+	minion.owner = self;					// Spawner Parent Link
+	
+	minion.effects = minion.flags = 0;		// make sure are blank
+	minion.gibondeath = 1;					// Always gib on death
+	minion.classtype = CT_MINIONWIZARD;		// Special minion class
+	minion.enemy = minion_targ;				// Target to attack
+	minion.spawnflags = minion_sflag;		// Spawnflags
+	minion.classgroup = CG_WIZARD;			// Don't turn on master
+	minion.minion_active = TRUE;			// Minion flag
+	minion.bodyfadeaway = TRUE;				// Get rid of body
+	
+	minion.mdl = "progs/wizard.mdl";
+	minion.headmdl = "progs/h_wizard.mdl";
+	minion.gib1mdl = "progs/gib_wzarm1.mdl";	// Left arm/stump
+	minion.gib2mdl = "progs/gib_wzarm2.mdl";	// Right arm/stump
+	minion.gib3mdl = "progs/gib_wztail.mdl";	// Tail section
+
+	minion.pain_sound = "wizard/wpain.wav";
+	minion.idle_sound = "wizard/widle1.wav";
+	minion.idle_sound2 = "wizard/widle2.wav";
+	minion.sight_sound = "wizard/wsight.wav";
+	
+	minion.nextthink = time + 0.01;
+	minion.think = setup_wizard;
 };

@@ -8,7 +8,10 @@ float TRAP_HELLSPIKE = 8;		// Hell Knight Fire spikes
 float TRAP_LARGEGRENADE = 1;	// Player grenades (high damage)
 float TRAP_LAVAROCKET = 1;		// Slow moving Cthton lava ball
 float TRAP_FIREROCKET = 2;		// Fast moving Gargoyle fireball
+float TRAP_JIMROCKET = 4;		// Low damage player rocket
 float TRAP_LIGHTLARGE = 1;		// Cthton Lightning effect
+float TRAP_LIGHTDUST = 8;		// Dust/Smoke effects at impact
+float TRAP_LIGHTPART = 16;		// Particle effects at impact
 
 float TRAP_GASSTEAM = 1;		// Gas particle types (default)
 float TRAP_GASFIRE = 2;
@@ -23,7 +26,7 @@ float TRAP_TRACKING = 128;		// Keep updating the target position
 When triggered, fires a SPIKE in the direction determined by angle
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
-target : targetting entity used for custom direction
+target : targeting entity used for custom direction
 angle  : direction for projectile to follow, use "360" for angle 0
 wait   : time between projectiles (def=0s)
 delay  : random time between projectile (def=0s)
@@ -38,7 +41,7 @@ TOGGLE : Trigger will toggle the shooter on/off instead
 TRACK  : Will update target entity origin before firing
 -------- NOTES --------
 When triggered, fires a SPIKE in the direction determined by angle
-Continuous fire mode is active when 'wait' is > 0, trigger again to stop
+Use TOGGLE spawnflag and trigger to enable continuous mode
 
 ======================================================================*/
 void() trap_tracking =
@@ -59,6 +62,8 @@ void() trap_tracking =
 //----------------------------------------------------------------------
 void() trap_shooter_fire =
 {
+	local vector lightn_start, lightn_finish;
+	
 	// Check if disabled/off first
 	if (self.estate & ESTATE_BLOCK) self.state = STATE_OFF;
 	if (self.state == STATE_OFF) return;
@@ -67,7 +72,16 @@ void() trap_shooter_fire =
 	if (self.spawnflags & TRAP_TRACKING) trap_tracking();
 
 	// Fire projectile sound
-	if (self.noise != "") sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
+	if (self.classtype == CT_LIGHTSHOOTER) {
+		// Time for a new LG hit sound?
+		if (self.t_width < time) {
+			// Lower volume and attenuation just in case of several together
+			sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
+			self.t_width = time + 0.6;
+		}
+	}
+	else if (self.noise != "") 
+		sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 
 	// Determine type of projectile shooter
 	if (self.classtype == CT_SPIKESHOOTER) {
@@ -85,35 +99,85 @@ void() trap_shooter_fire =
 		Launch_Missile (self.origin, self.movedir, self.finalangle, self.classproj, self.speed);
 	}
 	else if (self.classtype == CT_LIGHTSHOOTER) {
+		// Double check a destination origin exists
+		if (CheckZeroVector(self.dest1)) return;
+		
 		self.effects = self.effects | EF_MUZZLEFLASH;
 		
-		// Check for objects with collision for creating the end point
-		if (self.movetarget.solid < SOLID_BBOX) self.pos1 = self.dest1;		
-		else self.pos1 = self.origin + (self.movedir * self.distance);
+		// setup any random X/Y/Z start/end point wobble
+		lightn_start = lightn_finish = '0 0 0';
+		if (CheckZeroVector(self.pos1) == FALSE) {
+			lightn_start_x = self.pos1_x * crandom();
+			lightn_start_y = self.pos1_y * crandom();
+			lightn_start_z = self.pos1_z * crandom();
+		}
+		lightn_start = lightn_start + self.origin;
+		if (CheckZeroVector(self.pos2) == FALSE) {
+			lightn_finish_x = self.pos2_x * crandom();
+			lightn_finish_y = self.pos2_y * crandom();
+			lightn_finish_z = self.pos2_z * crandom();
+		}
+		lightn_finish = lightn_finish + self.dest1;
+
 		// trace a line from trap in direction or an exact end point 
-		traceline(self.origin, self.pos1, TRUE, self);
+		traceline(lightn_start, lightn_finish, TRUE, self);
+
+		// Check for particle effects at impact
+		// Designed to spray dust back towards source origin
+		if (self.spawnflags & TRAP_LIGHTDUST && random() < 0.7) {
+			// Classic temporary entity
+			newmis = spawn();
+			newmis.classgroup = CG_TEMPENT;
+			newmis.movetype = MOVETYPE_TOSS;
+			newmis.solid = SOLID_NOT;
+			setmodel(newmis, MODEL_PROJ_SMOKE);
+			setorigin(newmis, trace_endpos);
+			setsize (newmis, VEC_ORIGIN, VEC_ORIGIN);
 			
+			// Work out vector between source and target
+			self.pos3 = normalize(lightn_finish - lightn_start);
+			// Convert vector to angle so v_forward/v_right correct
+			self.pos3 = vectoangles(self.pos3);
+			makevectors(self.pos3);
+			
+			// Randomize the X/Y and push the vector back to source
+			newmis.velocity = (crandom()*v_right)*150 + v_forward*(150+random()*300);
+
+			// Temporary ents, quickly remove afterward
+			newmis.nextthink = time + 1 + random()*3;
+			newmis.think = SUB_Remove;
+		}
+		if (self.spawnflags & TRAP_LIGHTPART)
+			particle_explode(trace_endpos, 5+random()*5, 1, PARTICLE_BURST_BLUE, PARTICLE_BURST_LOSTUP);
+		
 		// Generate the lightning effect
 		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 		WriteByte (MSG_BROADCAST, self.lip);
 		WriteEntity (MSG_BROADCAST, self);
-		WriteCoord (MSG_BROADCAST, self.origin_x);
-		WriteCoord (MSG_BROADCAST, self.origin_y);
-		WriteCoord (MSG_BROADCAST, self.origin_z);
+		WriteCoord (MSG_BROADCAST, lightn_start_x);
+		WriteCoord (MSG_BROADCAST, lightn_start_y);
+		WriteCoord (MSG_BROADCAST, lightn_start_z);
 		WriteCoord (MSG_BROADCAST, trace_endpos_x);
 		WriteCoord (MSG_BROADCAST, trace_endpos_y);
 		WriteCoord (MSG_BROADCAST, trace_endpos_z);
 		// Check for things to damage in between the two points
-		LightningDamage (self.origin, trace_endpos, self, self.dmg);
+		LightningDamage (lightn_start, trace_endpos, self, self.dmg);		
 	}
-		
-	// Continuous mode?
-	if (self.spawnflags & TRAP_TOGGLE) {
+
+	// Check for temporary continuous mode
+	if (self.waitmin > 0 && time < self.pausetime) {
 		self.think = trap_shooter_fire;
-		self.nextthink = time + self.wait + random()*self.delay;
+		self.nextthink = time + self.waitmin2;
 	}
-	// Fire once and switch off
-	else self.state = STATE_OFF;
+	else {
+		// Continuous mode?
+		if (self.spawnflags & TRAP_TOGGLE) {
+			self.think = trap_shooter_fire;
+			self.nextthink = time + self.wait + random()*self.delay;
+		}
+		// Fire once and switch off
+		else self.state = STATE_OFF;
+	}
 };
 
 //----------------------------------------------------------------------
@@ -122,8 +186,16 @@ void() trap_shooter_use =
 	// Check if disabled/off first
 	if (self.estate & ESTATE_BLOCK) return;
 	
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
 	// Toggle shooter on/off
-	if (self.state == STATE_OFF) self.state = STATE_ON;
+	if (self.state == STATE_OFF) {
+		self.state = STATE_ON;
+		if (self.waitmin > 0) self.pausetime = time + self.waitmin;
+		if (!self.waitmin2) self.waitmin2 = 0.1;
+	}
 	else self.state = STATE_OFF;
 	
 	trap_shooter_fire();
@@ -198,11 +270,11 @@ void() trap_spikeshooter =
 };
 
 /*======================================================================
-/*QUAKED trap_grenadeshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LARGE x x x x x x TRACK Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trap_grenadeshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LARGE x x x x TOGGLE x TRACK Not_Easy Not_Normal Not_Hard Not_DM
 When triggered, fires a GRENADE in the direction determined by angle
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
-target : targetting entity used for custom direction
+target : targeting entity used for custom direction
 angle  : direction for projectile to follow, use "360" for angle 0
 wait   : time between projectiles (def=0s)
 delay  : random time between projectile (def=0s)
@@ -213,7 +285,7 @@ TOGGLE : Trigger will toggle the shooter on/off instead
 TRACK  : Will update target entity origin before firing
 -------- NOTES --------
 When triggered, fires a GRENADE in the direction determined by angle
-Continuous fire mode is active when 'wait' is > 0, trigger again to stop
+Use TOGGLE spawnflag and trigger to enable continuous mode
 
 ======================================================================*/
 void() trap_grenadeshooter =
@@ -254,11 +326,11 @@ void() trap_grenadeshooter =
 };
 
 /*======================================================================
-/*QUAKED trap_rocketshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LAVA FIRE x x x x x TRACK Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trap_rocketshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LAVA FIRE JIM x x TOGGLE x TRACK Not_Easy Not_Normal Not_Hard Not_DM
 When triggered, fires a ROCKET in the direction determined by angle
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
-target : targetting entity used for custom direction
+target : targeting entity used for custom direction
 angle  : direction for projectile to follow, use "360" for angle 0
 wait   : time between projectiles (def=0s)
 delay  : random time between projectile (def=0s)
@@ -266,11 +338,12 @@ speed  : Change projectile speed (def=1000, lava=300, fire=500)
 -------- SPAWNFLAGS --------
 LAVABALL : shoots Chthon lava ball (Player damage)
 FIREBALL : shoots Gargoyle fire ball (low damage)
+JIM FLYER: shoots Jim rocket (low damage)
 TOGGLE : Trigger will toggle the shooter on/off instead
 TRACK  : Will update target entity origin before firing
 -------- NOTES --------
 When triggered, fires a ROCKET in the direction determined by angle
-Continuous fire mode is active when 'wait' is > 0, trigger again to stop
+Use TOGGLE spawnflag and trigger to enable continuous mode
 
 ======================================================================*/
 void() trap_rocketshooter =
@@ -292,6 +365,16 @@ void() trap_rocketshooter =
 
 		self.classproj = CT_PROJ_GARG;
 		if (!self.speed) self.speed = SPEED_GARGMISSILE;
+	}
+	else if (self.spawnflags & TRAP_JIMROCKET) {
+		self.mdl = MODEL_PROJ_ROCKET;
+		precache_model (self.mdl);
+		self.noise = "weapons/sgun1.wav";
+		precache_sound (self.noise);
+		precache_sound ("jim/rocket_hit.wav");
+
+		self.classproj = CT_PROJ_JIM2;
+		if (!self.speed) self.speed = SPEED_RLPLAYER;
 	}
 	else {
 		self.mdl = MODEL_PROJ_ROCKET;
@@ -325,23 +408,26 @@ void() trap_rocketshooter =
 };
 
 /*======================================================================
-/*QUAKED trap_lightningshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LARGE x x x x x x TRACK Not_Easy Not_Normal Not_Hard Not_DM
-When triggered, fires a LIGHTNING in the direction determined by angle
+/*QUAKED trap_lightningshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LARGE x x DUST PART TOGGLE x TRACK
+When triggered, fires a LIGHTNING at the target entity (can be blocked)
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
-target   : targetting entity used for custom direction
-angle    : direction for projectile to follow, use "360" for angle 0
-wait     : time between projectiles (def=0s)
+target   : targeting entity used for destination (required)
+wait     : time between projectiles (def=1s)
 delay    : random time between projectile (def=0s)
-distance : Maximum distance to travel (def=600)
+volume   : Lightning hit sound volume (def=0.75)
 dmg      : Damage from lightning strike (def=15, large=30)
+pos1     : Random XYZ wobble to source position
+pos2     : Random XYZ wobble to target position
 -------- SPAWNFLAGS --------
-LARGE   : Cthton Boss Lightning (double damage)
-TOGGLE : Trigger will toggle the shooter on/off instead
+LARGE   : Cthton Boss Lightning
+DUST    : Produce dust/smoke at point of impact
+PARTICLE: Produce particles at point of impact
+TOGGLE  : Trigger will toggle the shooter on/off instead
 TRACK   : Will update target entity origin before firing
 -------- NOTES --------
-When triggered, fires a LIGHTNING in the direction determined by angle
-Continuous fire mode is active when 'wait' is > 0, trigger again to stop
+When triggered, fires a LIGHTNING at the target entity (can be blocked)
+Use TOGGLE spawnflag and trigger to enable continuous mode
 
 ======================================================================*/
 void() trap_lightningshooter = 
@@ -352,10 +438,8 @@ void() trap_lightningshooter =
 	self.classtype = CT_LIGHTSHOOTER;
 	if (self.wait <= 0) self.wait = 1;
 	if (self.delay < 0) self.delay = 0;
-	if (!self.distance) self.distance = 600;
-	if (!self.volume) self.volume = 1;
-	self.mangle = self.angles;
-	SetMovedir ();
+	if (!self.volume) self.volume = 0.75;
+	self.t_width = 0;		// Light sound timer
 
 	// Sort out lightning damage
 	if (self.dmg < 1) {
@@ -367,6 +451,14 @@ void() trap_lightningshooter =
 	// Work out which lightning bolt to use
 	if (self.spawnflags & TRAP_LIGHTLARGE) self.lip = TE_LIGHTNING3;
 	else self.lip = TE_LIGHTNING2;
+
+	// Must have target for destination of lightning
+	if (self.target == "") {
+		dprint("\b[TRAP]\b Lightning trap missing target!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
 	
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
@@ -375,11 +467,9 @@ void() trap_lightningshooter =
 	self.estate = ESTATE_ON;
 	self.state = STATE_OFF;
 
-	// If target is setup, calculate new facing angle
-	if (self.target != "") {
-		self.nextthink = time + 1 + random();
-		self.think = trap_tracking;
-	}
+	// Find target once everything has spawned
+	self.nextthink = time + 1 + random();
+	self.think = trap_tracking;
 };
 
 //======================================================================
@@ -387,7 +477,7 @@ void() trap_lightningshooter =
 When triggered, fires a gas particle in the direction determined by angle
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
-target : targetting entity used for custom direction
+target : targeting entity used for custom direction
 angle  : direction for stream to follow, use "360" for angle 0
 wait   : time between particles (def=0.05s)
 speed  : velocity speed (def=200)
@@ -402,6 +492,7 @@ TOGGLE : Trigger will toggle the shooter on/off instead
 TRACK  : Will update target entity origin before firing
 -------- NOTES --------
 When triggered, fires a gas particle in the direction determined by angle
+Use TOGGLE spawnflag and trigger to enable continuous mode
 
 ======================================================================*/
 void() trap_gasshooter_touch =
@@ -523,6 +614,10 @@ void() trap_gasshooter_use =
 	// Check if disabled/off first
 	if (self.estate & ESTATE_BLOCK) return;
 	
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
 	// Toggle shooter on/off
 	if (self.state == STATE_ON) {
 		self.state = STATE_OFF;
@@ -535,19 +630,19 @@ void() trap_gasshooter_use =
 void() trap_gasshooter =
 {
 	if (self.spawnflags & TRAP_GASFIRE) {
-		self.mdl = "progs/s_flame.spr";
+		self.mdl = SBURST_FLAME;
 		self.noise1 = "traps/flame_loop.wav";
 		self.noise2 = "traps/flame_off.wav";
 	}
 	else if (self.spawnflags & TRAP_GASPOISON) {
-		self.mdl = "progs/s_poison.spr";
+		self.mdl = SBURST_POISON;
 		self.noise1 = "traps/steam_loop.wav";
 		self.noise2 = "traps/steam_off.wav";
 	}
 	else {
 		// Steam particles is the default
 		self.spawnflags = self.spawnflags | TRAP_GASSTEAM;
-		self.mdl = "progs/s_steam.spr";
+		self.mdl = SBURST_STEAM;
 		self.noise1 = "traps/steam_loop.wav";
 		self.noise2 = "traps/steam_off.wav";
 	}

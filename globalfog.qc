@@ -302,22 +302,25 @@ void() setup_fog_controller =
 		else fog_control.fog_currden = 0.1;		// Bad default
 		fog_control.fog_targden = 0;			// Target
 		fog_control.fog_diffden = 0;			// Difference
-		
-		if (world.fog_colour != '0 0 0') {
+
+		if (CheckZeroVector(world.fog_colour))
+			fog_control.fog_currcol = '0.1 0.1 0.1';	// Bad Default
+		else {
 			fog_active = TRUE;					// engine and QC insync
 			fog_control.fog_currcol = world.fog_colour;
 		}
-		else fog_control.fog_currcol = '0.1 0.1 0.1';	// Bad Default
 		fog_control.fog_targcol = '0 0 0';		// Target
 		fog_control.fog_diffcol = '0 0 0';		// Difference
 
 		// Bat shit crazy DP extra fog parameters that no other engine uses
+		// dpextra = alpha mindist maxdist top fadedepth (def=1 0 8192 1024 32)
 		if (world.fog_dpextra != "") fog_control.fog_dpextra = world.fog_dpextra;
 		else fog_control.fog_dpextra = DEF_FOGEXT;
 
 		// This is a horrible hack, it should not be here
 		// This parameter should be in the map file worldspawn
-		if (world.model == "maps/ad_end.bsp") fog_control.fog_dpextra = "1 0 2048 8192 32";
+		//if (world.model == "maps/ad_end.bsp") 
+		//	fog_control.fog_dpextra = "1 0 2048 8192 32";
 		
 		fog_control.state = STATE_OFF;	// Not fading atm
 		fog_control.fog_difftime = 0;	// fading fog time (seconds)

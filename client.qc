@@ -426,6 +426,47 @@ void() CheckRules =
 };
 
 //----------------------------------------------------------------------
+void() SetupSpawnCoopLocations =
+{
+	local entity cooploc, prevloc;
+	
+	// The first spawn for coop is always the SP start location
+	cooploc = find (world, classname, "info_player_coop");
+	prevloc = world;
+	
+	// Any coop spawns exist?
+	if (cooploc) {
+		// Create a list
+		while(cooploc) {
+			// first spawn in chain? setup first and previous spawns
+			if (!prevloc) { 
+				coop_ent = cooploc; 
+				coop_ent.count = 0;
+			}
+			else prevloc.owner = cooploc;
+
+			// Save current spawn location to previous ready for loop
+			prevloc = cooploc;
+			coop_ent.count = coop_ent.count + 1;
+				
+			cooploc = find(cooploc, classname, "info_player_coop");
+		}
+		// Close the chain
+		prevloc.owner = coop_ent;
+		dprint("\b[COOP]\b Spawn locations found (");
+		dprint(ftos(coop_ent.count)); dprint(")\n");
+	}
+	else {
+		// No coop spawns, use start location
+		dprint("\b[COOP]\b Spawn locations Missing!\n");
+		coop_ent = find (world, classname, "info_player_start");
+		// no start location, WTF!?!
+		if (!coop_ent) coop_ent = client_ent;
+		coop_ent.owner = coop_ent;
+	}
+};
+
+//----------------------------------------------------------------------
 // Find a location for the player to spawn at
 //----------------------------------------------------------------------
 entity() SelectSpawnPoint =
@@ -436,13 +477,36 @@ entity() SelectSpawnPoint =
 	// Always use a player start as default position
 	if (!lastspawn) lastspawn = find (world, classname, "info_player_start");
 
-	// choose a info_player_deathmatch point
-	if (coop) {
-		lastspawn = find(lastspawn, classname, "info_player_coop");
-		if (lastspawn == world) lastspawn = find (lastspawn, classname, "info_player_start");
-		if (lastspawn != world) return lastspawn;
+	// Cycle through list of info_player_coop location
+	if (coop > 0) {
+		// Check for coop spawn list
+		if (!coop_ent) return lastspawn;
+		// If first entry of coop list start player then its broken
+		else if (coop_ent.classtype == CT_SPAWNSP) return lastspawn;
+		else {
+			// Setup coop list if last location isstart player
+			if (lastspawn.classtype == CT_SPAWNSP) lastspawn = coop_ent;
+			// Move forward in coop spawn location list
+			lastspawn = lastspawn.owner;
+			// Check if spawn location is active?
+			if (lastspawn.estate & ESTATE_BLOCK) {
+				pcount = coop_ent.count;
+				while(pcount > 0) {
+					lastspawn = lastspawn.owner;
+					if (lastspawn.estate == ESTATE_ON) pcount = -1;
+					else pcount = pcount - 1;
+				}
+			}
+			// Double check if spawn location free?
+			if (lastspawn.estate & ESTATE_BLOCK) {
+				// Default back to player start if not available
+				lastspawn = find (world, classname, "info_player_start");
+			}
+			return lastspawn;
+		}
 	}
-	else if (deathmatch) {
+	// choose a info_player_deathmatch point
+	else if (deathmatch > 0) {
 		spot = lastspawn;
 		while (1) {
 			spot = find(spot, classname, "info_player_deathmatch");
@@ -497,16 +561,24 @@ void() PutClientInServer =
 {
 	local	entity spot;
 
+	client_ent = self;
+	self.classname = "player";
+	self.classtype = CT_PLAYER;
+	self.classgroup = CG_PLAYERS;
+	// This entity can never be switched off
+	self.estate = ESTATE_ON;
+	self.estate_off = SUB_Null;
+
+	// Setup entity chains for coop, dm and intermission
+	SetupSpawnCoopLocations();
+	SetupIntermissionCamera();
+	
 	// Find a spawn location in the map
 	spot = SelectSpawnPoint ();
 	// Fire any targets on spawn location
 	if (spot.target) self.target2 = spot.target;
 	else self.target2 = "";
 
-	client_ent = self;
-	self.classname = "player";
-	self.classtype = CT_PLAYER;
-	self.classgroup = CG_PLAYERS;
 	self.headmdl = MODEL_PLAYER_HEAD;
 	self.health = self.max_health = HEAL_PLAYMAX;
 	self.takedamage = DAMAGE_AIM;
@@ -520,6 +592,7 @@ void() PutClientInServer =
 	self.air_finished = time + WATER_AIR;
 	self.dmg = WATER_DAMAGE;
 	self.effects = 0;
+	self.steplast = 1;
 	
 	self.super_damage_finished = self.super_time = 0;
 	self.radsuit_finished = self.rad_time = 0;
@@ -528,9 +601,9 @@ void() PutClientInServer =
 	
 	self.sharpshoot_finished = self.sharpshoot_time = 0;
 	self.nailpiercer_finished = self.nailpiercer_time = 0;
+	self.wetsuit_finished = self.wetsuit_time = 0;
 
 	self.steptype = FS_TYPEMEDIUM;		// Standard boots
-	self.altsteptype = FS_TYPEHEAVY;	// Heavy Clubfoot
 	self.suppressCenterPrint = FALSE;	// No centerprint active
 
 	ResetDebuffSystem(self);			// Reset/initialize debuff system
@@ -539,7 +612,6 @@ void() PutClientInServer =
 	DecodeLevelParms ();
 	self.weapon = W_BestWeapon (self);	// Pick best weapon from inventory
 	W_SetCurrentAmmo (self);			// Update hud icons and v_model
-	SetupIntermissionCamera();			// Setup info camera chain
 
 	self.attack_finished = time;
 	self.th_pain = player_pain;
@@ -700,16 +772,16 @@ void() PlayerPostThink =
 
 			// Update console with MOD settings
 			display_configflag();
-			display_version();
-			
-			// Any spawn targets to update?
-			if (self.target2 != "") trigger_strs(self.target2, self); 
-			self.target2 = "";		// use once only, stop quickload
+			display_version();			
 		}
 	}
 	if (intermission_running > 0) return;	// intermission or finale
 	if (self.deadflag) return;				// Dead
 
+	// Any spawn targets to update?
+	if (self.target2 != "") { 
+		trigger_strs(self.target2, self); self.target2 = "";
+	}
 	W_WeaponFrame ();						// Impulse commands and Quad updates
 
 	// check to see if player landed and play landing sound	
@@ -725,6 +797,12 @@ void() PlayerPostThink =
 			sound (self, CHAN_VOICE, "player/land.wav", 1, ATTN_NORM);
 
 		self.jump_flag = 0;
+	}
+
+	// Check for any fake water exit sounds
+	if (self.touchedliquid < time && self.touchedsound != "") {
+		sound (self, CHAN_BODY, self.touchedsound, 1, ATTN_NORM);
+		self.touchedsound = "";
 	}
 
 	// If flying through the air, store player Z velocity in jump flag
@@ -771,7 +849,10 @@ void() WaterMove =
 {
 	//dprint (ftos(self.waterlevel));
 	// Fix noclip water gasping bug by giving air to the player
-	if (self.movetype == MOVETYPE_NOCLIP) {self.air_finished = time + 1; return;}
+	if (self.movetype == MOVETYPE_NOCLIP) {
+		self.air_finished = time + 1; 
+		return;
+	}
 	if (self.health < 0) return;
 
 	if (self.waterlevel != 3) {
@@ -1063,8 +1144,33 @@ void(entity targ, entity attacker) ClientObituary =
 			targ.frags = targ.frags - 1;
 			bprint (targ.netname);
 
+			// Boss monsters don't always use FL_MONSTER flag
+			if (attacker.bossflag > 0) {
+				// Original ID bosses
+				if (attacker.classtype == CT_MONIDCHTHON) bprint (" was blown apart by Chthon\n");
+				else if (attacker.classtype == CT_MONIDSHUB) bprint (" became one with Shub-Niggurath\n");
+				// New bosses
+				else if (attacker.classtype == CT_MONBOGLORD) bprint (" was obliterated by The Bog Lord\n");
+				else if (attacker.classtype == CT_MONFIRETOP) bprint (" was destroyed by the Firetop Guardian\n");
+				else if (attacker.classtype == CT_MONEIDOLON) bprint (" was pulverized by the Sculptor\n");
+				else if (attacker.classtype == CT_MONICEGOLEM) bprint (" was shattered by the Ice Golem\n");
+				else if (attacker.classtype == CT_MONLICHFIEND) bprint (" was shredded by the Lich Fiend\n");
+				else if (attacker.classtype == CT_MONNOUR) bprint (" was picked apart by the Scragmother\n");
+				// Custom chthon and shub can have unique client death messages
+				else if (attacker.classtype == CT_MONXXCHTHON) {
+					if (attacker.deathtype !="") bprint(attacker.deathtype);
+					else bprint (" was blown apart by Chthon\n");
+				}
+				else if (attacker.classtype == CT_MONXXSHUB) {
+					if (attacker.deathtype !="") bprint(attacker.deathtype);
+					else bprint (" became one with Shub-Niggurath\n");
+				}
+				return;
+			}
+			
 			// killed by a monster?
 			if (attacker.flags & FL_MONSTER) {
+				// Original enemies
 				if (attacker.classtype == CT_MONARMY) bprint (" was shot by a Grunt\n");
 				else if (attacker.classtype == CT_MONDEMON) bprint (" was eviscerated by a Fiend\n");
 				else if (attacker.classtype == CT_MONDOG) bprint (" was mauled by a Rottweiler\n");
@@ -1073,25 +1179,30 @@ void(entity targ, entity attacker) ClientObituary =
 				else if (attacker.classtype == CT_MONHELLK) bprint (" was slain by a Hell Knight\n");
 				else if (attacker.classtype == CT_MONKNIGHT) bprint (" was slashed by a Knight\n");
 				else if (attacker.classtype == CT_MONOGRE) bprint (" was destroyed by an Ogre\n");
-				else if (attacker.classtype == CT_MONOLDONE) bprint (" became one with Shub-Niggurath\n");
 				else if (attacker.classtype == CT_MONSHAL) bprint (" was exploded by a Vore\n");
 				else if (attacker.classtype == CT_MONSHAM) bprint (" was smashed by a Shambler\n");
 				else if (attacker.classtype == CT_MONSPAWN) bprint (" was slimed by a Spawn\n");
 				else if (attacker.classtype == CT_MONWIZARD) bprint (" was scragged by a Scrag\n");
+				else if (attacker.classtype == CT_MINIONWIZARD) bprint (" was wrecked by a Wizard\n");
 				else if (attacker.classtype == CT_MONZOMBIE) bprint (" joins the Zombies\n");
 
+				// Lunaran enemies
 				else if (attacker.classtype == CT_MONZOMBIEK) bprint (" was cornered by a Zombie Knight\n");
 
+				// The Death knight Brigade
 				else if (attacker.classtype == CT_MONDGUARD) bprint (" was chopped up by a Death Guard\n");
 				else if (attacker.classtype == CT_MONDCROSS) bprint (" was skewered by a Crossbow Knight\n");
 				else if (attacker.classtype == CT_MONDFURY) bprint (" was sliced by a Fury Knight\n");
 				else if (attacker.classtype == CT_MONDKNIGHT) bprint (" was cleaved by a Death Knight\n");
 				else if (attacker.classtype == CT_MONDSERG) bprint (" was crushed by a Blue Flail Knight\n");
 
+				// New Hunter ogres
 				else if (attacker.classtype == CT_MONHOGRE) bprint (" was blown up by an Ogre Hunter\n");
 				else if (attacker.classtype == CT_MONHOGREMAC) bprint (" was smashed by a Mace Ogre\n");
 				else if (attacker.classtype == CT_MONHOGREHAM) bprint (" was pulverized by a Hammer Ogre\n");
+				else if (attacker.classtype == CT_MONOGREFISH) bprint (" was reeled in by a Fishing Ogre\n");
 
+				// Hexen 2 enemies
 				else if (attacker.classtype == CT_MONSPIDER) bprint (" was bitten by a Spider\n");
 				else if (attacker.classtype == CT_MINIONSPIDER) bprint (" was bitten by a Spider\n");
 				else if (attacker.classtype == CT_MONSCORPION) bprint (" was stung by a Scorpion\n");
@@ -1103,24 +1214,32 @@ void(entity targ, entity attacker) ClientObituary =
 				else if (attacker.classtype == CT_MONGOLEM) bprint (" was crushed by a Golem\n");
 				else if (attacker.classtype == CT_MONMINOTAUR) bprint (" was gored by a Minotaur\n");
 
-				else if (attacker.classtype == CT_MONEEL) bprint (" was electrified by an Eel\n");
+				// Rogue Software enemies
 				else if (attacker.classtype == CT_MONMUMMY) bprint (" was Mummified\n");
 				else if (attacker.classtype == CT_MONWRAITH) bprint (" was shattered by a Wraith\n");
 
+				// Quoth MOD enemies
 				else if (attacker.classtype == CT_MONVORELING) bprint (" was nibbled by a Voreling\n");
 				else if (attacker.classtype == CT_MINIONVORELING) bprint (" was nibbled by a Voreling\n");
 				else if (attacker.classtype == CT_MONDROLE) bprint (" was decimated by a Drole\n");
+				else if (attacker.classtype == CT_MONFREDDIE) bprint (" was exterminated by Freddie\n");
 				else if (attacker.classtype == CT_MONGAUNT) bprint (" was blasted by a Gaunt\n");
 
+				// New base enemies
 				else if (attacker.classtype == CT_MONARMYROCKET) bprint (" was blown up by a Rocketeer\n");
 				else if (attacker.classtype == CT_MONARMYGRENADE) bprint (" was pineappled by a Grenader\n");
 				else if (attacker.classtype == CT_MONARMYPLASMA) bprint (" was fried by an Electrocutioner\n");
 				else if (attacker.classtype == CT_MONDEFENDER) bprint (" was destroyed by a Defender\n");
 				else if (attacker.classtype == CT_MONELIMATOR) bprint (" was assasinated by a Eliminator\n");
 				else if (attacker.classtype == CT_MONPYRO) bprint (" was toasted by a Pyro\n");
+				else if (attacker.classtype == CT_MONFUMIGATOR) bprint (" was choked by a Fumigator\n");
 				else if (attacker.classtype == CT_MONCENTURION) bprint (" was vaporized by a Centurion\n");
 				else if (attacker.classtype == CT_MONJIM) bprint (" was cauterized by Jim\n");
 				else if (attacker.classtype == CT_MONJIMROCKET) bprint (" was blown away by Jim\n");
+
+				// ijed/rrp enemies
+				else if (attacker.classtype == CT_MONBOIL) bprint (" was blown away by Boil\n");
+				else if (attacker.classtype == CT_MONSEEKER) bprint (" was destroyed by a Seeker\n");
 
 				// Not present in original ID levels
 				//if (attacker.classname == "monster_dragon") bprint (" was fried by a Dragon\n");

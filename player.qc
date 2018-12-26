@@ -108,27 +108,59 @@ void()	player_stand1 =[	$axstnd1,	player_stand1	] {
 };
 
 //============================================================================
-void()	player_run =[	$rockrun1,	player_run	] {
-	self.weaponframe=0;
+void()	player_run =[ $rockrun1, player_run ] {
+	
+	// Get out of any weapon animation
+	self.weaponframe = 0;
+	// Standing around has different animation sets
 	if (!self.velocity_x && !self.velocity_y) {
-		self.walkframe=0;
+		self.walkframe = 0;
 		player_stand1();
 		return;
 	}
-
+	// make sure correct player animation active
 	if (self.weapon == IT_AXE) {
-		if (self.walkframe == 6) self.walkframe = 0;
+		if (self.walkframe >= 6) self.walkframe = 0;
 		self.frame = $axrun1 + self.walkframe;
 	}
 	else {
-		if (self.walkframe == 6) self.walkframe = 0;
+		if (self.walkframe >= 6) self.walkframe = 0;
 		self.frame = self.frame + self.walkframe;
 	}
-	// If alternating frame, feet on the ground and minimum velocity, stomp feet!
-	if ((self.walkframe == 2 || self.walkframe == 5) && self.flags & FL_ONGROUND) {
+	
+	// Check for player feet sound, using velocity & ground flag
+	if ((self.walkframe == 2 || self.walkframe == 5) && 
+		self.flags & FL_ONGROUND) {
 		self.cnt = fabs(self.velocity_x + self.velocity_y);
+		// Need to be moving before feet sounds
 		if (self.cnt > 50) monster_footstep(FALSE);
 	}
+	// Update frame
+	self.walkframe = self.walkframe + 1;
+};
+
+//============================================================================
+void()	player_run_nofeet =[ $rockrun1, player_run ] {
+	
+	// Get out of any weapon animation
+	self.weaponframe = 0;
+	// Standing around has different animation sets
+	if (!self.velocity_x && !self.velocity_y) {
+		self.walkframe = 0;
+		player_stand1();
+		return;
+	}
+	// make sure correct player animation active
+	if (self.weapon == IT_AXE) {
+		if (self.walkframe >= 6) self.walkframe = 0;
+		self.frame = $axrun1 + self.walkframe;
+	}
+	else {
+		if (self.walkframe >= 6) self.walkframe = 0;
+		self.frame = self.frame + self.walkframe;
+	}
+		
+	// Update frame
 	self.walkframe = self.walkframe + 1;
 };
 
@@ -137,7 +169,11 @@ void(entity targ) remoteplayer_run =
 {
 	local entity tself;
 	tself = self; self = targ;
-	player_run();
+	// This has to run the block above otherwise weaponframe errors
+	// the animation code "xx = [ $x, x ]" has to be run
+	// The above code cannot be pasted into this function
+	// Be careful with this function, it needs a certain layout!
+	player_run_nofeet();
 	self = tself;
 };
 
@@ -213,13 +249,13 @@ void() player_snail8 = [$nailatt2, player_snail1 ] {snail_upd(8,2,0);};
 void() player_plasma1   =[$light1, player_plasma2  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe == 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = 1;
 	W_FirePlasma();
 };
 void() player_plasma2   =[$light2, player_plasma1  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe == 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = 1;
 	W_FirePlasma();
 };
 
@@ -227,20 +263,21 @@ void() player_plasma2   =[$light2, player_plasma1  ] {
 void() player_light1   =[$light1, player_light2  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe == 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = 1;
 	W_FireLightning();
 };
 void() player_light2   =[$light2, player_light1  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe == 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = 1;
 	W_FireLightning();
 };
 
 //============================================================================
 void() player_rockreset   =[$rockatt1, player_rocket2  ] {self.weaponframe=1;};
 
-void() player_rocket1   =[$rockatt1, player_rocket2  ] { self.weaponframe=1;
+void() player_rocket1   =[$rockatt1, player_rocket2  ] { 
+	self.weaponframe=1;
 	if (!self.button0) { player_run(); return; }
 	W_FireRocket();
 };
@@ -253,7 +290,8 @@ void() player_rocket6   =[$rockatt6, player_rocket1  ] { self.weaponframe=6;};
 //============================================================================
 void() player_grenreset   =[$rockatt1, player_grenade2  ] {self.weaponframe=1;};
 
-void() player_grenade1   =[$rockatt1, player_grenade2  ] { self.weaponframe=1;
+void() player_grenade1   =[$rockatt1, player_grenade2  ] {
+	self.weaponframe=1;
 	if (!self.button0) { player_run(); return; }
 	W_FireGrenade();
 };
@@ -277,7 +315,7 @@ void() death_bubble_spawn =
 	bubble.classname = "bubble";
 	bubble.solid = SOLID_NOT;
 	bubble.movetype = MOVETYPE_NOCLIP;
-	setmodel (bubble, "progs/s_bubble.spr");
+	setmodel (bubble, SBUBBLE_DROWN);
 	bubble.frame = bubble.cnt = 0;
 	setorigin (bubble, self.owner.origin + '0 0 24');
 	setsize (bubble, '-8 -8 -8', '8 8 8');
@@ -456,7 +494,7 @@ void()	player_die_ax8	=	[	$axdeth8,	player_die_ax9	] {};
 void()	player_die_ax9	=	[	$axdeth9,	player_die_ax9	] {player_dead();};
 
 //============================================================================
-void() DeathSound =
+void() player_death_sound =
 {
 	// water death sounds
 	if (self.waterlevel == 3) {
@@ -476,17 +514,40 @@ void() DeathSound =
 };
 
 //============================================================================
-void() GibPlayer =
+void() player_gib =
 {
-	ThrowHead ();
+	// Set all gib/death flags correctly
+	self.gibbed = TRUE;
+	self.deadflag = DEAD_DEAD;
+	self.takedamage = DAMAGE_NO;
+	self.nextthink = -1;
+
+	// Let the head model bounce around
+	self.movetype = MOVETYPE_BOUNCE;
+	setmodel (self, self.headmdl);
+	setsize (self, '-16 -16 0', '16 16 32');
+	self.frame = 0;		// Reset frame, head model only has 1 frame
+	self.height = 1;	// Do not remove after model fadeout
+
+
 	ThrowGib(1, 1);
 	ThrowGib(2, 1);
 	ThrowGib(3, 1);
 	ThrowGib(4, rint(random()*2));
 	ThrowGib(5, 1);
 
-	self.deadflag = DEAD_DEAD;
+	// Lots of vertical momentum
+	self.velocity_x = 50 * crandom();
+	self.velocity_y = 50 * crandom();
+	self.velocity_z = 200 + 100 * random();
 
+	// Minimal angle rotation
+	self.avelocity = '0 0 0';
+	self.avelocity_y = 200 + random() * 200;
+	self.angles = '0 0 0';
+	self.angles_y = self.ideal_yaw = random() * 360;
+
+	// Play GIB death sound
 	if (damage_attacker.classname == "teledeath") 
 		sound (self, CHAN_VOICE, "player/teledth1.wav", 1, ATTN_NONE);
 	else if (damage_attacker.classname == "teledeath2")
@@ -502,44 +563,39 @@ void() player_death =
 {
 	// don't let sbar look bad if a player
 	if (self.health < -99) self.health = -99;	
-
-	self.items = self.items - (self.items & IT_INVISIBILITY);
-	self.invisible_finished = 0;	// don't die as eyes
-	self.invincible_finished = 0;
-	self.super_damage_finished = 0;
-	self.radsuit_finished = 0;
-	self.modelindex = modelindex_player;	// don't use eyes
-
 	if (deathmatch || coop) DropBackpack();
 	
+	// Remove all powerup/debuff effects
+	ResetPowerSystem(self);
+	ResetDebuffSystem(self);
+
 	self.weaponmodel="";
-	self.view_ofs = '0 0 -8';
+	self.view_ofs = '0 0 8';
 	self.deadflag = DEAD_DYING;
 	self.solid = SOLID_NOT;
-	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.movetype = MOVETYPE_TOSS;
-	if (self.velocity_z < 10)
-		self.velocity_z = self.velocity_z + random()*300;
-
-	if (self.health < self.gibhealth) {
-		GibPlayer ();
-		return;
-	}
-
-	DeathSound();
 	
-	self.angles_x = self.angles_z = 0;
+	// Remove floor/ground flag, time to fly
+	self.flags = self.flags - (self.flags & FL_ONGROUND);
+	setorigin(self, self.origin + '0 0 1');
 	
-	if (self.weapon == IT_AXE) {
-		player_die_ax1 ();
-	}
+	// Did the player explode from high damage?
+	if (self.health < self.gibhealth) player_gib();
 	else {
-		self.lip = 1 + floor(random()*6);
-		if (self.lip == 1) player_diea1();
-		else if (self.lip == 2) player_dieb1();
-		else if (self.lip == 3) player_diec1();
-		else if (self.lip == 4) player_died1();
-		else player_diee1();
+		player_death_sound();
+		self.angles_x = self.angles_z = 0;
+		if (self.velocity_z < 10)
+			self.velocity_z = self.velocity_z + random()*300;
+		
+		if (self.weapon == IT_AXE) player_die_ax1 ();
+		else {
+			self.lip = 1 + floor(random()*6);
+			if (self.lip == 1) player_diea1();
+			else if (self.lip == 2) player_dieb1();
+			else if (self.lip == 3) player_diec1();
+			else if (self.lip == 4) player_died1();
+			else player_diee1();
+		}
 	}
 };
 
@@ -547,7 +603,7 @@ void() player_death =
 void() set_suicide_frame =
 {	
 	// used by kill command and diconnect command
-	if (self.model != self.mdl) return;		// already gibbed
+	if (self.gibbed == TRUE) return;	// already gibbed
 	self.frame = $deatha11;
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_TOSS;

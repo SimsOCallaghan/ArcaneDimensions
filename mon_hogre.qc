@@ -275,10 +275,16 @@ void(entity inflictor, entity attacker, float damage) hogre_pain =
 			}
 		}
 		if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
-			if (random() < 0.3) hogre_painC1 ();	// Fall to ground
-			else hogre_painB1 ();					// Stagger backwards
+			if (random() < 0.5) {
+				self.pain_finished = time + 1.3;
+				hogre_painC1 ();	// Fall to ground
+			}
+			else {
+				self.pain_finished = time + 1.7;
+				hogre_painB1 ();	// Stagger backwards
+			}
 		}
 	}
 };
@@ -296,7 +302,7 @@ void()	hogre_dieS6	=[	$deathS6,	hogre_dieS7	] {ai_forward(1);};
 void()	hogre_dieS7	=[	$deathS7,	hogre_dieS8	] {};
 void()	hogre_dieS8	=[	$deathS8,	hogre_dieS9	] {hogre_sound(3);};	// Chainsaw hits floor
 void()	hogre_dieS9	=[	$deathS9,	hogre_dieS10] {monster_death_postcheck();};
-void()	hogre_dieS10=[	$deathS10,	hogre_dieS10] {};
+void()	hogre_dieS10=[	$deathS10,	hogre_dieS10] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 // (156 - 165) deathA (Forward)
@@ -310,8 +316,8 @@ void()	hogre_dieA5	=[	$deathA5,	hogre_dieA6	] {ai_forward(1);};
 void()	hogre_dieA6	=[	$deathA6,	hogre_dieA7	] {ai_forward(1);};
 void()	hogre_dieA7	=[	$deathA7,	hogre_dieA8	] {};
 void()	hogre_dieA8	=[	$deathA8,	hogre_dieA9	] {hogre_sound(3);};	// Chainsaw hits floor
-void()	hogre_dieA9	=[	$deathA9,	hogre_dieA10	] {monster_death_postcheck();};
-void()	hogre_dieA10	=[	$deathA10,	hogre_dieA10	] {};
+void()	hogre_dieA9	=[	$deathA9,	hogre_dieA10] {monster_death_postcheck();};
+void()	hogre_dieA10=[	$deathA10,	hogre_dieA10] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 // (166 - 179) deathB (Backward)
@@ -330,7 +336,7 @@ void()	hogre_dieB10=[	$deathB10,	hogre_dieB11] {};
 void()	hogre_dieB11=[	$deathB11,	hogre_dieB12] {};
 void()	hogre_dieB12=[	$deathB12,	hogre_dieB13] {};
 void()	hogre_dieB13=[	$deathB13,	hogre_dieB14] {monster_death_postcheck();};
-void()	hogre_dieB14=[	$deathB14,	hogre_dieB14] {};
+void()	hogre_dieB14=[	$deathB14,	hogre_dieB14] {monster_deadbody_check();};
 
 //======================================================================
 void() hogre_die =
@@ -444,6 +450,7 @@ void() monster_hogre =
 	self.pain_flinch = 30;
 	self.pain_longanim = TRUE;
 	self.steptype = FS_TYPESLOW;
+	self.meleerange = MONAI_MELEEOGRE;	// Chainsaw range
 	
 	// Standard ogre health 200 with metal+ option
 	if (self.health < 1) self.health = 200;

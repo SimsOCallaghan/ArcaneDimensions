@@ -207,9 +207,9 @@ no_item_rotate  : No random rotated for all items
 no_zaware       : Switch OFF zaware monster attacks
 no_liquiddmg    : Switch OFF liquid (slime/lava) monster damage
 knight_defskin  : Default skin (0-3) type for new knight model
+bodyflrcheck    : All monster dead body check floor for gravity
+bodyfadeaway    : All monster dead bodies fade away
 
-replace_hknight : Replace Hell Knight with DKnights -1=disable, 1=enable
-replace_ogre    : Replace Ogres with Hunter Ogres -1=disable, 1=enable
 upgrade_axe     : Upgrade Axe -1=disable, 1=enable
 upgrade_ssg     : Upgrade Super Shotgun -1=disable, 1=enable
 upgrade_lg      : Upgrade Lightning Gun -1=disable, 1=enable
@@ -253,8 +253,8 @@ void() worldspawn =
 	//	precache_sound ("weapons/shotgn2.wav");	// super shotgun (not used anymore)
 	precache_sound ("weapons/ssg1.wav");		// Original SSG (reduced hiss/noise)
 	precache_sound ("weapons/ssg2.wav");		// Projectile shells or Shotgun upgrade
-	precache_sound ("weapons/plasma_fire.wav");	// Player PG (eliminator)
-	precache_sound ("weapons/plasma_hit.wav");	// New fire/impact sounds
+	precache_sound (SOUND_PLASMA_FIRE);			// Player PG (eliminator)
+	precache_sound (SOUND_PLASMA_HIT);			// New fire/impact sounds
 	precache_sound ("weapons/nofire.wav");		// Weapon jams/noammo/broken
 
 	//----------------------------------------------------------------------
@@ -357,15 +357,22 @@ void() worldspawn =
 	//	precache_model ("progs/gib2.mdl");
 	//	precache_model ("progs/gib3.mdl");
 
-	precache_model ("progs/s_bubble.spr");		// drowning bubbles
-	precache_model ("progs/s_explod.spr");		// sprite explosion (fire)
-	precache_model ("progs/s_plasma.spr");		// sprite explosion (plasma)
-	precache_model ("progs/s_explodmed.spr");	// medium sprite explosion
-	precache_model ("progs/s_explodbig.spr");	// large sprite explosion
-	precache_model ("progs/s_explodsmallp.spr");// small blue sprite explosion
-	precache_model ("progs/s_explodbigp.spr");	// large blue sprite explosion
-	precache_model ("progs/s_smoke.spr");		// Small puff of smoke
-	precache_model (MODEL_PROJ_SMOKE);			// Empty model + smoke trail
+	precache_model (SBUBBLE_DROWN);			// player drowning bubbles
+	precache_model (SEXP_SMALL);			// Fire explosion (ID)
+	precache_model (SEXP_MED);				// Fire explosion (Quoth)
+	precache_model (SEXP_BIG);				// Fire explosion (Quoth)
+	precache_model (SEXP_PLASMA_SMALL);		// Plasma explosion (Marcher)
+	precache_model (SEXP_PLASMA_BIG);		// Plasma explosion (Marcher)
+	precache_model (SEXP_POISON_SMALL);		// Poison explosion (Marcher)
+	precache_model (SEXP_POISON_MED);		// Poison explosion (Quoth)
+	precache_model (SEXP_ELECTRIC);			// Impact explosion (Quoth)
+	precache_model (SBURST_SMOKE);			// Small puff of smoke (Rubicon2)
+	// Hardly ever used, entity cache it if needed
+//	precache_model (SEXP_ICE_BIG);			// Ice explosion (ne_ruin)
+
+	precache_model (MODEL_PROJ_SMOKE);		// Empty model + smoke trail
+	precache_model (MODEL_PROJ_FLESH);		// SpawnMeatSpray - projectiles.qc
+	precache_model (MODEL_PROJ_FLESHP);		// Poisonous version of meat
 
 	precache_model (MODEL_VWEAP_AXE);		// regular
 	precache_model (MODEL_VWEAP_UPAXE);		// Upgrade - Shadow
@@ -393,13 +400,12 @@ void() worldspawn =
 	precache_model (MODEL_PROJ_SNG);
 	precache_model (MODEL_PROJ_GRENADE);
 	precache_model (MODEL_PROJ_ROCKET);
-	precache_model (MODEL_PROJ_FLESH);		// SpawnMeatSpray - projectiles.qc
 	precache_model (MODEL_BACKPACK);		// DropBackpack - items.qc
 	
 	//----------------------------------------------------------------------
 	// Pre-cache for MOD stuff
 	//----------------------------------------------------------------------
-	precache_model (MODEL_BROKEN);			// Broken model error (items.qc)
+	precache_model (MODEL_BROKEN);			// Broken model error
 	precache_model (MODEL_EMPTY);			// Used for info_intermission cameras
 	
 	precache_model (GIB1_BLOOD);			// New gib - arm/leg
@@ -419,11 +425,15 @@ void() worldspawn =
 	precache_sound (GIBHIT1_STONESOUND);	// long roll
 	precache_sound (GIBHIT3_STONESOUND);	// quick roll
 	precache_sound (GIBHIT5_STONESOUND);	// slow roll
+	precache_sound (GIBHIT1_METALSOUND);	// small clink
+	precache_sound (GIBHIT3_METALSOUND);	// large clank
+	precache_sound (GIBHIT5_METALSOUND);	// gigantic clonk
 	precache_sound (GIB_SOUND_HEAVY);		// Large gib
 	precache_sound (GIB_SOUND_METALA);		// Sword impact
 	precache_sound (GIB_SOUND_METALB);		// Sword impact
 	precache_sound (GIB_SOUND_CHAIN);		// Chain impact
 	precache_sound (GIB_SOUND_WOOD);		// Wooden impact
+	precache_sound (GIB_SOUND_ACID);		// Acid burning
 
 	//----------------------------------------------------------------------
 	// Footstep sounds (slow, light, medium, heavy, large & giant)
@@ -507,13 +517,34 @@ void() worldspawn =
 	engine = ENG_FITZ;						// Default engine type (no extensions)
 	ext_active = cvar("pr_checkextension");	// Check for extra extensions
 	if (ext_active) {
-		// This could be FTE, DP, DQ, RMQ, Qbism etc
+		// This could be DP, QSS, DQ, RMQ, Qbism etc
 		engine = ENG_DPEXT;
 
-		// Check for engine feature extensions
-		ext_dpfog = checkextension("DP_GFX_FOG");				// DP extra fog params
-		ext_dppart = checkextension("DP_SV_POINTPARTICLES"); 	// particle system
-		ext_dpsurf = checkextension("DP_QC_GETSURFACE");		// surface content
+		// Check for DP point particle extensions
+		ext_dppart = checkextension("DP_SV_POINTPARTICLES");
+		// DP extra fog params
+		ext_dpfog = checkextension("DP_GFX_FOG");
+		// surface content
+		ext_dpsurf = checkextension("DP_QC_GETSURFACE");
+		// particle rain/snow system
+		ext_dprain = checkextension("DP_TE_PARTICLERAIN");
+		ext_dpsnow = checkextension("DP_TE_PARTICLESNOW");
+
+		// Check for FTE/QS-S point particle extensions
+		// Sadly it seems the QS-Spike engine is not going to declare
+		// the particle functions to the MOD, so it looks like there
+		// is no way to detect if rain/snow effects are active
+		if (checkextension("FTE_SV_POINTPARTICLES")) {
+			ext_dppart = TRUE;
+			if (checkextension("FTE_PART_NAMESPACE_EFFECTINFO")) {
+				// The default should be root of MOD directory
+				// QS-Spike/FTE has other plans ...
+				particleeffectnum("effectinfo.txt");
+				// Rain/Snow checkextension don't exist atm
+				// Maybe one day the QSS engine will support it!
+				particleeffectnum("fte_weather.cfg");
+			}
+		}
 	}
 	
 	dprint("\n\b[ENGINE]\b ");
@@ -533,8 +564,16 @@ void() worldspawn =
 	//----------------------------------------------------------------------
 	// Check for any custom gravity settings or ziggy secret map
 	if (!self.gravity) map_gravity = DEF_GRAVITY;
+	else map_gravity = self.gravity;
 	if (self.model == "maps/e1m8.bsp") map_gravity = 100;	// Ziggy secret map
 	cvar_set ("sv_gravity", ftos(map_gravity));
+	
+	//----------------------------------------------------------------------
+	// Check for global body floor check and fading timer
+	if (self.bodyflrcheck == 1) map_bodyflrcheck = TRUE;
+	else map_bodyflrcheck = FALSE;
+	if (self.bodyfadeaway > 0) map_bodyfadeaway = self.bodyfadeaway;
+	else map_bodyfadeaway = FALSE;
 
 	//----------------------------------------------------------------------
 	// The values of configflag is never saved, its always generated!
@@ -553,7 +592,7 @@ void() worldspawn =
 		if (self.particlemax > 0) part_max = self.particlemax;
 		else part_max = PARTICLE_MAXENTS;
 		// DP setup uses engine particles
-		if (engine == ENG_DPEXT) part_max = part_max / 4;	
+		if (engine == ENG_DPEXT) part_max = part_max * 0.5;	
 		dprint("\b[WORLD]\b Max particles (");
 		dprint(ftos(part_max)); dprint(")\n");
 		setup_particlechain();		// Setup intial particle chain
@@ -588,6 +627,7 @@ void() StartFrame =
 	teamplay = cvar("teamplay");
 	developer = cvar("developer");
 	skill = cvar("skill");
+	coop = cvar("coop");
 
 	framecount = framecount + 1;
 };

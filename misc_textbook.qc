@@ -1,11 +1,6 @@
 /*======================================================================
  Story books
 ======================================================================*/
-$cd id1/models/book1
-$origin 0 0 0
-$base base		
-$skin skin
-
 // Closed
 $frame closed1 closed2 closed3 closed4 closed5 closed6 closed7 closed8 closed9 closed10
 
@@ -25,6 +20,24 @@ $frame open1 open2 open3 open4 open5 open6 open7 open8 open9 open10
 
 void() book_closed1;
 void(float fadedir) info_book_fadesetup;
+
+//----------------------------------------------------------------------
+float MISCBOOK_NOMODEL = 1;		// Will not use any model and particles
+float MISCBOOK_PLINTH1 = 2;		// setup and spawn on plinth1
+float MISCBOOK_PLINTH2 = 4;		// setup and spawn on plinth2
+float MISCBOOK_STORY = 8;		// setup book as part of story
+float MISCBOOK_COLLISION = 16;	// Use bounding box collision for plinth
+float MISCBOOK_ANGLEONLY = 32;  // Will only work when standing infront of entity
+float MISCBOOK_NOEFFECTS = 128;	// Disable particles and effects
+
+float MISCBOOK_FADEOUT = 192;	// Background density while reading books
+float MISCBOOK_LOOPADVANCE = 0.01;
+
+float MISCBOOK_CLOSED = 1;
+float MISCBOOK_OPENING = 2;
+float MISCBOOK_CLOSING = 4;
+float MISCBOOK_OPEN = 8;
+float MISCBOOK_STAYOPEN = 16;
 
 //----------------------------------------------------------------------
 // Idle B - looking around turning left and then right (based on closed)
@@ -215,10 +228,43 @@ void(float fadedir) info_book_fadesetup =
 //----------------------------------------------------------------------
 void() info_book_displaystory =
 {
+	// is this book part of a storyline?
+	// The controller has been setup/validated already
+	if (self.spawnflags & MISCBOOK_STORY) {
+		// Check controller once!
+		self.spawnflags = self.spawnflags - (self.spawnflags & MISCBOOK_STORY);
+
+		if (self.attachment.estate == ESTATE_OFF) {
+			self.message = "Story controller broken!\n\n";
+		}
+		else {
+			// Copy over story chapter
+			self.message = self.attachment.oldenemy.message;
+			self.message2 = self.attachment.oldenemy.message2;
+			self.message3 = self.attachment.oldenemy.message3;
+			self.message4 = self.attachment.oldenemy.message4;
+		}
+
+		// Work out which centerprint to use
+		if (self.message3 != "" && self.message4 != "") self.cnt = 2;
+		else if (self.message3 != "") self.cnt = 1;
+		else self.cnt = 0;
+
+		// Move controller on to next story chapter
+		if (self.attachment.height < self.attachment.count) {
+			self.attachment.count = self.attachment.count + 1;
+			self.attachment.oldenemy = self.attachment.oldenemy.oldenemy;
+		}
+	}
+		
 	// Suppress any other centerprint messages and show story
 	self.enemy.suppressCenterPrint = TRUE;
-	centerprint_msg(self.enemy, self.message, self.message2);
-	
+	// Check for any additional strings and use correct centerprint
+	// The engine function will merge several strings together
+	if (self.cnt == 1) centerprint_msg3(self.enemy, self.message, self.message2, self.message3);
+	else if (self.cnt == 2) centerprint_msg4(self.enemy, self.message, self.message2, self.message3, self.message4);
+	else centerprint_msg(self.enemy, self.message, self.message2);
+
 	// Check for any additional trigger events
 	if (self.target != "") {
 		trigger_strs(self.target, self.enemy);
@@ -394,13 +440,39 @@ void() info_book_setup =
 	else self.style = MISCBOOK_GREEN;
 	
 	// Default viewing angle is min 30 and max 60 looking at origin
-	if (self.v_angle == '0 0 0') self.v_angle = '30 60 0';
+	if (CheckZeroVector(self.v_angle)) self.v_angle = '30 60 0';
 	if (self.angles_y == 0) self.angles_y = 360;
-	
-	// setup default message for testing
-	if (self.message == "") self.message = "\b--[ Dark Elder Magic ]--\b\n\n";
-	if (self.message2 == "") self.message2 = "Despite the awful might of the Elder\nWorld, you have achieved the Rune of\nElder Magic, capstone of all types of\narcane wisdom. Beyond good and evil,\nbeyond life and death, the Rune\npulsates, heavy with import.\n";
 
+	// Check for story book setup first
+	// Story is supplied from story system when book is opened
+	if (self.spawnflags & MISCBOOK_STORY) {
+		// Reset all storybook message strings
+		self.message = "Waiting for story!"; 
+		self.message2 = "";
+		self.message3 = ""; self.message4 = "";
+		self.cnt = 0;
+		self.attachment = find(world, targetname, self.target2);
+		// Is this entity a storybook controller?
+		if (!self.attachment || self.attachment.classtype != CT_STORYCONTROL)
+		{
+			dprint("\b[STORYBOOK]\b Missing controller!\n");
+			spawn_marker(self.origin, SPNMARK_YELLOW);
+			entity_hide(self);
+			return;
+		}
+	}
+	else {
+		// setup default message for testing
+		if (self.message == "") self.message = "\b--[ Dark Elder Magic ]--\b\n\n";
+		if (self.message2 == "") self.message2 = "Despite the awful might of the Elder\nWorld, you have achieved the Rune of\nElder Magic, capstone of all types of\narcane wisdom. Beyond good and evil,\nbeyond life and death, the Rune\npulsates, heavy with import.\n";
+
+		// Check for additional strings to display
+		// This is to fix quark editor limit of 128 characters per string
+		if (self.message3 != "" && self.message4 != "") self.cnt = 2;
+		else if (self.message3 != "") self.cnt = 1;
+		else self.cnt = 0;
+	}
+	
 	// Spawn particle emitter if particles active and not blocked
 	if ( !(self.spawnflags & MISCBOOK_NOMODEL) ) {
 		self.part_active = PARTICLE_STYLE_BOOK;
@@ -421,22 +493,26 @@ void() info_book_setup =
 };
 
 /*======================================================================
-/*QUAKED misc_textbook (0 0.5 0.5) (-16 -16 -8) (16 16 8) NOMODEL PLINTH1 PLINTH2 x COLLISION ANGLEONLY STARTOFF NOEFFECTS
+/*QUAKED misc_textbook (0 0.5 0.5) (-16 -16 -8) (16 16 8) NOMODEL PLINTH1 PLINTH2 STORY COLLISION ANGLEONLY STARTOFF NOEFFECTS
 Display custom text messages
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
 target     : trigger event when book is opened (only works once)
+target2    : name of story controller (only works with spawnflag)
 angle      : facing angle for model or direction player must be standing
 v_angle    : The viewing angle the book is active (def=30,60,0)
 exactskin  : skin number for book (1-8, Brown1/2,Green1/2,Blue1/2,Red1/2)
 pos1       : Touch trigger minimin size (def=-48 -48 -32)
 pos2       : Touch trigger maximum size (def=48 48 32)
 message    : header message
-message2   : Body Text (need to add linefeeds)
+message2   : Body Text 1 (need to add linefeeds)
+message3   : Body Text 2 (displayed after message2)
+message4   : Body Text 3 (displayed after message3)
 -------- SPAWNFLAGS --------
 NOMODEL   : Will not use book model + particles
 PLINTH1   : Setup book on top of plinth1 model
 PLINTH2   : Setup book on top of plinth2 model
+STORY     : Book is part of a story (use target2)
 COLLISION : Use bounding box collision for plinth
 ANGLEONLY : Will only work when standing infront of entity (angle key)
 STARTOFF  : Starts off and waits for trigger
@@ -452,8 +528,8 @@ void() misc_textbook =
 	self.solid = SOLID_NOT;
 	self.classtype = CT_STORYBOOK;
 	// Setup large bounding box for touch trigger
-	if (self.pos1 == '0 0 0') self.pos1 = '-48 -48 -32';
-	if (self.pos2 == '0 0 0') self.pos2 = '48 48 32';
+	if (CheckZeroVector(self.pos1)) self.pos1 = '-48 -48 -32';
+	if (CheckZeroVector(self.pos2)) self.pos2 = '48 48 32';
 	self.takedamage = DAMAGE_NO;	// No damage from anything
 
 	if (self.spawnflags & MISCBOOK_NOMODEL) {
@@ -482,4 +558,107 @@ void() misc_textbook =
 	// Don't spawn straight away
 	self.nextthink = time + 0.1 + random()*0.4;
 	self.think = info_book_setup;
+};
+
+/*======================================================================
+/*QUAKED misc_textstory (0 0.5 1.0) (-16 -16 -8) (16 16 8) x
+Text Book Story Chapters
+-------- KEYS --------
+targetname : name of current chapter
+target     : name of next chapter
+message    : header message
+message2   : Body Text 1 (need to add linefeeds)
+message3   : Body Text 2 (displayed after message2)
+message4   : Body Text 3 (displayed after message3)
+-------- SPAWNFLAGS --------
+-------- NOTES --------
+Text Book Story Chapters
+
+/*QUAKED misc_textstoryctrl (0 0.1 1.0) (-16 -16 -8) (16 16 8) x
+Text Book Story Controller
+-------- KEYS --------
+targetname : name of controller for story
+target : name of first chapter
+-------- SPAWNFLAGS --------
+-------- NOTES --------
+Text Book Story Controller
+
+======================================================================*/
+void() info_bookcont_setup = 
+{
+	local entity storychap, prevchap;
+	
+	// Is there any story chapters?
+	storychap = find(world, targetname, self.target);
+	if (!storychap) {
+		dprint("\b[STORYCTRL]\b Missing start chapter!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		return;
+	}
+
+	// Can only link to story chapter entities
+	if (storychap.classtype != CT_STORYCHAPTER) {
+		dprint("\b[STORYCTRL]\b First chapter wrong entity!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		return;
+	}
+	
+	// Setup controller
+	prevchap = self;	// Start controller at chapter 1
+	self.count = 0;		// Total chapters in story
+	self.height = 1;	// Current chapter in story
+	
+	// Work through list
+	while (storychap) {
+		// Visual debug for chapters
+		spawn_marker(storychap.origin, SPNMARK_BLUE);
+
+		// Link chapters and move forward
+		prevchap.oldenemy = storychap;
+		prevchap = storychap;
+		self.count = self.count + 1;
+
+		// Check for next target in chain
+		if (prevchap.target == "") storychap = world;
+		else storychap = find(world, targetname, prevchap.target);
+	}
+	// Point final chapter at itself
+	prevchap.oldenemy = prevchap;
+	
+	// Controller finally active
+	self.estate = ESTATE_ON;
+	// Visual debug for controller
+	spawn_marker(self.origin, SPNMARK_GREEN);
+	// Console message for chapters found
+	dprint("\b[STORYCTRL]\b Chapters found (");
+	dprint(ftos(self.count));
+	dprint(")\n");
+};
+
+//----------------------------------------------------------------------
+void() misc_textstoryctrl =
+{
+	self.movetype = MOVETYPE_NONE;
+	self.solid = SOLID_NOT;
+	self.classtype = CT_STORYCONTROL;
+	// Start in disabled state until chapters setup
+	self.estate = ESTATE_OFF;
+
+	if (self.target == "") {
+		dprint("\b[STORYCTRL]\b Missing story start!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		return;
+	}
+	
+	// Wait for chapter and books to spawn first
+	self.nextthink = time + 1 + random();
+	self.think = info_bookcont_setup;
+};
+
+//----------------------------------------------------------------------
+void() misc_textstory =
+{
+	self.movetype = MOVETYPE_NONE;
+	self.solid = SOLID_NOT;
+	self.classtype = CT_STORYCHAPTER;
 };

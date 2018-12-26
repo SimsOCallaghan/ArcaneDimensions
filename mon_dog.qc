@@ -253,7 +253,7 @@ void() dog_leap4	=[	$leap4,		dog_leap5	] {};
 void() dog_leap5	=[	$leap5,		dog_leap6	] {};
 void() dog_leap6	=[	$leap6,		dog_leap6	] {
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; //random jump angle
 		self.think = dog_leap2;
 	}
@@ -321,7 +321,7 @@ void() dog_die5		=[	$death5,	dog_die6	] {};
 void() dog_die6		=[	$death6,	dog_die7	] {};
 void() dog_die7		=[	$death7,	dog_die8	] {};
 void() dog_die8		=[	$death8,	dog_die9	] {monster_death_postcheck();};
-void() dog_die9		=[	$death9,	dog_die9	] {};
+void() dog_die9		=[	$death9,	dog_die9	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() dog_dieb1		=[	$deathb1,	dog_dieb2	] {};
@@ -333,7 +333,7 @@ void() dog_dieb5		=[	$deathb5,	dog_dieb6	] {};
 void() dog_dieb6		=[	$deathb6,	dog_dieb7	] {};
 void() dog_dieb7		=[	$deathb7,	dog_dieb8	] {};
 void() dog_dieb8		=[	$deathb8,	dog_dieb9	] {monster_death_postcheck();};
-void() dog_dieb9		=[	$deathb9,	dog_dieb9	] {};
+void() dog_dieb9		=[	$deathb9,	dog_dieb9	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() dog_die =

@@ -45,24 +45,64 @@ float RESPAWN_RUNE = 60;			// Sigil/runes
 float RESPAWN_ARTIFACT1 = 60;		// Quad + Suit
 float RESPAWN_ARTIFACT2 = 300;		// Pent + Invisibilty
 float RESPAWN_BACKPACK = 30;		// Random Ammo Drop
+float RESPAWN_COOP = 5;				// Default timer for coop
 
 float RESPAWN_PARTICLES = 32;		// Particle burst for ring/center
 float RESPAWN_EXPTIME = 1;			// Particles burst lifetime
 float RESPAWN_EXPRADIUS = 12;		// Particle ring radius
 
-//----------------------------------------------------------------------
-// Animated skin for new BASE health boxes
-//----------------------------------------------------------------------
-float MODEL_ANIM_SPEED = 0.3;
+float MODEL_ANIM_SPEED = 3;
+float MODEL_ANIM_RANGE = 3;
 
-void()	healthx_0 = [0, healthx_1] {self.skin = 0; self.nextthink = time + MODEL_ANIM_SPEED;
-if (self.attack_finished > time) self.think = SUB_Null;};
-void()	healthx_1 = [0, healthx_2] {self.skin = 1; self.nextthink = time + MODEL_ANIM_SPEED;
-if (self.attack_finished > time) self.think = SUB_Null;};
-void()	healthx_2 = [0, healthx_3] {self.skin = 2; self.nextthink = time + MODEL_ANIM_SPEED;
-if (self.attack_finished > time) self.think = SUB_Null;};
-void()	healthx_3 = [0, healthx_0] {self.skin = 3; self.nextthink = time + MODEL_ANIM_SPEED;
-if (self.attack_finished > time) self.think = SUB_Null;};
+//----------------------------------------------------------------------
+// Some items have pickup conditions which prevent targets
+// from firing when coop mode is active, show console warning
+//----------------------------------------------------------------------
+void() item_coopcheck =
+{
+	if (self.target != "" || self.target2 != "") {
+		dprint("\b[Coop]\b (");
+		dprint(self.classname);
+		dprint(") unreliable target(s) in coop!\n");
+	}
+};
+
+//----------------------------------------------------------------------
+// Check floor under item and animated skin for new BASE health boxes
+//----------------------------------------------------------------------
+void() item_thinkloop =
+{
+	// Check for entity states
+	if (self.estate & ESTATE_BLOCK) return;
+	// Has the item been turned off?
+	if (self.attack_finished > time) return;
+	// Has the item removal timer been reached?
+	if (self.item_expired > 0 && self.item_expired < time) remove(self);
+	
+	if (self.item_skinanim > 0) {
+		self.item_skincycle = self.item_skincycle + 1;
+		if (self.item_skincycle > MODEL_ANIM_SPEED) {
+			self.item_skincycle = 0;
+			self.item_skinanim_no = self.item_skinanim_no + 1;
+			if (self.item_skinanim_no > MODEL_ANIM_RANGE) {
+				self.item_skinanim_no = 0;
+			}
+		}
+		// Update skin
+		self.skin = self.item_skinanim_no;
+	}
+
+	// Check floor below item (global function)
+	if (self.item_flrcheck > 0) {
+		ent_floorcheck(self, self.item_flrcheck);
+		// Record any movement for respawn function
+		self.oldorigin = self.origin;
+	}
+
+	// Keep checking
+	self.think = item_thinkloop;
+	self.nextthink = time + 0.1;
+};
 
 void() item_estate_setup;
 //----------------------------------------------------------------------
@@ -77,6 +117,10 @@ void() item_reset =
 //----------------------------------------------------------------------
 void() item_finished =
 {
+	// Check for respawning ammo override for coop
+	if (coop > 0 && coop_ammoboxes > 0 && self.classgroup == CG_AMMOITEM) 
+		self.spawnflags = self.spawnflags | ITEM_RESPAWN;
+	
 	self.attack_finished = LARGE_TIMER;
 	if (!self.estate_off) item_estate_setup();
 	self.estate_off();
@@ -138,7 +182,16 @@ void() start_item_respawn =
 	// Is the item being respawned at the moment?
 	if (self.waitmin > time) return;
 	// Is the item setup to instantly respawn? (time = -1)
-	if (self.respawn_time < 1) item_respawn();
+	if (self.respawn_time < 1 && self.spawnflags & ITEM_RESPAWN) {
+		// Check for any respawn quantity counts
+		if (self.respawn_count > 0) {
+			self.respawn_count = self.respawn_count - 1;
+			if (self.respawn_count == 0) 
+				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
+		}
+		// Instantly spawn item
+		item_respawn();
+	}
 	else {
 		// deathmatch 2 is the silly old rules
 		if (deathmatch == 1 || self.spawnflags & ITEM_RESPAWN) {
@@ -151,7 +204,7 @@ void() start_item_respawn =
 			if (self.respawn_count > 0) {
 				self.respawn_count = self.respawn_count - 1;
 				if (self.respawn_count == 0) 
-					self.spawnflags = self.spawnflags - ITEM_RESPAWN;
+					self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
 			}
 			
 			// Are particles enabled?
@@ -223,33 +276,46 @@ void() item_restore =
 {
 	// Ammo boxes can have special animation frames or lids!
 	if (self.classgroup == CG_AMMOITEM) {
-		// Has frame_box been setup yet?
-		if (self.frame_box < 1) self.frame_box = rint(1 + random()*6);
-		else if (self.frame_box > 7) self.frame_box = 1;
-
 		// Any LID (shells/spikes) defined?
 		if (self.spawnflags & A_LID && self.attachment) {
 			// Setup LID attachment entity (match angles/origin)
+			self.attachment.solid = SOLID_NOT;
+			self.attachment.movetype = self.movetype;
 			setmodel(self.attachment, self.headmdl);
-			setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
-			setorigin(self.attachment, self.origin);
+			// Give the lid the same bbox setup so it can move
+			setsize (self.attachment, self.mins, self.maxs);
+			// Start lid off the ground and remove ground flag
+			// This will let the lid naturally settle on the surface
+			setorigin(self.attachment, self.origin + '0 0 1');
+			self.attachment.flags = self.attachment.flags - (self.attachment.flags & FL_ONGROUND);
+			// Match angle and stored frame setup from ammo box
 			self.attachment.angles = self.angles;
-			self.attachment.frame = self.frame_box;
+			
+			// lid frame options 0=random, 1-7=exact
+			// Always generate a new lid position for respawning items
+			if (self.frame_box == 0) self.attachment.frame = rint(1 + random()*6);
+			else if (self.frame_box > 7) self.frame_box = 1;
+			if (self.frame_box > 0) self.attachment.frame = self.frame_box;
 			
 			// LID has different skins for shells and spikes
 			if (self.classtype == CT_AMMOSHELLS) self.attachment.skin = self.skin;
 			else self.attachment.skin = 2 + self.skin;
 		}
 		// Any special frames (rockets/plasma) defined?
-		else if (self.frame_override) self.frame = self.frame_box;
+		else if (self.frame_override) {
+			// frame options -1=random 0=nothing, 1-7=exact
+			// Always generate a new frame number for respawning items
+			if (self.frame_box == -1) self.frame = rint(1 + random()*6);
+			else if (self.frame_box > 7) self.frame_box = 1;
+			if (self.frame_box > 0) self.frame = self.frame_box;
+		}
 	}
 	
 	// Setup animated textures for old style ID health boxes
-	if (self.classtype == CT_HEALNORM || self.classtype == CT_HEALMEGA) {
-		if (self.skin_override || world.worldtype == 2) {
-			self.nextthink = time + random()*0.5;
-			self.think = healthx_0;
-		}
+	// Check floor under item for any changes
+	if (self.item_flrcheck > 0 || self.item_skinanim > 0) {
+		self.nextthink = time + random()*0.5;
+		self.think = item_thinkloop;
 	}
 };
 
@@ -259,10 +325,6 @@ void() item_delay =
 	if (self.touchedvoid) {entity_hide(self); return;}
 	if (self.estate == ESTATE_DISABLE) return;
 	
-	// Remove the START OFF functionality
-	if (self.spawnflags & ENT_STARTOFF) 
-		self.spawnflags = self.spawnflags - ENT_STARTOFF;
-
 	//----------------------------------------------------------------------
 	// Check for Axe / Shotgun / LG upgrade monster spawn exceptions?
 	if (self.upgrade_axe || self.upgrade_ssg || self.upgrade_lg) {
@@ -278,7 +340,6 @@ void() item_delay =
 	self.touch = item_touch;
 	self.attack_finished = 0;
 	self.estate = ESTATE_ON;
-
 	// Setup enough parameters to test drop to floor
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_TRIGGER;
@@ -286,30 +347,53 @@ void() item_delay =
 	setsize (self, self.bbmins, self.bbmaxs);
 	setorigin(self, self.oldorigin);
 	self.velocity = '0 0 0';
-		
+	
 	// Finalize item location (check drop to floor)
-	if( !(self.spawnflags & ITEM_FLOATING) ) {
+	if(self.spawnflags & ITEM_FLOATING) {
+		// Cannot check the floor of an item if its floating!?!
+		if (self.item_flrcheck > 0) self.item_flrcheck = 0;
+	}
+	else {
 		self.movetype = MOVETYPE_TOSS;	
+		self.velocity = '0 0 0';
 		self.origin_z = self.origin_z + 6;
-		droptofloor();
-		if (pointcontents(self.origin) == CONTENT_SOLID) {
+		// ID originally use a droptofloor test for space check
+		// Tried a pointcontents check but it can allows things
+		// to fall through the floor and just keep going
+//		if (pointcontents(self.origin) == CONTENT_SOLID) {
+		if (!droptofloor()) {
 			dprint ("\n\b[Item]\b "); dprint (self.classname);
 			dprint (" stuck at ("); dprint (vtos(self.origin)); dprint (")\n");
-			spawn_marker(self.origin);
+			spawn_marker(self.origin, SPNMARK_YELLOW);
 			remove(self);
 			return;
 		} 
 	}
 
+	// If check floor under item enabled, workout distance check
+	// The bottom of the bounding box + 16 for large step
+	if (self.item_flrcheck > 0) {
+		self.item_flrcheck = fabs(self.mins_z) + 16;
+	}
+	
 	// Spawn particle emitter if particles active and not blocked
 	if (query_configflag(SVR_PARTICLES) == SVR_PARTICLES) {
-		if (!(self.spawnflags & ITEM_NOEFFECTS) && self.part_active > 0) 
+		if (!(self.spawnflags & ITEM_NOEFFECTS) && self.part_active > 0) {
 			self.part_emitter = spawn_pemitter(self, self, self.part_active, PARTICLE_START_ON);
+		}
 	}
 	
 	// Finally setup entity ready for use
 	self.oldorigin = self.origin;
-	item_restore();
+	
+	// Remove the START OFF functionality
+	if (self.spawnflags & ENT_STARTOFF) {
+		self.spawnflags = self.spawnflags - ENT_STARTOFF;
+		// Check for respawn effect?
+		if (self.spawnflags & ITEM_RESPAWN) start_item_respawn();
+		else item_restore();
+	}
+	else item_restore();
 };
 
 //----------------------------------------------------------------------
@@ -318,10 +402,16 @@ void() item_on =
 	self.estate = ESTATE_ON;
 	self.movetype = MOVETYPE_NONE;
 
+	// Restore any effect flags settings (various dlight glows)
+	if (self.savedeffects > 0) self.effects = self.savedeffects;
+	
 	// Check for delayed/trigger_once functionality?
 	if (self.spawnflags & ENT_STARTOFF || self.attack_finished > time)
 		self.solid = SOLID_NOT;
 	else {
+		// Restore movement, solid and model parameters
+		if(self.spawnflags & ITEM_FLOATING) self.movetype = MOVETYPE_NONE;
+		else self.movetype = MOVETYPE_TOSS;
 		self.solid = SOLID_TRIGGER;
 		setmodel(self,self.mdl);
 		setsize (self, self.bbmins, self.bbmaxs);
@@ -341,6 +431,7 @@ void() item_off =
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
 	setmodel(self,"");
+	self.effects = 0;
 	setsize(self, VEC_ORIGIN, VEC_ORIGIN);
 	// If item was setup to float then it will be trigger item
 	// Don't reset origin as it might have fallen somewhere better
@@ -370,6 +461,19 @@ void() item_start =
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	self.flags = self.flags | FL_ITEM;
 
+	// Warning if effects flag is active before spawning
+	if (self.effects) {
+		dprint("\b[ITEM]\b Effects flag active\n");
+		self.savedeffects = self.effects;
+	}
+	// Reset effects flag because some engines will show effects
+	// This is especially obvious for delay spawned items
+	self.effects = 0;
+	
+	// Check for spawning conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+	
 	// Cannot have multiple upgrade restrictions on items
 	remove_duplicate_upgrades();
 	
@@ -377,7 +481,7 @@ void() item_start =
 	if (self.upgrade_axe || self.upgrade_ssg) {
 		if ( !(self.spawnflags & ENT_STARTOFF) ) {
 			dprint("\b[ITEM]\b need spawn delay for axe/shotgun\n");
-			spawn_marker(self.origin);
+			spawn_marker(self.origin, SPNMARK_YELLOW);
 			remove(self);
 			return;
 		}
@@ -386,7 +490,7 @@ void() item_start =
 	// If respawn timer negative then wait for a trigger
 	if (self.respawn_time < 0) self.respawn_trig = TRUE;
 	if (self.respawn_count < 0) self.respawn_count = 1;
-	
+
 	// Setup Entity State functionality
 	item_estate_setup();
 
@@ -538,6 +642,7 @@ void() item_health =
 			// Original ID pickup model
 			self.mdl = "progs/health_100b.mdl";
 			self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
+			self.item_skinanim = TRUE;
 		}
 		self.noise = SOUND_HEAL100;
 		self.healamount = HEAL_MEGA;
@@ -559,6 +664,7 @@ void() item_health =
 			self.mdl = "progs/health_25b.mdl";
 			self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 			self.respawn_ofs = '0 0 16';
+			self.item_skinanim = TRUE;
 		}
 		self.noise = SOUND_HEAL25;
 		self.healamount = HEAL_NORM;
@@ -587,6 +693,9 @@ void() item_health =
 	self.bbmins = VEC_HEAL_MIN;
 	self.bbmaxs = VEC_HEAL_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_HEALTH;
+
+	// Check for coop errors
+	item_coopcheck();
 	item_start ();
 };
 
@@ -622,6 +731,8 @@ void() item_armor_setup =
 	self.bbmaxs = '16 16 56';
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_ARMOR;
 
+	// Check for coop errors
+	item_coopcheck();
 	item_start ();
 };
 
@@ -783,81 +894,139 @@ void(entity targ) bound_other_ammo =
 //----------------------------------------------------------------------
 void() weapon_touch =
 {
-	local float best, new, old;
-	local float leave, moditem;
+	local float pickupweapon, pickupammo, moditem;
 
-	// if the player was using his best weapon
-	// change up to the new one if better		
-	best = W_BestWeapon(other);
-
-	// Deathmatch/coop switch
-	if (deathmatch == 2 || coop) leave = TRUE;
-	else leave = FALSE;
-	
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_UPGRADE_AXE) {
-		if (leave && (other.moditems & IT_UPGRADE_AXE) ) return;
+		pickupweapon = IT_UPGRADE_AXE;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.moditems & pickupweapon) return;
+		// Update serverflag and highlight as MOD weapon
 		update_configflag(SVR_UPDAXE, TRUE);
 		moditem = TRUE;
-		new = IT_UPGRADE_AXE;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_SHOTGUN) {
-		if (leave && (other.items & IT_SHOTGUN) ) return;
-		new = IT_SHOTGUN;
-		other.ammo_shells = other.ammo_shells + AMMO_SHELLS_WPN;
+		pickupweapon = IT_SHOTGUN;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_shells > AMMO_MAXSHELLS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_SHELLS_WPN;
+		}
+		else pickupammo = AMMO_SHELLS_WPN;
+		other.ammo_shells = other.ammo_shells + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_UPGRADE_SSG) {
-		if (leave && (other.moditems & IT_UPGRADE_SSG) ) return;
+		pickupweapon = IT_UPGRADE_SSG;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.moditems & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.moditems & pickupweapon) {
+			if (other.ammo_shells > AMMO_MAXSHELLS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_SHELLS_WPN;
+		}
+		else pickupammo = AMMO_SHELLS_WPN;
+		other.ammo_shells = other.ammo_shells + pickupammo;
+		// Update serverflag and highlight as MOD weapon
 		update_configflag(SVR_UPDSSG, TRUE);
 		moditem = TRUE;
-		new = IT_UPGRADE_SSG;
-		other.ammo_shells = other.ammo_shells + AMMO_SHELLS_WPN;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_SUPER_SHOTGUN) {
-		if (leave && (other.items & IT_SUPER_SHOTGUN) ) return;
-		new = IT_SUPER_SHOTGUN;
-		other.ammo_shells = other.ammo_shells + AMMO_SHELLS_WPN;
+		pickupweapon = IT_SUPER_SHOTGUN;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_shells > AMMO_MAXSHELLS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_SHELLS_WPN;
+		}
+		else pickupammo = AMMO_SHELLS_WPN;
+		other.ammo_shells = other.ammo_shells + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_NAILGUN) {
-		if (leave && (other.items & IT_NAILGUN) ) return;
-		new = IT_NAILGUN;
-		other.ammo_nails = other.ammo_nails + AMMO_NAILS_WPN;
+		pickupweapon = IT_NAILGUN;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_nails > AMMO_MAXNAILS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_NAILS_WPN;
+		}
+		else pickupammo = AMMO_NAILS_WPN;
+		other.ammo_nails = other.ammo_nails + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_SUPER_NAILGUN) {
-		if (leave && (other.items & IT_SUPER_NAILGUN) ) return;
-		new = IT_SUPER_NAILGUN;
-		other.ammo_nails = other.ammo_nails + AMMO_NAILS_WPN;
+		pickupweapon = IT_SUPER_NAILGUN;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_nails > AMMO_MAXNAILS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_NAILS_WPN;
+		}
+		else pickupammo = AMMO_NAILS_WPN;
+		other.ammo_nails = other.ammo_nails + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_GRENADE_LAUNCHER) {
-		if (leave && (other.items & IT_GRENADE_LAUNCHER) ) return;
-		new = IT_GRENADE_LAUNCHER;
-		other.ammo_rockets = other.ammo_rockets + AMMO_ROCKETS_WPN;
+		pickupweapon = IT_GRENADE_LAUNCHER;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_rockets > AMMO_MAXROCKETS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_ROCKETS_WPN;
+		}
+		else pickupammo = AMMO_ROCKETS_WPN;
+		other.ammo_rockets = other.ammo_rockets + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_ROCKET_LAUNCHER) {
-		if (leave && (other.items & IT_ROCKET_LAUNCHER) ) return;
-		new = IT_ROCKET_LAUNCHER;
-		other.ammo_rockets = other.ammo_rockets + AMMO_ROCKETS_WPN;
+		pickupweapon = IT_ROCKET_LAUNCHER;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_rockets > AMMO_MAXROCKETS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_ROCKETS_WPN;
+		}
+		else pickupammo = AMMO_ROCKETS_WPN;
+		other.ammo_rockets = other.ammo_rockets + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_UPGRADE_LG) {
-		if (leave && (other.moditems & IT_UPGRADE_LG) ) return;
+		pickupweapon = IT_UPGRADE_LG;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.moditems & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.moditems & pickupweapon) {
+			if (other.ammo_cells > AMMO_MAXCELLS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_CELLS_WPN;
+		}
+		else pickupammo = AMMO_CELLS_WPN;
+		other.ammo_cells = other.ammo_cells + pickupammo;
+		// Update serverflag and highlight as MOD weapon
 		update_configflag(SVR_UPDLG, TRUE);
 		moditem = TRUE;
-		new = IT_UPGRADE_LG;
-		other.ammo_cells = other.ammo_cells + AMMO_CELLS_WPN;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_LIGHTNING) {
-		if (leave && (other.items & IT_LIGHTNING) ) return;
-		new = IT_LIGHTNING;
-		other.ammo_cells = other.ammo_cells + AMMO_CELLS_WPN;
+		pickupweapon = IT_LIGHTNING;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.items & pickupweapon) return;
+		// Coop players can use weapon spawns as ammo dispensers
+		if (coop > 0 && other.items & pickupweapon) {
+			if (other.ammo_cells > AMMO_MAXCELLS*0.5) pickupammo = 0;
+			else pickupammo = AMMO_CELLS_WPN;
+		}
+		else pickupammo = AMMO_CELLS_WPN;
+		other.ammo_cells = other.ammo_cells + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else return;
@@ -885,39 +1054,30 @@ void() weapon_touch =
 	bound_other_ammo (other);
 	
 	// Stop the player switching to weapons already got
-	if (!deathmatch) {
+	if (deathmatch > 0) {
 		// Check for new shadow axe and SG and skip weapon switch
-		if (moditem && new == IT_UPGRADE_AXE && other.moditems & new) new = FALSE;
-		else if (new == IT_SHOTGUN && other.items & new) new = FALSE;
+		if (moditem && pickupweapon == IT_UPGRADE_AXE && other.moditems & pickupweapon) pickupweapon = FALSE;
+		else if (pickupweapon == IT_SHOTGUN && other.items & pickupweapon) pickupweapon = FALSE;
 		// Stop switching to a lower tier weapon (DM Rules)
 		// if (DM_RankForWeapon(other.weapon) < DM_RankForWeapon(new)) new = FALSE;
 	}
 	
 	// Skip any weapon switch if no new weapon
-	if (new != FALSE) {
+	if (pickupweapon != FALSE) {
 		// change to the weapon and add to inventory
-		old = other.items;
-		other.items = other.items | new;
-		if (moditem) other.moditems = other.moditems | new;
+		other.items = other.items | pickupweapon;
+		if (moditem) other.moditems = other.moditems | pickupweapon;
 		
 		// Check for best weapon (DM only) and switch to it!
-		if (deathmatch) DM_Weapon (old, new);
-		else other.weapon = new;
+		if (deathmatch) DM_Weapon (other.weapon, pickupweapon);
+		else other.weapon = pickupweapon;
 		W_SetCurrentAmmo(other);
 	}
 
-	// If co-op active, exit
-	if (leave == TRUE) {
-		// Make sure any targets on the weapon are fired for co-op
-		// This is basically a run once check using state as a flag
-		// Ideally no weapon should use important target triggers!
-		// Code idea from Bengt Jardrup
-		if (self.state == FALSE) {
-			self.state = TRUE;
-			activator = other;
-			SUB_UseTargets ();
-		}
-		return;
+	// Setup respawn for co-op
+	if (coop > 0 && self.respawn_time > 0) {
+		self.respawn_time = RESPAWN_COOP;
+		self.spawnflags = self.spawnflags | ITEM_RESPAWN;
 	}
 
 	// hide item and check for respawn
@@ -926,6 +1086,8 @@ void() weapon_touch =
 	
 	activator = other;
 	SUB_UseTargets();
+	// Triggers events work once in co-op
+	if (coop > 0) { self.target = ""; self.target2 = ""; }
 };
 
 /*======================================================================
@@ -938,6 +1100,7 @@ void() weapon_start =
 	self.bbmins = VEC_WPNS_MIN;
 	self.bbmaxs = VEC_WPNS_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_WEAPON;
+	
 	item_start ();
 };
 
@@ -1272,10 +1435,6 @@ void() ammo_touch =
 {
 	local float best;
 
-	// if the player was using his best weapon, 
-	// change up to the new one if better		
-	best = W_BestWeapon(other);
-
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_AMMOSHELLS) {
 		if (other.ammo_shells >= AMMO_MAXSHELLS) return;
@@ -1305,6 +1464,10 @@ void() ammo_touch =
 	sprint (other, "\n");
 	sound (other, CHAN_ITEM, "weapons/lock4.wav", 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
+
+	// if the player was using his best weapon, 
+	// change up to the new one if better		
+	best = W_BestWeapon(other);
 
 	// change to a better weapon if appropriate
 	if ( other.weapon == best ) {
@@ -1361,8 +1524,10 @@ void() item_ammo_setup =
 		setorigin(self.attachment, self.origin);
 		self.attachment.solid = SOLID_NOT;
 		self.attachment.movetype = MOVETYPE_NONE;
-	}		
-
+	}
+		
+	// Check for coop errors
+	item_coopcheck();
 	item_start ();
 };
 
@@ -1415,6 +1580,7 @@ void() item_shells =
 	self.respawn_style = PARTICLE_BURST_YELLOW + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
+	self.frame_override = FALSE;
 	item_ammo_setup();
 };
 
@@ -1467,6 +1633,7 @@ void() item_spikes =
 	self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
+	self.frame_override = FALSE;
 	item_ammo_setup();
 };
 
@@ -1512,11 +1679,11 @@ void() item_rockets =
 	precache_model (self.mdl);
 	self.classtype = CT_AMMOROCKETS;
 	self.netname = "box of rockets";
-	if (self.spawnflags & A_LID) self.spawnflags = self.spawnflags - A_LID;
-	self.frame_override = TRUE;
+	self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
+	self.frame_override = TRUE;
 	item_ammo_setup();
 };
 
@@ -1561,10 +1728,11 @@ void() item_cells =
 	precache_model (self.mdl);
 	self.classtype = CT_AMMOCELLS;
 	self.netname = "battery";
-	if (self.spawnflags & A_LID) self.spawnflags = self.spawnflags - A_LID;
+	self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	self.respawn_style = PARTICLE_BURST_GREEN + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
+	self.frame_override = FALSE;
 	item_ammo_setup();
 };
 
@@ -1610,11 +1778,11 @@ void() item_plasma =
 	precache_model (self.mdl);
 	self.classtype = CT_AMMOCELLS;
 	self.netname = "box of cells";
-	if (self.spawnflags & A_LID) self.spawnflags = self.spawnflags - A_LID;
-	self.frame_override = TRUE;
+	self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
+	self.frame_override = TRUE;
 	item_ammo_setup();
 };
 
@@ -1650,22 +1818,28 @@ void() key_touch =
 	// Add silver/gold key to player inventory
 	else other.items = other.items | self.items;
 
-	// Do not remove/respawn keys in co-op
-	if (!coop) {
-		item_finished();
-		check_item_respawn();
-	}		
+	// Setup respawn for co-op
+	if (coop > 0 && self.respawn_time > 0) {
+		self.respawn_time = RESPAWN_COOP;
+		self.spawnflags = self.spawnflags | ITEM_RESPAWN;
+	}
+
+	// hide item and check for respawn
+	item_finished();
+	check_item_respawn();
 
 	activator = other;
 	SUB_UseTargets();
+	// Triggers events work once in co-op
+	if (coop > 0) self.target = "";
 };
 
 //----------------------------------------------------------------------
 void() key_setup =
 {
 	if (self.noise == "") {
-		if (world.worldtype == 1) self.noise = "misc/runekey.wav";
-		else if (world.worldtype == 2) self.noise = "misc/basekey.wav";
+		if (self.worldtype == 1) self.noise = "misc/runekey.wav";
+		else if (self.worldtype == 2) self.noise = "misc/basekey.wav";
 		else self.noise = "misc/medkey.wav";
 	}
 	precache_sound (self.noise);
@@ -1675,6 +1849,9 @@ void() key_setup =
 	self.bbmins = VEC_KEYS_MIN;
 	self.bbmaxs = VEC_KEYS_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_KEY;
+
+	// Check for coop errors
+	item_coopcheck();	
 	item_start();
 };
 
@@ -1702,15 +1879,18 @@ SILVER key, changes based on worldtype on worldspawn
 ======================================================================*/
 void() item_key1 =
 {
-	if (world.worldtype == 0) {
+	// Check for any self worldtype override
+	if (!self.worldtype) self.worldtype = world.worldtype;
+	
+	if (self.worldtype == 0) {
 		self.mdl = "progs/key_medieval.mdl";	// progs/w_s_key.mdl
 		self.netname = "silver key";
 	}
-	else if (world.worldtype == 1) {
+	else if (self.worldtype == 1) {
 		self.mdl = "progs/key_runic.mdl";	// progs/m_s_key.mdl
 		self.netname = "silver runekey";
 	}
-	else if (world.worldtype == 2) {
+	else if (self.worldtype == 2) {
 		self.mdl = "progs/key_base.mdl";	// progs/b_s_key.mdl
 		self.netname = "silver keycard";
 	}
@@ -1749,15 +1929,18 @@ GOLD key, changes based on worldtype on worldspawn
 ======================================================================*/
 void() item_key2 =
 {
-	if (world.worldtype == 0) {
+	// Check for any self worldtype override
+	if (!self.worldtype) self.worldtype = world.worldtype;
+	
+	if (self.worldtype == 0) {
 		self.mdl = "progs/key_medieval.mdl";	// progs/w_g_key.mdl
 		self.netname = "gold key";
 	}
-	if (world.worldtype == 1) {
+	if (self.worldtype == 1) {
 		self.mdl = "progs/key_runic.mdl";	// progs/m_g_key.mdl
 		self.netname = "gold runekey";
 	}
-	if (world.worldtype == 2) {
+	if (self.worldtype == 2) {
 		self.mdl = "progs/key_base.mdl";	// progs/b_g_key.mdl
 		self.netname = "gold keycard";
 	}
@@ -1802,10 +1985,13 @@ Custom key
 ======================================================================*/
 void() item_keyx =
 {
+	// Check for any self worldtype override
+	if (!self.worldtype) self.worldtype = world.worldtype;
+	
 	// Can't have a custom key without a custom model!?!
 	if (self.mdl == "") {
 		dprint("\b[CUSTOM KEY]\b Missing model\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}
@@ -1820,6 +2006,22 @@ void() item_keyx =
 	self.classtype = CT_CUSTOMKEY;
 	if (self.netname == "") self.netname = "custom key";
 	self.items = IT_KEY1 | IT_KEY2;
+	if (self.exactskin > 0) self.skin = self.exactskin;
+
+	// Check for any AD defined particle effects
+	if (self.message2 == "KEYGOLD") self.part_active = PARTICLE_STYLE_KEYGOLD;
+	else if (self.message2 == "KEYSILVER") self.part_active = PARTICLE_STYLE_KEYSILVER;
+	else if (self.message2 == "KEYRED") self.part_active = PARTICLE_STYLE_KEYRED;
+	else if (self.message2 == "KEYGREEN") self.part_active = PARTICLE_STYLE_KEYGREEN;
+	else if (self.message2 == "KEYPURPLE") self.part_active = PARTICLE_STYLE_KEYPURPLE;
+	else if (self.message2 == "KEYWHITE") self.part_active = PARTICLE_STYLE_KEYWHITE;
+	else self.part_active = 0;
+	
+	// Default respawn parameters, clear message2 just in case
+	self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_CENTER;
+	if (!self.respawn_ofs) self.respawn_ofs = '0 0 20';
+	self.message2 = "";
+	
 	key_setup();
 };
 
@@ -1917,10 +2119,11 @@ void() item_custom =
 	if (self.skin < 0) self.skin = 0;	// Double check no negatives
 	
 	self.touch2 = item_custom_touch;
-	if (self.pos1 != '0 0 0') self.bbmins = self.pos1;
-	else self.bbmins = VEC_KEYS_MIN;
-	if (self.pos2 != '0 0 0') self.bbmaxs = self.pos2;
-	else self.bbmaxs = VEC_KEYS_MAX;
+	if (CheckZeroVector(self.pos1)) self.bbmins = VEC_KEYS_MIN;
+	else self.bbmins = self.pos1;
+	if (CheckZeroVector(self.pos2)) self.bbmaxs = VEC_KEYS_MAX;
+	else self.bbmaxs = self.pos2;
+	
 	item_start();
 };
 
@@ -1985,7 +2188,7 @@ void() item_sigil =
 {
 	if (!self.spawnflags) {
 		dprint("\b[SIGIL]\b No Rune type selected!?!\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		return;		
 	}
 
@@ -2023,6 +2226,8 @@ void() item_sigil =
 	self.respawn_style = PARTICLE_BURST_PURPLE + PARTICLE_BURST_CENTER;
 	self.respawn_ofs = '0 0 16';
 	
+	// Check for coop errors
+	item_coopcheck();	
 	item_start();
 };
 
@@ -2082,7 +2287,7 @@ void() item_artifact_tomeofpower =
 };
 
 /*======================================================================
- ARTIFACTS (suit, pent, invis, quad)
+ ARTIFACTS - suit, pent, invis, quad, sharpshooter, nailpiercer, westsuit
 ======================================================================*/
 void() artifact_touch =
 {
@@ -2094,6 +2299,10 @@ void() artifact_touch =
 		other.radsuit_finished = time + self.cnt;
 		ResetDebuffBurning(other);
 		ResetDebuffPoisoned(other);
+		// Remove any wetsuit artifact
+		other.moditems = other.moditems - (other.moditems & IT_ARTWETSUIT);
+		other.wetsuit_finished = 0;
+		other.wetsuit_time = 0;
 	}
 	else if (self.classtype == CT_ARTPENT) {
 		other.invincible_time = TRUE;
@@ -2103,6 +2312,7 @@ void() artifact_touch =
 	else if (self.classtype == CT_ARTINVS) {
 		other.invisible_time = TRUE;
 		other.invisible_finished = time + self.cnt;
+		other.invisible_sound = time + 1;
 	}
 	else if (self.classtype == CT_ARTQUAD) {
 		other.super_time = TRUE;
@@ -2115,6 +2325,15 @@ void() artifact_touch =
 	else if (self.classtype == CT_ARTPIERCE) {
 		other.nailpiercer_time = TRUE;
 		other.nailpiercer_finished = time + self.cnt;
+	}
+	else if (self.classtype == CT_ARTWETSUIT) {
+		other.wetsuit_time = TRUE;
+		other.wetsuit_finished = time + self.cnt;
+		other.wetsuit_sound = time + 2;
+		// Remove any envsuit artifact
+		other.items = other.items - (other.items & IT_SUIT);
+		other.radsuit_finished = 0;
+		other.rad_time = 0;
 	}
 	else return;
 
@@ -2151,6 +2370,10 @@ void() artifact_setup =
 	
 	// Allow for custom artifact timer
 	if (self.cnt < 1) self.cnt = POWERUP_TIMER;
+	
+	// Setup skin override
+	if (self.exactskin < 1) self.exactskin = 0;
+	self.skin = self.exactskin;
 
 	// Setup artifact default respawn timers
 	if (self.respawn_time == 0) {
@@ -2165,17 +2388,19 @@ void() artifact_setup =
 
 /*======================================================================
 /*QUAKED item_artifact_envirosuit (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
-{ model(":progs/suit.mdl"); }
+{ model(":progs/artifact_envsuit.mdl"); }
 Player takes no damage from water or slime for 30 seconds
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
+exactskin    : 0=Original, 1=Green, 2=Brown, 3=Aqua, 4=Blue
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
-respawn_count : Total amount of times to respawn (counts down to zero)
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2189,18 +2414,68 @@ Immume from Wraith Healing Debuff but take small damage instead
 void() item_artifact_envirosuit =
 {
 	// cshifts 0,255,0,20
-	self.mdl = "progs/suit.mdl";
+	self.mdl = "progs/artifact_envsuit.mdl";
 	precache_model (self.mdl);
 	self.noise = SOUND_ARTSUIT1;
 	self.noise1 = SOUND_ARTSUIT2;
 	precache_sound (self.noise);
 	precache_sound (self.noise1);
-	self.netname = "Biosuit";
+	self.netname = "Environment Suit";
 	self.items = IT_SUIT;
 	self.classtype = CT_ARTSUIT;
 	self.part_active = PARTICLE_STYLE_SUIT;
 	self.respawn_style = PARTICLE_BURST_GREEN + PARTICLE_BURST_CENTER;
 	self.respawn_ofs = '0 0 28';
+	artifact_setup();
+};
+
+/*======================================================================
+/*QUAKED item_artifact_wetsuit (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/artifact_wetsuit.mdl"); }
+Player takes no damage from water for 5 mins (300s)
+-------- KEYS --------
+targetname   : toggle state (use trigger ent for exact state)
+exactskin    : 0=Original, 1=Green, 2=Brown, 3=Aqua, 4=Blue
+upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
+upgrade_axe  : = 1 will only spawn if axe upgrade active on server
+upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
+respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 300s)
+-------- SPAWNFLAGS --------
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS : No particle or effects active
+-------- NOTES --------
+Player takes no damage from water for 5 mins (300s)
+Immume from Wraith Healing Debuff but take small damage instead
+
+======================================================================*/
+void() item_artifact_wetsuit =
+{
+	// cshifts 0,255,0,20
+	self.mdl = "progs/artifact_wetsuit.mdl";
+	precache_model (self.mdl);
+	self.noise = SOUND_ARTWETS1;
+	self.noise1 = SOUND_ARTWETS2;
+	self.noise2 = SOUND_ARTWETS3;
+	self.noise3 = SOUND_ARTWETS3B;
+	precache_sound (self.noise);
+	precache_sound (self.noise1);
+	precache_sound (self.noise2);
+	precache_sound (self.noise3);
+	self.netname = "Wet Suit";
+	self.items = 0;
+	self.moditems = IT_ARTWETSUIT;
+	self.classtype = CT_ARTWETSUIT;
+	self.part_active = PARTICLE_STYLE_WETSUIT;
+	self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_CENTER;
+	self.respawn_ofs = '0 0 28';
+	if (self.cnt < 1) self.cnt = 300;
+	if (self.exactskin < 1) self.exactskin = 4;
 	artifact_setup();
 };
 
@@ -2213,10 +2488,11 @@ targetname   : toggle state (use trigger ent for exact state)
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
-respawn_count : Total amount of times to respawn (counts down to zero)
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2256,10 +2532,11 @@ targetname   : toggle state (use trigger ent for exact state)
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
-respawn_count : Total amount of times to respawn (counts down to zero)
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2298,10 +2575,11 @@ targetname   : toggle state (use trigger ent for exact state)
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
-respawn_count : Total amount of times to respawn (counts down to zero)
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2340,10 +2618,11 @@ targetname   : toggle state (use trigger ent for exact state)
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
-respawn_count : Total amount of times to respawn (counts down to zero)
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2382,10 +2661,11 @@ targetname   : toggle state (use trigger ent for exact state)
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
-respawn_count : Total amount of times to respawn (counts down to zero)
+message      : centerprint message when item is picked up
+respawn_time : time to wait before respawning (=-1 instant)
+respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
+cnt          : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2415,31 +2695,126 @@ void() item_artifact_nail_piercer =
 	artifact_setup();
 };
 
-/*======================================================================
-PLAYER BACKPACKS
-======================================================================*/
+//======================================================================
+// ITEM BACKPACKS
+// * Dropped from monsters and players
+// * Can be setup as an item with random ammo/armour
+// * Will monitor ground below so can fall further
+//
+//======================================================================
+float(entity backent, string backtext1, string backtext2, float backcomma) BackpackText =
+{
+	if (backcomma > 0) sprint (backent, ", ");
+	if (backtext1 != "") sprint (backent, backtext1);
+	if (backtext2 != "") sprint (backent, backtext2);
+	return 1;
+};
+
+//----------------------------------------------------------------------
 void() BackpackTouch =
 {
 	local string s;
-	local float best, old, new;
-	local float acount;
+	local float pickupweapon, acount;
 	
 	acount = 0;
 	sprint (other, "You get ");
 
-	if (self.items) {
-		if ((other.items & self.items) == 0) {
-			acount = 1;
-			sprint (other, "the ");
-			sprint (other, self.netname);
+	//----------------------------------------------------------------------
+	// A Coop player can pickup all of the weapons
+	// dropped by previous player (go through list)
+	//----------------------------------------------------------------------
+	if (coop > 0) {
+		if (self.moditems & IT_UPGRADE_AXE && !(other.moditems & IT_UPGRADE_AXE)) {
+			pickupweapon = IT_UPGRADE_AXE;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "ShadowAxe", "", acount);
+			other.moditems = other.moditems | pickupweapon;
+			update_configflag(SVR_UPDAXE, TRUE);
+		}
+		
+		if (self.items & IT_SHOTGUN && !(other.items & IT_SHOTGUN)) {
+			pickupweapon = IT_SHOTGUN;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "SG", "", acount);
+		}
+		
+		if (self.moditems & IT_UPGRADE_SSG && !(other.moditems & IT_UPGRADE_SSG)) {
+			pickupweapon = IT_UPGRADE_SSG;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "WidowMaker", "", acount);
+			other.moditems = other.moditems | pickupweapon;
+			update_configflag(SVR_UPDSSG, TRUE);
+		}
+		else if (self.items & IT_SUPER_SHOTGUN && !(other.items & IT_SUPER_SHOTGUN)) {
+			pickupweapon = IT_SUPER_SHOTGUN;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "SSG", "", acount);
+		}
+		
+		if (self.items & IT_NAILGUN && !(other.items & IT_NAILGUN)) {
+			pickupweapon = IT_NAILGUN;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "NG", "", acount);
+		}
+		if (self.items & IT_SUPER_NAILGUN && !(other.items & IT_SUPER_NAILGUN)) {
+			pickupweapon = IT_SUPER_NAILGUN;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "SNG", "", acount);
+		}
+		if (self.items & IT_GRENADE_LAUNCHER && !(other.items & IT_GRENADE_LAUNCHER)) {
+			pickupweapon = IT_GRENADE_LAUNCHER;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "GL", "", acount);
+		}
+		if (self.items & IT_ROCKET_LAUNCHER && !(other.items & IT_ROCKET_LAUNCHER)) {
+			pickupweapon = IT_ROCKET_LAUNCHER;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "RL", "", acount);
+		}
+		
+		if (self.moditems & IT_UPGRADE_LG && !(other.moditems & IT_UPGRADE_LG)) {
+			pickupweapon = IT_UPGRADE_LG;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "PlasmaGun", "", acount);
+			other.moditems = other.moditems | pickupweapon;
+			update_configflag(SVR_UPDLG, TRUE);
+		}
+		else if (self.items & IT_LIGHTNING && !(other.items & IT_LIGHTNING)) {
+			pickupweapon = IT_LIGHTNING;
+			other.items = other.items | pickupweapon;
+			acount = BackpackText(other, "LG", "", acount);
+		}
+	}
+	// DM backpacks have only one weapon
+	else {
+		// Setup name of weapon first
+		if (self.items & IT_LIGHTNING && self.moditems & IT_UPGRADE_LG)
+			self.netname = "Plasma Gun";
+		else if (self.items & IT_LIGHTNING) self.netname = "Thunderbolt";
+		else if (self.items & IT_ROCKET_LAUNCHER) self.netname = "Rocket Launcher";
+		else if (self.items & IT_GRENADE_LAUNCHER) self.netname = "Grenade Launcher";
+		else if (self.items & IT_SUPER_NAILGUN) self.netname = "Super Nailgun";
+		else if (self.items & IT_NAILGUN) self.netname = "Nailgun";
+		else if (self.items & IT_SUPER_SHOTGUN && self.moditems & IT_UPGRADE_SSG) 
+			self.netname = "Widow Maker Shotgun";
+		else if (self.items & IT_SUPER_SHOTGUN) self.netname = "Double-barrelled Shotgun";
+		else if (self.items & IT_SHOTGUN) self.netname = "Shotgun";
+		else if (self.items & IT_AXE && self.moditems & IT_UPGRADE_AXE) 
+			self.netname = "Shadow Axe";
+		else if (self.items & IT_AXE) self.netname = "Axe";
+		else self.netname = "";
+		
+		// Check if the player has the weapon already?
+		if ((other.items & self.items) == 0 && self.netname != "") {
+			other.items = other.items | self.items;
+			other.moditems = other.moditems | self.moditems;
+			acount = BackpackText(other, "the", self.netname, acount);
 		}
 	}
 
-	// if the player was using his best weapon
-	// change up to the new one if better		
-	best = W_BestWeapon(other);
-
+	//----------------------------------------------------------------------
 	// Calculate random amounts of ammo
+	//----------------------------------------------------------------------
 	if (self.count > 0) {
 		if (self.spawnflags & BACKPACK_SHELLS) self.ammo_shells = rint(1 + random()*self.count);
 		if (self.spawnflags & BACKPACK_NAILS) self.ammo_nails = rint(1 + random()*self.count);
@@ -2447,74 +2822,157 @@ void() BackpackTouch =
 		if (self.spawnflags & BACKPACK_CELLS) self.ammo_cells = rint(1 + random()*self.count);
 		if (self.armortype == 1) self.armorvalue = rint(1 + random()*self.count);
 	}
+
+	//----------------------------------------------------------------------
 	// Give ammo to player
-	other.ammo_shells = other.ammo_shells + self.ammo_shells;
-	other.ammo_nails = other.ammo_nails + self.ammo_nails;
-	other.ammo_rockets = other.ammo_rockets + self.ammo_rockets;
-	other.ammo_cells = other.ammo_cells + self.ammo_cells;
-
-	// Check for any armor to give to the player
-	// Allow for armor shards to go over green/yellow/red limits
-	if (self.armorvalue > 0) {
-		other.armorvalue = other.armorvalue + self.armorvalue;
-		// Does the player have any armor already?
-		if (other.armortype == 0 ) {
-			// No armor present, give green with armor shards
-			other.armortype = ARMOR_GRN_TYPE;
-			other.items = other.items | IT_ARMOR1;
-		}
-	}	
-	
-	new = self.items;
-	if (!new) new = other.weapon;
-	old = other.items;
-	other.items = other.items | new;
-	
-	bound_other_ammo (other);
-
+	//----------------------------------------------------------------------
 	if (self.ammo_shells > 0) {
-		if (acount) sprint(other, ", ");
-		acount = 1;
+		other.ammo_shells = other.ammo_shells + self.ammo_shells;
+		other.items = other.items | IT_SHELLS;
 		s = ftos(self.ammo_shells);
-		sprint (other, s);
-		sprint (other, " shells");
+		acount = BackpackText(other, s, " shells", acount);
 	}
 	if (self.ammo_nails > 0) {
-		if (acount) sprint(other, ", ");
-		acount = 1;
+		other.ammo_nails = other.ammo_nails + self.ammo_nails;
+		other.items = other.items | IT_NAILS;
 		s = ftos(self.ammo_nails);
-		sprint (other, s);
-		sprint (other, " nails");
+		acount = BackpackText(other, s, " nails", acount);
 	}
 	if (self.ammo_rockets > 0) {
-		if (acount) sprint(other, ", ");
-		acount = 1;
+		other.ammo_rockets = other.ammo_rockets + self.ammo_rockets;
+		other.items = other.items | IT_ROCKETS;
 		s = ftos(self.ammo_rockets);
-		sprint (other, s);
-		sprint (other, " rockets");
+		acount = BackpackText(other, s, " rockets", acount);
 	}
 	if (self.ammo_cells > 0) {
-		if (acount) sprint(other, ", ");
-		acount = 1;
+		other.ammo_cells = other.ammo_cells + self.ammo_cells;
+		other.items = other.items | IT_CELLS;
 		s = ftos(self.ammo_cells);
-		sprint (other, s);
-		sprint (other, " cells");
-	}
-	if (self.armorvalue > 0) {
-		if (acount) sprint(other, ", ");
-		acount = 1;
-		s = ftos(self.armorvalue);
-		sprint (other, s);
-		sprint (other, " armor shards");
+		acount = BackpackText(other, s, " cells", acount);
 	}
 	
-	sprint (other, "\n");
+	//----------------------------------------------------------------------
+	// Check for armor in backpack
+	//----------------------------------------------------------------------
+	if (self.armorvalue > 0 && deathmatch == 0) {
+		// For coop backpacks can be dropped from players
+		// These can contain huge amounts of armour and needed
+		// to be treated as upgrade/replace, not the shard system
+		if (coop > 0 && self.items & IT_ALLARMOR) {
+			if (other.armortype*other.armorvalue < self.armortype*self.armorvalue) {
+				other.armortype = self.armortype;
+				other.armorvalue = self.armorvalue;
+				other.items = other.items - (other.items & IT_ALLARMOR);
+				other.items = other.items + (self.items & IT_ALLARMOR);
+				acount = BackpackText(other, "armor upgraded", "", acount);
+			}
+		}
+		else {
+			// For Singleplayer backpack items can contain shards
+			// Shards add to the armour value and can go above limit
+			// If no armour present (add a green jacket)
+			other.armorvalue = other.armorvalue + self.armorvalue;
+			// Does the player have any armor already?
+			if (other.armortype == 0 ) {
+				// No armor present, give green with armor shards
+				other.armortype = ARMOR_GRN_TYPE;
+				other.items = other.items | IT_ARMOR1;
+			}
+			if (self.armorvalue > 0) {
+				s = ftos(self.armorvalue);
+				acount = BackpackText(other, s, " armor shards", acount);
+			}
+		}
+	}
+	
+	//----------------------------------------------------------------------
+	// Check for Silver/Gold/Custom keys if coop active
+	//----------------------------------------------------------------------
+	if (coop > 0) {
+		if (self.items & IT_KEY1) {
+			other.items = other.items | IT_KEY1;
+			acount = BackpackText(other, "Silver Key", "", acount);
+		}
+		if (self.items & IT_KEY2) {
+			other.items = other.items | IT_KEY2;
+			acount = BackpackText(other, "Gold Key", "", acount);
+		}
+		if (self.moditems & IT_CKEY1) {
+			other.moditems = other.moditems | IT_CKEY1;
+			other.ckeyname1 = self.ckeyname1;
+			acount = BackpackText(other, self.ckeyname1, "", acount);
+		}
+		if (self.moditems & IT_CKEY2) {
+			other.moditems = other.moditems | IT_CKEY2;
+			other.ckeyname2 = self.ckeyname2;
+			acount = BackpackText(other, self.ckeyname2, "", acount);
+		}
+		if (self.moditems & IT_CKEY3) {
+			other.moditems = other.moditems | IT_CKEY3;
+			other.ckeyname3 = self.ckeyname3;
+			acount = BackpackText(other, self.ckeyname3, "", acount);
+		}
+		if (self.moditems & IT_CKEY4) {
+			other.moditems = other.moditems | IT_CKEY4;
+			other.ckeyname4 = self.ckeyname4;
+			acount = BackpackText(other, self.ckeyname4, "", acount);
+		}
+	}
+
+	//----------------------------------------------------------------------
+	// Check for Powerups if coop active
+	//----------------------------------------------------------------------
+	if (coop > 0) {
+		if (self.items & IT_INVISIBILITY) {
+			other.items = other.items | IT_INVISIBILITY;
+			acount = BackpackText(other, "InvRing", "", acount);
+			other.invisible_finished = self.invisible_finished;
+			other.invisible_time = self.invisible_time;
+			other.invisible_sound = self.invisible_sound;
+		}
+		if (self.items & IT_SUIT) {
+			other.items = other.items | IT_SUIT;
+			acount = BackpackText(other, "EnvSuit", "", acount);
+			other.radsuit_finished = self.radsuit_finished;
+			other.rad_time = self.rad_time;
+		}
+		if (self.items & IT_QUAD) {
+			other.items = other.items | IT_QUAD;
+			acount = BackpackText(other, "QuadDam", "", acount);
+			other.super_damage_finished = self.super_damage_finished;
+			other.super_time = self.super_time;
+			other.super_sound = self.super_sound;
+		}
+		if (self.moditems & IT_ARTSHARP) {
+			other.moditems = other.moditems | IT_ARTSHARP;
+			acount = BackpackText(other, "ShpShoot", "", acount);
+			other.sharpshoot_finished = self.sharpshoot_finished;
+			other.sharpshoot_time = self.sharpshoot_time;
+			other.sharpshooter_sound = self.sharpshooter_sound;
+		}
+		if (self.moditems & IT_ARTWETSUIT) {
+			other.moditems = other.moditems | IT_ARTWETSUIT;
+			acount = BackpackText(other, "WetSuit", "", acount);
+			other.wetsuit_finished = self.wetsuit_finished;
+			other.wetsuit_time = self.wetsuit_time;
+			other.wetsuit_sound = self.wetsuit_sound;
+		}
+		if (self.moditems & IT_ARTPIERCE) {
+			other.moditems = other.moditems | IT_ARTPIERCE;
+			acount = BackpackText(other, "Piercer", "", acount);
+			other.nailpiercer_finished = self.nailpiercer_finished;
+			other.nailpiercer_time = self.nailpiercer_time;
+			other.nailpiercer_sound = self.nailpiercer_sound;
+		}		
+	}
+
+	sprint (other, " from a backpack\n");
 	sound (other, CHAN_ITEM, "weapons/lock4.wav", 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
-	// change to the weapon
-	if (!deathmatch) self.weapon = new;
-	else DM_Weapon (old, new);
+	// Check ammo limts, change to best weapon and set ammo type
+	bound_other_ammo (other);
+	if (deathmatch) other.weapon = W_BestWeapon(other);
 	W_SetCurrentAmmo (other);
 	
 	// Random ammo backpacks are actual items
@@ -2527,34 +2985,28 @@ void() BackpackTouch =
 	else remove(self);
 };
 
-/*======================================================================
- DropBackpack
-======================================================================*/
+//----------------------------------------------------------------------
 void() DropBackpack =
 {
 	local entity item;
 
-	if (!(self.ammo_shells + self.ammo_nails + self.ammo_rockets + self.ammo_cells))
-		return;	// nothing in it
+	//----------------------------------------------------------------------
+	// Check for player because of other items
+	if (self.classtype != CT_PLAYER) {
+		if (!(self.ammo_shells + self.ammo_nails + self.ammo_rockets + self.ammo_cells))
+			return;	// nothing in it
+	}
 
 	item = spawn();
 	item.classtype = CT_AMMOPACK;
 	item.classgroup = CG_AMMOITEM;
+	item.classname = "item_backpack";
 	item.origin = self.origin - '0 0 20';
 	
-	item.items = self.weapon;
-	if (item.items == IT_AXE) item.netname = "Axe";
-	else if (item.items == IT_SHOTGUN) item.netname = "Shotgun";
-	else if (item.items == IT_SUPER_SHOTGUN) item.netname = "Double-barrelled Shotgun";
-	else if (item.items == IT_NAILGUN) item.netname = "Nailgun";
-	else if (item.items == IT_SUPER_NAILGUN) item.netname = "Super Nailgun";
-	else if (item.items == IT_GRENADE_LAUNCHER) item.netname = "Grenade Launcher";
-	else if (item.items == IT_ROCKET_LAUNCHER) item.netname = "Rocket Launcher";
-	else if (item.items == IT_LIGHTNING) item.netname = "Thunderbolt";
-	else item.netname = "";
-
+	//----------------------------------------------------------------------
 	// Pyro Enforcers drop armor shards instead!!!
-	if (self.classtype == CT_MONPYRO) 
+	//----------------------------------------------------------------------
+	if (self.classtype == CT_MONPYRO || self.classtype == CT_MONFUMIGATOR) 
 		item.armorvalue = rint(1 + random() * self.ammo_shells);
 	else {
 		// Everything else drops ammo
@@ -2563,7 +3015,81 @@ void() DropBackpack =
 		item.ammo_rockets = self.ammo_rockets;
 		item.ammo_cells = self.ammo_cells;
 	}
-		
+
+	//----------------------------------------------------------------------
+	// Reset backpack inventory before any test
+	item.items = item.moditems = item.customkey = 0;
+
+	//----------------------------------------------------------------------
+	// If player dropping backpack check for extra stuff
+	if (self.classtype == CT_PLAYER) {
+		// Copy over items for coop players to pickup
+		if (coop > 0) {
+			// Copy all items + keys
+			item.items = self.items;
+			item.moditems = self.moditems;
+			item.customkey = self.customkey;
+			// Copy current armour type + value
+			item.armortype = self.armortype;
+			item.armorvalue = self.armorvalue;
+			
+			// Copy over custom key netnames
+			if (self.moditems & IT_CKEY1) item.ckeyname1 = self.ckeyname1;
+			if (self.moditems & IT_CKEY2) item.ckeyname2 = self.ckeyname2;
+			if (self.moditems & IT_CKEY3) item.ckeyname3 = self.ckeyname3;
+			if (self.moditems & IT_CKEY4) item.ckeyname4 = self.ckeyname4;
+			
+			//----------------------------------------------------------------------
+			// Copy over any powerup timers
+			// Cannot die with invulnerability so not checked!
+			if (coop_artifacts == TRUE) {
+				if (self.items & IT_INVISIBILITY) {
+					item.invisible_finished = self.invisible_finished;
+					item.invisible_time = self.invisible_time;
+					item.invisible_sound = self.invisible_sound;
+				}
+				if (self.items & IT_SUIT) {
+					item.radsuit_finished = self.radsuit_finished;
+					item.rad_time = self.rad_time;
+				}
+				if (self.items & IT_QUAD) {
+					item.super_damage_finished = self.super_damage_finished;
+					item.super_time = self.super_time;
+					item.super_sound = self.super_sound;
+				}
+				if (self.moditems & IT_ARTSHARP) {
+					item.sharpshoot_finished = self.sharpshoot_finished;
+					item.sharpshoot_time = self.sharpshoot_time;
+					item.sharpshooter_sound = self.sharpshooter_sound;
+				}
+				if (self.moditems & IT_ARTWETSUIT) {
+					item.wetsuit_finished = self.wetsuit_finished;
+					item.wetsuit_time = self.wetsuit_time;
+					item.wetsuit_sound = self.wetsuit_sound;
+				}
+				if (self.moditems & IT_ARTPIERCE) {
+					item.nailpiercer_finished = self.nailpiercer_finished;
+					item.nailpiercer_time = self.nailpiercer_time;
+					item.nailpiercer_sound = self.nailpiercer_sound;
+				}
+			}
+		}
+		//----------------------------------------------------------------------
+		// Default is DM only, current weapon only
+		else {
+			// Check for any special MOD weapons
+			if (self.weapon == IT_AXE && self.moditems & IT_UPGRADE_AXE) 
+				item.moditems = IT_UPGRADE_AXE;
+			else if (self.weapon == IT_SUPER_SHOTGUN && self.moditems & IT_UPGRADE_SSG) 
+				item.moditems = IT_UPGRADE_SSG;
+			else if (self.weapon == IT_LIGHTNING && self.moditems & IT_UPGRADE_LG) 
+				item.moditems = IT_UPGRADE_LG;
+			// Copy over current weapon ONLY to backpack
+			item.items = self.weapon;
+		}
+	}
+	
+	// Give the backpack some random toss!
 	item.velocity_z = 300;
 	item.velocity_x = -100 + (random() * 200);
 	item.velocity_y = -100 + (random() * 200);
@@ -2576,8 +3102,10 @@ void() DropBackpack =
 	item.touch = item_touch;
 	item.touch2 = BackpackTouch;
 	
+	//----------------------------------------------------------------------
 	// 1=green, 2=blue, 3=red, 4=golden, 5=swampy, 6=white, 7=flesh
 	// green=shells, blue=cells, red=rockets
+	//----------------------------------------------------------------------
 	if (self.classtype == CT_MONDEFENDER) item.skin = 1;
 	else if (self.classtype == CT_MONARMYGRENADE) item.skin = 1;
 	else if (self.classtype == CT_MONARMYPLASMA) item.skin = 2;
@@ -2585,10 +3113,16 @@ void() DropBackpack =
 	else if (self.classtype == CT_MONCENTURION) item.skin = 2;
 	else if (self.classtype == CT_MONARMYROCKET) item.skin = 3;
 	else if (self.classtype == CT_MONPYRO) item.skin = 4;
+	else if (self.classtype == CT_MONFUMIGATOR) item.skin = 5;
 	else if (self.classtype == CT_MONENFORCER) item.skin = 7;
 	
-	item.nextthink = time + 120;	// remove after 2 minutes
-	item.think = SUB_Remove;
+	// Default = remove after 2 minutes, stay if coop active
+	if (coop == 0) item.item_expired = time + 120;
+	else item.item_expired = 0;
+	
+	item.item_flrcheck = fabs(item.mins_z) + 16;
+	item.think = item_thinkloop;		// Check floor
+	item.nextthink = time + 0.3;		// Let backpack drop first
 };
 
 /*======================================================================
@@ -2669,7 +3203,7 @@ void() item_backpack_setup =
 		self.ammo_rockets == 0 && self.ammo_cells == 0 &&
 		self.armorvalue == 0) {
 		dprint("\b[BACKPACK]\b is empty, removing\n");
-		spawn_marker(self.origin);
+		spawn_marker(self.origin, SPNMARK_YELLOW);
 		remove(self);
 		return;
 	}

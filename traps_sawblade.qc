@@ -35,23 +35,24 @@ void() trap_sawblade_touch =
 {
 	// Blade can still hurt if touched, except when OFF = not visible
 	if (self.estate & ESTATE_OFF) return;
+	// Double check if dead monster body!
+	if (trigger_check_body(other,DEAD_EXPLODE)) return;
 	if (other.health < 1 || other.takedamage == DAMAGE_NO) return;
 	if (self.attack_finished > time) return;
 	
 	// --- lunaran -------------------
 	// Different touch damage based on blade state
-	if (self.state == STATE_ON)
-	{
+	if (self.state == STATE_ON) {
 		if (self.waitmin > 0) self.attack_finished = time + self.waitmin;
-		sound (self, CHAN_AUTO, self.noise2, 1, 1);	// lunaran
+		// Hit sounded added by Lunaran, added sound string check
+		if (self.noise2 !="") sound (self, CHAN_AUTO, self.noise2, 1, 1);
 	}
-	else
-	{
+	else {
 		if (self.height > 0) self.attack_finished = time + self.height;
 	}
 		
 	// Instant death for monsters
-	if (other.flags & FL_MONSTER) 
+	if (other.flags & FL_MONSTER)
 		T_Damage (other, self, self, other.max_health + 100, DAMARMOR);
 	else 
 		// Small damage but can be lethal because of how often touch runs
@@ -88,7 +89,7 @@ void() trap_sawblade_stopthink =
 	}
 	
 	// ramp down from original speed and spinrate over self.lip seconds
-	if (self.velocity != '0 0 0')
+	if (CheckZeroVector(self.velocity) == FALSE)
 		self.velocity = normalize(self.velocity) * self.speed * remaining;
 	self.avelocity = normalize(self.avelocity) * self.yaw_speed * remaining;
 	
@@ -212,6 +213,11 @@ void() trap_sawbladey =
 	self.classtype = CT_SAWBLADE;
 	self.state = STATE_OFF;
 	self.volume = 0.5;
+	
+	// Error - Check for first path corner target
+	if (self.target == "") {
+		dprint("\b[SAWBLADE]\b missing path corner target!\n");
+	}
 
 	// Setup orientiation and bounding box parameters
 	// required for state on and touch function

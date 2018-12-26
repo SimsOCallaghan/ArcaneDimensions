@@ -492,7 +492,10 @@ void() lost_die1 = [ $pain1, lost_die2 ] {};
 void() lost_die2 = [ $pain2, lost_die2 ] {
 	// Lost souls explode when they die
 	T_RadiusDamage (self, self, DAMAGE_LOSTSOUL, world, DAMAGEALL);
-	SpawnExplosion(EXPLODE_BIG, self.origin, "lostsoul/death.wav");
+	if (random() < 0.5) self.lip = EXPLODE_SMALL;
+	else if (random() < 0.9) self.lip = EXPLODE_MED;
+	else self.lip = EXPLODE_BIG;
+	SpawnExplosion(self.lip, self.origin, "lostsoul/death.wav");
 	// Goto final resting place
 	entity_remove(self, 0.1);
 };
@@ -556,7 +559,7 @@ void() setup_lostsoul =
 	self.blockudeath = TRUE;		// no humanoid death sound
 	self.steptype = FS_FLYING;		// Silent feet
 	self.pain_longanim = FALSE;		// No long pain animation
-	self.height = MONAI_ABOVEDIST;	// Enemytarget distance above
+	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
 	self.meleeattack = time + 4;	// no rotation at spawn
 	self.mangle = self.angles;		// idle rotate left/right
 	self.idlebusy = 0;				// Tilt/turn head animations

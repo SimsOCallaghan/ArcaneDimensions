@@ -259,7 +259,7 @@ void(vector eggofs) Create_Egg =
 	
 	// Turn towards player and drop the egg!
 	makevectors(self.angles);
-	org = self.origin + v_forward*eggofs_x + v_right*eggofs_y + v_up*eggofs_z;
+	org = self.origin + attack_vector(eggofs);
 	egg_speed = self.minion_throwspeed + (random() * self.minion_throwextra);
 	dir = (v_forward * egg_speed) + (v_right * (crandom()*self.minion_throwside));
 	Launch_Grenade(org,dir,'0 0 0',CT_PROJ_MEGG);

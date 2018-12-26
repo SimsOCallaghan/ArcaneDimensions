@@ -7,6 +7,14 @@ Intermission Camera System
  CycleIntermissionCamera - wait for player input
  FinishIntermissionCamera - No more viewing
 ======================================================================*/
+float CAMERA_NOINTERMIS = 1;	// Will not work if intermission active
+float CAMERA_SOLID = 2;			// Intermission camera interacts with world
+float INTERMISSION_ACTIVE = 2;	// Regular Intermission active
+float INTERMISSION_RUNE = 3;	// Check for end of episode
+float INTERMISSION_ENDGAME = 4;	// End of game!?! (set in oldone.qc)
+float INTERMISSION_CAMERA = 10;	// Special Camera only mode
+
+//----------------------------------------------------------------------
 void() SetupIntermissionCamera = 
 {
 	local entity intercam, prevcam;
@@ -72,7 +80,7 @@ void() FinishIntermissionCamera =
 	//----------------------------------------------------------------------
 	// run some text if at the end of an each episode
 	//----------------------------------------------------------------------
-	if (intermission_running == 3) {
+	if (intermission_running == INTERMISSION_RUNE) {
 		if (world.model == "maps/e1m7.bsp") {
 			WriteByte (MSG_ALL, SVC_CDTRACK);
 			WriteByte (MSG_ALL, 2);
@@ -120,7 +128,7 @@ void() FinishIntermissionCamera =
 	//----------------------------------------------------------------------
 	// If the player has all four runes, print more text!?!
 	//----------------------------------------------------------------------
-	else if (intermission_running == 4) {
+	else if (intermission_running == INTERMISSION_ENDGAME) {
 		if (!cvar("registered")) {	
 			// shareware episode has been completed, go to sell screen
 			WriteByte (MSG_ALL, SVC_SELLSCREEN);
@@ -146,29 +154,62 @@ void() NextIntermissionCamera =
 	//WriteByte(MSG_ALL, SVC_SETVIEW);
 	//WriteEntity(MSG_ALL, self.goalentity);
 	
+	// Exclude the special intermission cameras (special impulse)
+	if (camera_ent.count > 1 && intermission_running > 0
+		&& intermission_running < INTERMISSION_CAMERA) {
+		// Cycle through list trying to find a camera
+		// designed for the intermission at the end of a map
+		// Can have special cameras designed for impulse 145!
+		while(self.goalentity.spawnflags & CAMERA_NOINTERMIS) {
+			self.goalentity = self.goalentity.owner;
+		}
+	}
+	
 	// Switch player view to intermission camera
 	self.view_ofs = '0 0 0';
 	setorigin(self, self.goalentity.origin);
 	self.angles = self.v_angle = self.goalentity.mangle;
 	self.fixangle = TRUE; 
+	
+	// Change the camera to allow for environment interaction
+	if (self.goalentity.spawnflags & CAMERA_SOLID) {
+		self.solid = SOLID_TRIGGER;
+		setsize(self, VEC_HULLE_MIN, VEC_HULLE_MAX);
+	}
+	// no interaction, static
+	else {
+		self.solid = SOLID_NOT;
+		setsize(self, VEC_ORIGIN, VEC_ORIGIN);
+	}
+	
 	// If target exists on camera fire triggers (once)
 	if (self.goalentity.target) {
 		trigger_strs(self.goalentity.target, self); 
 		self.goalentity.target = "";
+	}
+
+	// Test for any fog changes on intermission entity
+	if (fog_active && self.goalentity.fog_density > 0) {
+		// Double check for quake.rc parameter
+		if (query_configflag(SVR_NOFOGCMDS)) self.goalentity.fog_density = 0;
+		else fade_fog(self.goalentity.fog_density, self.goalentity.fog_colour, self.goalentity.speed);
 	}
 };
 
 //----------------------------------------------------------------------
 void() CycleIntermissionCamera =
 {
-	if (intermission_running < 2) return;		// Still setting up camera
-	if (self.waitmin > time) return;				// delay input from keyboard
+	// Is the intermission camera still being setup?
+	if (intermission_running < INTERMISSION_ACTIVE) return;
+	if (self.waitmin > time) return;		// delay input from keyboard
 	
 	// check for jump button to exit
 	if (self.button1 || self.button2 || (self.button0 && camera_ent.count == 1) ) {
 		self.button0 = self.button1 = self.button2 = 0;
-		self.waitmin = time + 1;
-		if (time > intermission_exittime) FinishIntermissionCamera ();
+		if (intermission_running != INTERMISSION_CAMERA) {
+			self.waitmin = time + 1;
+			if (time > intermission_exittime) FinishIntermissionCamera ();
+		}
 	}
 	// check for attack button to switch cameras
 	else if (self.button0) {
@@ -189,8 +230,9 @@ void() StartIntermissionCamera =
 		self = client_ent;
 		
 		// Switch on notarget so monsters don't attack player
-		if ( !(self.flags & FL_NOTARGET) ) self.flags = self.flags & FL_NOTARGET;
-		if ( self.flags & FL_ONGROUND ) self.flags = self.flags - FL_ONGROUND;
+		// Add god mode to prevent any damage, is reset on map change
+		self.flags = self.flags + (FL_NOTARGET || FL_GODMODE);
+		self.flags = self.flags - (self.flags & FL_ONGROUND);
 	
 		// reset player model to nothing and no world interaction
 		self.view_ofs = self.velocity = self.avelocity = '0 0 0';
@@ -198,6 +240,7 @@ void() StartIntermissionCamera =
 		self.movetype = MOVETYPE_NONE;		// no more movement
 		self.takedamage = DAMAGE_NO;		// no more damage
 		setmodel(self, MODEL_EMPTY);		// Hide player model
+		setsize(self, VEC_ORIGIN, VEC_ORIGIN);
 		self.weaponmodel = string_null;		// No vmodel updates
 		self.frame = self.weaponframe = 0;	// reset all frames
 		self.waitmin = time + 0.5;			// Delay before start
@@ -207,17 +250,28 @@ void() StartIntermissionCamera =
 		self.radsuit_finished = self.invisible_finished = 0;
 		self.invincible_finished = self.super_damage_finished = 0;
 		self.sharpshoot_finished = self.nailpiercer_finished = 0;
+		self.wetsuit_finished = 0;
 
-		self.goalentity = camera_ent;				// Setup first camera to look through
-		if (camera_ent.count > 1) {					// is there >1 camera's?
-			self.lip = rint(random() * camera_ent.count);// Randomly pick one
+		// Setup default - first camera to look through
+		self.goalentity = camera_ent;
+		// Is there more than 1 camera and intermission time?
+		// Always start at the first camera if using camera test mode
+		if (camera_ent.count > 1 && intermission_running > 0) {
+			// Randomly pick a camera to cycle forward to
+			self.lip = rint(random() * camera_ent.count);
 			while (self.lip > 0) {
 				self.goalentity = self.goalentity.owner;// Cycle through list
 				self.lip = self.lip - 1;				// Keep looping
 			}
 		}
-		NextIntermissionCamera();						// Switch player to camera
-		intermission_running = 2;						// Finished camera setup
+
+		// Switch player to the currently selected camera
+		NextIntermissionCamera();
+		
+		// Check if end of map intermission is really running? 
+		// Can enter this function via camera test mode (impulse xxx)
+		if (intermission_running == 0) intermission_running = INTERMISSION_CAMERA;
+		else intermission_running = INTERMISSION_ACTIVE;
 	}
 	// If camera entity not setup, go straight to next map
 	else FinishIntermissionCamera ();

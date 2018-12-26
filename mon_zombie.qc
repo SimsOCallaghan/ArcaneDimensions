@@ -457,7 +457,7 @@ void(float frameno) zombie_onground = {
 			self.frame = $paine12;
 		}
 		// If no angle set, Random fall direction
-		if (self.angles_y == 0) self.angles_y = rint(random()*359);
+		if (self.angles_y < 1) self.angles_y = rint(random()*359);
 		self.use = self.th_wakeup;
 		self.fixangle = TRUE;
 	}
@@ -659,6 +659,7 @@ void() monster_mummy =
 	self.count = 0;							// Reset get up timer
 	self.exactskin = 6;						// Mouldly bandages
 	self.gibtype = GIBTYPE_POISON;			// Poison gibs!
+	self.no_liquiddmg = TRUE;				// Immune to slime/lava
 	if (self.poisonous < 0) self.poisonous = FALSE;	// Poison debuff
 	else self.poisonous = TRUE;
 

@@ -245,7 +245,7 @@ void(vector start_org) wraith_debuff_explode =
 		newmis.classtype = CT_TEMPSTREAM;
 		newmis.movetype = MOVETYPE_FLY;		// Fly, no gravity
 		newmis.solid = SOLID_TRIGGER;
-		setmodel(newmis, "progs/s_flame.spr");
+		setmodel(newmis, SBURST_FLAME);
 
 		org = start_org;
 		org_z = org_z + (crandom() * 24);
@@ -283,7 +283,7 @@ void() wraith_debuff_trail =
 	orgofs = '52 4 6';
 
 	// Calculate starting point and beam and vector direction
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(orgofs);
 	tvec = SUB_orgEnemyTarget() - org;
 	// Create facing angle for segments
 	dir = normalize(tvec);
@@ -497,7 +497,7 @@ void(vector orgofs, float nbframe) wraith_nailball =
 	makevectors(self.angles);
 	
 	// Generate attachment in hand (left)
-	org = self.origin + v_forward*orgofs_x + v_right*orgofs_y + v_up*orgofs_z;
+	org = self.origin + attack_vector(orgofs);
 	setorigin(self.attachment, org);
 	self.attachment.angles_y = rint(random()*359);
 	self.attachment.frame = nbframe;
@@ -516,7 +516,7 @@ void(vector boneofs) wraith_firenails =
 	makevectors(self.angles);
 
 	// Generate spike/bone at final animation position
-	org = self.origin + v_forward*boneofs_x + v_right*boneofs_y + v_up*boneofs_z;
+	org = self.origin + attack_vector(boneofs);
 	dir = SUB_orgEnemyTarget() + v_right*(BONEOFFSET*3);
 	dir = normalize(dir - org);
 	launch_projectile (org, dir, bone_type, self.attack_speed+random()*25);
@@ -590,7 +590,7 @@ void(vector eggofs, float eggframe) Setup_WraithEgg =
 	// The offset is based on the wraith facing forward
 	ai_face();
 	makevectors(self.angles);
-	org = self.origin + v_forward*eggofs_x + v_right*eggofs_y + v_up*eggofs_z;
+	org = self.origin + attack_vector(eggofs);
 	setorigin(self.attachment, org);
 	self.attachment.angles = self.angles;
 	self.attachment.frame = eggframe;
@@ -838,7 +838,7 @@ void() monster_wraith =
 
 	precache_sound ("wraith/attack1.wav");	// HITSCAN bolt
 	precache_sound ("drole/r_explode.wav");
-	precache_model ("progs/s_flame.spr");	// Flames
+	precache_model (SBURST_FLAME);			// Flames
 
 	precache_sound ("wraith/attack2.wav");	// Nail/Bones
 	precache_sound ("wraith/attack3.wav");	// Minions
@@ -857,8 +857,11 @@ void() monster_wraith =
 	self.gibbed = FALSE;				// not falling apart
 	self.pain_flinch = 70;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
-	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
+	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
 	self.frame = 1;						// First frame is never used!
+	
+	// Hitscan = 52 4 6; Nails = 60 4 14; Egg = 20 2 12;
+	self.attack_offset = '30 2 8';		// Half way point 
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

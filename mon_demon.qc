@@ -85,9 +85,12 @@ void(float side) Demon_Claw =
 		else sound (self, CHAN_WEAPON, "weapons/sword1b.wav", 1, ATTN_NORM);
 	}
 	else {
+		// Check for poisonous attribute (new poison version)
+		if (self.poisonous) PoisonDeBuff(self.enemy);
+
 		// Melee claw hit sound
-	  sound (self, CHAN_WEAPON, "demon/dhit2.wav", 1, ATTN_NORM);
-	  ldmg = 10 + 5*random();
+		sound (self, CHAN_WEAPON, "demon/dhit2.wav", 1, ATTN_NORM);
+		ldmg = 10 + 5*random();
 		T_Damage (self.enemy, self, self, ldmg, DAMARMOR);		
 		SpawnMeatSpray (self, self.enemy, side);
 	}
@@ -137,6 +140,9 @@ void() Demon_JumpTouch =
 			SpawnMeatSpray(self, other, FALSE);
 			SpawnMeatSpray(self, other, FALSE);
 			SpawnMeatSpray(self, other, FALSE);
+			
+			// Check for poisonous attribute (new poison version)
+			if (self.poisonous) PoisonDeBuff(self.enemy);
 		}
 	}
 
@@ -178,7 +184,7 @@ void()	demon1_jump8	=[ 	$leap8,		demon1_jump9	] {};
 void()	demon1_jump9	=[ 	$leap9,		demon1_jump10	] {};
 void()	demon1_jump10	=[ 	$leap10,	demon1_jump1	] {
 	// Double check monster is still falling?
-	if (self.velocity == '0 0 0' || self.oldorigin == self.origin) {
+	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; //random jump angle
 		self.think = demon1_jump3;
 	}
@@ -209,7 +215,13 @@ void(entity inflictor, entity attacker, float damage) demon1_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) demon1_pain1 ();
+		if (self.pain_check == 1) demon1_pain1 ();
+		else if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
+			self.pain_finished = time + 0.6;
+			self.axhitme = 0;
+			demon1_pain1 ();
+		}
 	}
 };
 
@@ -223,7 +235,7 @@ void()	demon1_death5	=[	$death5, demon1_death6 ] {};
 void()	demon1_death6	=[	$death6, demon1_death7 ] {};
 void()	demon1_death7	=[	$death7, demon1_death8 ] {};
 void()	demon1_death8	=[	$death8, demon1_death9 ] {monster_death_postcheck();};
-void()	demon1_death9	=[	$death9, demon1_death9 ] {};
+void()	demon1_death9	=[	$death9, demon1_death9 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() demon1_die =
@@ -245,7 +257,7 @@ void() monster_demon1 =
 {
 	if (deathmatch) { remove(self); return; }
 
-	self.mdl = "progs/demon.mdl";
+	self.mdl = "progs/mon_demon.mdl";
 	self.headmdl = "progs/h_demon.mdl";
 	self.gib1mdl = "progs/gib_dmleg1.mdl";		// Left leg
 	self.gib2mdl = "progs/gib_dmleg2.mdl";		// Right leg
@@ -280,6 +292,14 @@ void() monster_demon1 =
 	self.sight_sound = "demon/sight2.wav";
 	precache_sound (self.sight_sound);
 
+	// Precache extra green small gibs
+	if (self.poisonous) {
+		precache_poisongibs();
+		self.gibtype = GIBTYPE_POISON;
+		self.exactskin = 1;
+		self.gib1skin = self.gib2skin = self.gib3skin = 1;
+	}
+	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	self.idmins = VEC_HULL2_MIN;	// -32 -32 -24, 32 32 64
@@ -289,6 +309,7 @@ void() monster_demon1 =
 	self.gibhealth = -80;
 	self.gibbed = FALSE;
 	self.pain_flinch = 200;				// takes alot to pain
+	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// High pain threshold
 	self.steptype = FS_TYPESLOW;		// Tiny feet/nails
 	self.blockudeath = TRUE;			// no humanoid death sound

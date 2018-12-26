@@ -165,6 +165,8 @@ void() hogremac_smash14=[	$smash14,	hogremac_run1	] {ai_face();};
 //----------------------------------------------------------------------
 void() hogremac_melee =
 {
+	// Mace ogres don't get interrupted with pain for melee
+	self.pain_finished = time + 2;
 	self.lip = random();
 	if (self.lip < 0.5) hogremac_smash1();
 	else hogremac_swing1();
@@ -312,10 +314,16 @@ void(entity inflictor, entity attacker, float damage) hogremac_pain =
 			}
 		}
 		if (self.pain_check == 2) {
+			// reset axe hit and setup short pain recovery
 			self.axhitme = 0;
-			self.pain_finished = time + 2;
-			if (random() < 0.3) hogremac_painC1 ();	// Fall to ground
-			else hogremac_painB1 ();				// Stagger backwards
+			if (random() < 0.5) {
+				self.pain_finished = time + 1.3;
+				hogremac_painC1 ();	// Fall to ground
+			}
+			else {
+				self.pain_finished = time + 1.7;
+				hogremac_painB1 ();	// Stagger backwards
+			}
 		}
 	}
 };
@@ -458,9 +466,9 @@ void() monster_hogremac =
 	self.gibbed = FALSE;
 	self.pain_flinch = 30;
 	self.pain_longanim = TRUE;
-	self.steptype = FS_TYPESLOW;
-	self.meleecontact = FALSE;			// Smash contact
-	self.meleerange = MONAI_MELEEOGRE;	// Smash attack
+	self.steptype = FS_TYPEMEDIUM;
+	self.meleecontact = FALSE;				// Smash contact
+	self.meleerange = MONAI_MELEEBLUNTOGRE;	// Blunt mace attack
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

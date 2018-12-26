@@ -18,6 +18,7 @@ entity		part;				// Spawning particle emitters and particles
 // Particle emitter parameters
 float PARTICLE_START_OFF = 1;	// Particle emitter starts OFF
 float PARTICLE_START_ON = 2;	// Particle emitter starts ON
+float PARTICLE_WEATHER_SNOW = 8;	// Weather snow - White
 
 .float		particlemax;		// Maximum about of ACTIVE particles per map
 .entity		entchain;			// Entity pointer to next entity in chain
@@ -277,9 +278,11 @@ float PARTICLE_BURST_MINOTAUR = 32768;	// Minotaur magic attack over
 //----------------------------------------------------------------------
 // Map referenced particles
 float PARTICLE_STYLE_CUSTOM = 1;		// Custom particle defined in map
+float PARTICLE_STYLE_WEATHER = 5;		// Various weather type effects
 float PARTICLE_STYLE_PORTAL = 10;		// White dot/bubbles floating outwards (volume)
 float PARTICLE_STYLE_JUMPPAD = 15;		// Spiral pattern floating upward
 float PARTICLE_STYLE_FCIRCLE = 20;		// Yellow dots floating upwards from circle on floor
+float PARTICLE_STYLE_FFIELD = 25;		// Volume Forcefield custom direction
 
 // Code referenced particles
 float PARTICLE_STYLE_EMPTY = 0;			// Particle emitter is dead/broken
@@ -295,19 +298,24 @@ float PARTICLE_STYLE_RESPAWN = 100;		// Red/yellow dots spawning from single poi
 float PARTICLE_STYLE_MEGAH = 105;		// Red dot/heal particles from center
 float PARTICLE_STYLE_ARMOR = 110;		// Green/Yellow/Red dots floating up
 float PARTICLE_STYLE_KEYSILVER = 120;	// Blue explosion from top of key
-float PARTICLE_STYLE_KEYGOLD = 125;		// Yellow explosion from top of key
-float PARTICLE_STYLE_SIGIL = 135;		// Purple explosion from center of rune
-float PARTICLE_STYLE_ALTAR = 140;		// Red/yellow dots raising around altar
+float PARTICLE_STYLE_KEYGOLD = 122;		// Yellow explosion from top of key
+float PARTICLE_STYLE_KEYRED = 124;		// Red explosion from top of key
+float PARTICLE_STYLE_KEYGREEN = 126;	// Green explosion from top of key
+float PARTICLE_STYLE_KEYPURPLE = 128;	// Purple explosion from top of key
+float PARTICLE_STYLE_KEYWHITE = 130;	// White explosion from top of key
+float PARTICLE_STYLE_SIGIL = 140;		// Purple explosion from center of rune
+float PARTICLE_STYLE_ALTAR = 145;		// Red/yellow dots raising around altar
 float PARTICLE_STYLE_SKILL = 150;		// Burst of red/yellow from skill column
 float PARTICLE_STYLE_BACKPACK = 155;	// Grey/White dots from center
 
-float PARTICLE_STYLE_SUIT = 200;		// Green dots from center
+float PARTICLE_STYLE_SUIT = 200;		// Green dots rising up
 float PARTICLE_STYLE_PENT = 210;		// Red/Black dots from center
 float PARTICLE_STYLE_SRING = 220;		// Yellow dots falling down
 float PARTICLE_STYLE_QUAD = 230;		// Blue dots from center
 float PARTICLE_STYLE_TOMEOFP = 240;		// Yellow explosion from skull
 float PARTICLE_STYLE_SHARP = 250;		// Purple dots from center
 float PARTICLE_STYLE_PIERCE = 260;		// Purple dots from center
+float PARTICLE_STYLE_WETSUIT = 270;		// Blue dots rising up
 
 //----------------------------------------------------------------------
 // Darkplaces custom particles defined in effectinfo.txt
@@ -317,10 +325,24 @@ float PARTICLE_STYLE_PIERCE = 260;		// Purple dots from center
 // defined in effectinfo.txt (location - root of mod directory)
 string DPP_TRBLOOD = "TR_BLOOD";		// Blood TRail for model flag
 string DPP_ITSBLOOD = "TR_ITSBLOOD";	// Blood TRail (extra blood)
-string DPP_TRPLASMA = "TR_PLASMA";		// New Plasma particle trail
-string DPP_TEPLASMA = "TE_PLASMA";		// New Plasma particle explosion
-string DPP_TELRGPLASMA = "TE_LRGPLASMA";// New Plasma larger explosion
-string DPP_TRLASER = "TR_LASER";		// New Laser particle trail
+string DPP_TRSBLOOD = "TR_SBLOOD";		// Stone Blood TRail for model flag
+string DPP_TRPBLOOD = "TR_PBLOOD";		// Poison Blood TRail for model flag
+
+string DPP_TRLASER = "TR_LASER";		// Laser particle TRail
+
+string DPP_TEEXPLODE = "TE_EXPLOSION";	// Default particle explosion
+
+string DPP_TRPLASMA = "TR_PLASMA";		// Plasma particle TRail
+string DPP_TEPLASMA = "TE_PLASMA";		// Plasma particle explosion
+string DPP_TEPLASMABIG = "TE_PLASMABIG";// Plasma Big explosion
+
+string DPP_TRPOISON = "TR_POISON";		// Poison particle TRail
+string DPP_TEPOISON = "TE_POISON";		// Poison particle explosion
+string DPP_TEPOISONMED = "TE_POISONBIG";// Poison Medium explosion
+
+string DPP_TEBSMOKE = "TE_BSMOKE";		// A burst of Smoke/Steam
+string DPP_TEBFLAME = "TE_BFLAME";		// A burst of red flame (smoke)
+string DPP_TEBPOISON = "TE_BPOISON";	// A burst of green poison (smoke)
 
 string DPP_PORTALFRONT = "DPP_ITSPORTALFRONT";	// 0,180 angle
 string DPP_PORTALSIDE = "DPP_ITSPORTALSIDE";	// 90,270 angle
@@ -350,6 +372,10 @@ string DPP_ARMOR3 = "DPP_ITSARMOR3";
 string DPP_WEAPON = "DPP_ITSWEAPON";
 string DPP_KEYSILVER = "DPP_ITSSILVERKEY";
 string DPP_KEYGOLD = "DPP_ITSGOLDKEY";
+string DPP_KEYRED = "DPP_ITSREDKEY";
+string DPP_KEYGREEN = "DPP_ITSGREENKEY";
+string DPP_KEYPURPLE = "DPP_ITSPURPLEKEY";
+string DPP_KEYWHITE = "DPP_ITSWHITEKEY";
 string DPP_SIGIL = "DPP_ITSSIGIL";
 string DPP_BACKPACK = "DPP_ITSBACKPACK";
 string DPP_SUIT = "DPP_ITSSUIT";
@@ -359,9 +385,10 @@ string DPP_QUAD = "DPP_ITSQUAD";
 string DPP_TOMEOFP = "DPP_ITSTOMEOFP";
 string DPP_SHARP = "DPP_ITSSHARP";
 string DPP_PIERCE = "DPP_ITSPIERCE";
+string DPP_WETSUIT = "DPP_ITSWETSUIT";
 
 // Special trigger effects
-string DPP_SHALEXPLOSION = "TE_VORESPIKE";
+string DPP_TEVORESPIKE = "TE_VORESPIKE";
 string DPP_WRAITHEXPLODE = "DPP_ITSWRAITHEXPLODE";
 string DPP_INTERACTIVE = "DPP_ITSINTERACTIVE";
 string DPP_BURSTFLAME = "DPP_ITSFLAME_BURST";
@@ -371,6 +398,7 @@ string DPP_BURSTSHOCKWAVE1 = "DPP_ITSBURSTSHOCKWAVE1";
 string DPP_BURSTSHOCKWAVE2 = "DPP_ITSBURSTSHOCKWAVE2";
 string DPP_PYROFLAME1 = "DPP_ITSPYROFLAME1";
 string DPP_PYROFLAME2 = "DPP_ITSPYROFLAME2";
+string DPP_PYROFLAME3 = "DPP_ITSPYROFLAME3";
 
 // Velocity driven smoke
 string DPP_VELSMOKEGREY1 = "DPP_ITSVELSMOKEGREY1";
@@ -389,12 +417,20 @@ string DPP_RINGPARTR = "DPP_ITSPART_RINGR";
 string DPP_RINGPARTB = "DPP_ITSPART_RINGB";
 string DPP_RINGPARTP = "DPP_ITSPART_RINGP";
 string DPP_RINGPARTW = "DPP_ITSPART_RINGW";
+
 string DPP_BURSTPARTY = "DPP_ITSPART_BURSTY";
 string DPP_BURSTPARTG = "DPP_ITSPART_BURSTG";
 string DPP_BURSTPARTR = "DPP_ITSPART_BURSTR";
 string DPP_BURSTPARTB = "DPP_ITSPART_BURSTB";
 string DPP_BURSTPARTP = "DPP_ITSPART_BURSTP";
 string DPP_BURSTPARTW = "DPP_ITSPART_BURSTW";
+// Forcefield volumes
+string DPP_FFIELDPARTY = "DPP_ITSPART_FFIELDY";
+string DPP_FFIELDPARTG = "DPP_ITSPART_FFIELDG";
+string DPP_FFIELDPARTR = "DPP_ITSPART_FFIELDR";
+string DPP_FFIELDPARTB = "DPP_ITSPART_FFIELDB";
+string DPP_FFIELDPARTP = "DPP_ITSPART_FFIELDP";
+string DPP_FFIELDPARTW = "DPP_ITSPART_FFIELDW";
 
 //----------------------------------------------------------------------
 // GENERIC particle filename strings

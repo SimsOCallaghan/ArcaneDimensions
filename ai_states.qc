@@ -9,12 +9,20 @@ void() ai_stand =
 {
 	if (self.health < 1) return;		// Health < 0, no more standing
 	monster_liquid_check();				// Check for liquid damage
+	check_tethertimer();				// Check for tethering system
 	if (FindTarget ()) return;			// Found a player?
-	if (time > self.pausetime && self.movespeed >= 0) {
+	// Double check there is a goalentity, no pause and no turret
+	if (self.goalentity && time > self.pausetime && self.movespeed >= 0) {
 		// Make sure AI is turning towards new path corner direction
 		self.ideal_yaw = vectoyaw(self.goalentity.origin - self.origin);
 		ChangeYaw ();
 		self.th_walk ();
+	}
+	else {
+		// Only test ground walking monsters (no fly/swim)
+		// Check global map variable first (default = off)
+		if (map_bodyflrcheck == TRUE && self.classmove == MON_MOVEWALK) 
+			ent_floorcheck(self, FLOOR_TRACE_MONSTER);
 	}
 };
 
@@ -64,7 +72,9 @@ void(float dist) ai_run =
 
 	// Is the enemy dead or no longer taking damage?
 	if (SUB_healthEnemyTarget() < 1 || SUB_takedEnemyTarget() == DAMAGE_NO) {
-		self.enemy = world;
+		// Switch around any enemytarget for enemy
+		SUB_switchEnemyTarget();
+		self.enemy = self.goalentity = world;
 		// Is the old enemy still alive and can it be damaged?
 		if (self.oldenemy.health > 0 && self.oldenemy.takedamage > 0) {
 			self.enemy = self.oldenemy;
@@ -72,8 +82,11 @@ void(float dist) ai_run =
 		}
 		else {
 			// Nothing left to fight, stand around and wait for something
-			if (self.movetarget) self.th_walk ();
-			else self.th_stand ();
+			if (self.movetarget.classtype == CT_PATHCORNER) {
+				self.goalentity = self.movetarget;
+				self.think = self.th_walk;
+			}
+			else self.think = self.th_stand;
 			return;
 		}
 	}
@@ -108,6 +121,15 @@ void(float dist) ai_run =
 			ai_run_missile ();
 			return;
 		}
+	}
+	
+	//----------------------------------------------------------------------
+	// Check if tether system is active
+	//----------------------------------------------------------------------
+	if (check_tethersystem() && self.health > 0) {
+		self.tetherlock = TRUE;
+		if (self.th_tether) self.think = self.th_tether;
+		return;
 	}
 	
 	//----------------------------------------------------------------------

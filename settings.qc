@@ -5,11 +5,14 @@ void() toggleautoaim;		// Toggle auto aim
 void() togglezaware;		// Toggle Z aware monsters
 void() togglefootstep;		// Toggle footstep sound (player/monster)
 void() toggleliquiddmg;		// Toggle Monster Liquid damage
-void() toggleshotgunproj;	// Toggle SG Proj/casing
+void() toggleshotgunproj;	// Toggle Shotgun Projectiles
+void() toggleshotguncase;	// Toggle Shotgun Casing
 void() toggleupgradeaxe;	// Toggle Axe Upgrade (inventory only)
 void() toggleupgradessg;	// Toggle Shotgun Upgrade (inventory only)
 void() toggleupgradelg;		// Toggle Lightning Upgrade (inventory only)
 void() togglepixels;		// Toggle Texture modes
+void() togglecoopartifacts;	// Toggle COOP can drop artifacts
+void() togglecoopammoboxes;	// Toggle COOP ammo boxes to respawn
 
 void() display_configflag;	// Display config flag
 void() display_playinfo;	// Display Player information
@@ -29,6 +32,7 @@ void() EnvSuitCheat;
 void() PentagramCheat;
 void() InvisibleCheat;
 void() QuadDamageCheat;
+void() StartIntermissionCamera;
 
 /*======================================================================
  Show MOD name and version
@@ -39,7 +43,7 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions (Arcadim) MOD v1.42P2\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.50\n");
 };
 
 /*======================================================================
@@ -57,9 +61,13 @@ void() ImpulseCommands =
 	else if (self.impulse == 115) togglepixels();		// Toggle texture modes
 	else if (self.impulse == 120) togglefootstep();		// Toggle footstep sound
 	else if (self.impulse == 125) toggleliquiddmg();	// Toggle liquid damage
-	else if (self.impulse == 130) toggleshotgunproj();	// Toggle SG Proj/casing
+	else if (self.impulse == 130) toggleshotgunproj();	// Toggle SG Projectile
+	else if (self.impulse == 135) toggleshotguncase();	// Toggle SG Casing
 	else if (self.impulse == 140) display_version();	// Display MOD config flag
-
+	else if (self.impulse == 145) StartIntermissionCamera();
+	else if (self.impulse == 150) togglecoopartifacts();// Toggle COOP can drop artifacts
+	else if (self.impulse == 155) togglecoopammoboxes();// Toggle COOP ammo boxes to respawn
+	
 	// Only works developer only)
 	else if (self.impulse == 200) toggleupgradeaxe();	// Toggle Axe Upgrade
 	else if (self.impulse == 205) toggleupgradessg();	// Toggle Shotgun Upgrade
@@ -254,9 +262,11 @@ void() display_configflag =
 	else if (query_configflag(SVR_UPDLG)) dprint("+ LG Upgrade from inventory\n");
 	else dprint("- NO LG upgrade detected\n");
 
-	// New bullet projectile system
-	if (query_configflag(SVR_PROJSHOTG)) dprint("- SG/SSG hitscan enabled\n");
-	else dprint("+ SG/SSG projectiles enabled\n");
+	// New Shotgun bullet projectile/casing system
+	if (query_configflag(SVR_SHOTGPROJ)) dprint("- Shotgun hitscan system\n");
+	else dprint("+ Shotgun projectiles system\n");
+	if (query_configflag(SVR_SHOTGCASE)) dprint("- Shotgun casing disabled\n");
+	else dprint("+ Shotgun casing enabled\n");
 
 	// Items updates; origin points and random rotation
 	if (query_configflag(SVR_ITEMOFFSET)) dprint("+ All items use center origin\n");
@@ -275,8 +285,14 @@ void() display_configflag =
 	else dprint("+ monster liquid damage on\n");
 	if (query_configflag(SVR_AIPATH)) dprint("- Path Corner Arrows disabled\n");
 	else dprint("+ Path Corner Arrows enabled\n");
+	
+	// Body fade/floor checks
+	if (map_bodyfadeaway > 0) dprint("+ Monster dead body fade away\n");
+	else dprint("- No fade away for monster bodies\n");
+	if (map_bodyflrcheck > 0) dprint("+ Monster dead body check floor\n");
+	else dprint("- No floor checks for monster bodies\n");
 
-	// Mod fog / wateralpha settings
+	// Visual settings - fog / wateralpha / gravity
 	if (query_configflag(SVR_NOFOGCMDS)) dprint("- Global fog system disabled\n");
 	else if (fog_active && fog_control) {
 		dprint("+ Gfog ("); 
@@ -294,6 +310,18 @@ void() display_configflag =
 		dprint("+ Map gravity has changed ("); 
 		dprint(ftos(map_gravity)); dprint(")\n");
 	}
+	
+	// DP compatible visual settings
+	if (engine == ENG_DPEXT) {
+		dprint("+ DP features ( ");
+		// Show all active features
+		if (ext_dpfog) dprint("FOG ");
+		if (ext_dpsurf) dprint("SURF ");
+		if (ext_dprain) dprint("RAIN ");
+		if (ext_dpsnow) dprint("SNOW");
+		dprint(")\n");
+	}
+	
 	dprint("--------------------------------------\n");
 };
 
@@ -305,10 +333,6 @@ void() display_playinfo =
 {
 	// Default return conditions (must be player)
 	if ( !(self.flags & FL_CLIENT) ) return;
-	if (developer == 0) {
-		sprint(self,"\b[IMPULSE]\b Only works in developer mode!\n");
-		return;
-	}
 	
 	self.impulse = 0;
 	sprint(self,"\b[INFO]\b Org ("); sprint(self,vtos(self.origin));
@@ -472,7 +496,7 @@ void() CycleParticleDebug =
 };
 
 /*======================================================================
- TOGGLE SG Proj/casing (default OFF)
+ TOGGLE SG Projectiles (default ON)
 ======================================================================*/
 void() toggleshotgunproj =
 {
@@ -481,11 +505,29 @@ void() toggleshotgunproj =
 	
 	self.impulse = 0;
 	// Toggle the state of the console variable using the server flag
-	if (query_configflag(SVR_PROJSHOTG)) update_configflag(SVR_PROJSHOTG, FALSE);
-	else update_configflag(SVR_PROJSHOTG, TRUE);
+	if (query_configflag(SVR_SHOTGPROJ)) update_configflag(SVR_SHOTGPROJ, FALSE);
+	else update_configflag(SVR_SHOTGPROJ, TRUE);
 	
 	sprint(self, "\b[Impulse]\b Shotgun Projectiles ("); 
-	if (query_configflag(SVR_PROJSHOTG)) sprint(self, "OFF)\n");
+	if (query_configflag(SVR_SHOTGPROJ)) sprint(self, "OFF)\n");
+	else sprint(self, "ON)\n");
+};
+
+/*======================================================================
+ TOGGLE SG Casings (default ON)
+======================================================================*/
+void() toggleshotguncase =
+{
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	// Toggle the state of the console variable using the server flag
+	if (query_configflag(SVR_SHOTGCASE)) update_configflag(SVR_SHOTGCASE, FALSE);
+	else update_configflag(SVR_SHOTGCASE, TRUE);
+	
+	sprint(self, "\b[Impulse]\b Shotgun Casing ("); 
+	if (query_configflag(SVR_SHOTGCASE)) sprint(self, "OFF)\n");
 	else sprint(self, "ON)\n");
 };
 
@@ -576,15 +618,55 @@ void() togglepixels =
 	
 	self.impulse = 0;
 	sprint(self, "\b[SETTINGS]\b texture filtering ("); 
-	if (pixelmode == 1) {
-		pixelmode = 0;
+	if (pixelmode == TRUE) {
+		pixelmode = FALSE;
 		stuffcmd(self, "\ngl_texturemode GL_LINEAR_MIPMAP_LINEAR\n");
 		sprint(self, "blurry)\n");
 	}
 	else {
-		pixelmode = 1;
+		pixelmode = TRUE;
 		stuffcmd(self, "\ngl_texturemode GL_NEAREST_MIPMAP_LINEAR\n");
 		sprint(self, "crispy)\n");
+	}
+};
+
+/*======================================================================
+ TOGGLE coop player backpacks being able to drop artifacts
+======================================================================*/
+void() togglecoopartifacts =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Drop Artifacts ("); 
+	if (coop_artifacts == TRUE) {
+		coop_artifacts = FALSE;
+		sprint(self, "FALSE)\n");
+	}
+	else {
+		coop_artifacts = TRUE;
+		sprint(self, "TRUE)\n");
+	}
+};
+
+/*======================================================================
+ TOGGLE ammo boxes to respawn in coop mode
+======================================================================*/
+void() togglecoopammoboxes =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Ammo Boxes Respawn ("); 
+	if (coop_ammoboxes == TRUE) {
+		coop_ammoboxes = FALSE;
+		sprint(self, "FALSE)\n");
+	}
+	else {
+		coop_ammoboxes = TRUE;
+		sprint(self, "TRUE)\n");
 	}
 };
 

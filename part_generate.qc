@@ -10,6 +10,7 @@
  - -void(float effectnum, vector org, vector vel, float howmany) pointparticles
  
 ======================================================================*/
+void() emit_particle;
 float() emit_checksource =
 {
 	// killtarget can easily destroy connections between entities
@@ -43,6 +44,16 @@ void() emitdpp_particle = {
 	
 	// Check source entity and style type are valid
 	if (emit_checksource()) return;
+
+	// Double check DP particles active? (quickload issues)
+	// If not active, revert back to Fitz/particle system
+	if (!ext_dppart) {
+		self.think = emit_particle;
+		self.nextthink = time + random();
+		// Check if particle banks need extending
+		extend_particlechain();
+		return;
+	}
 	
 	if (self.pemit_target) {
 		self.dpp_vel = vectoangles(self.pemit_target.origin - self.pemit_source.origin);
@@ -82,6 +93,14 @@ void() emitdpp_fcircle =
 	
 	// Check source entity and style type are valid
 	if (emit_checksource()) return;
+	
+	// Double check DP particles active? (quickload issues)
+	// If not active, revert back to Fitz/particle system
+	if (!ext_dppart) {
+		self.think = emit_particle;
+		self.nextthink = time + random();
+		return;
+	}
 
 	loop_cnt = 4;
 	while(loop_cnt > 0) {
@@ -140,12 +159,20 @@ void() emitepp_weather =
 	// short count     : number of particles
 	// byte color      : 8bit palette color
 	
-	if (self.spawnflags & PARTICLE_WEATHER_SNOW)
-		te_particlesnow(self.bbmins, self.bbmaxs, self.pos3, self.t_length, self.t_width);
-	else te_particlerain(self.bbmins, self.bbmaxs, self.pos3, self.t_length, self.t_width);
+	// Double check if engine weather systems are enabled
+	if (query_configflag(SVR_WEATHER)) {
+		// Wait for any change, slow timer
+		self.think = emitepp_weather;
+		self.nextthink = time + 2;
+	}
+	else {
+		if (self.spawnflags & PARTICLE_WEATHER_SNOW)
+			te_particlesnow(self.bbmins, self.bbmaxs, self.pos3, self.t_length, self.t_width);
+		else te_particlerain(self.bbmins, self.bbmaxs, self.pos3, self.t_length, self.t_width);
+		self.think = emitepp_weather;
+		self.nextthink = time + 0.1;
+	}
 
-	self.think = emitepp_weather;
-	self.nextthink = time + 0.1;
 };
 
 //----------------------------------------------------------------------
@@ -169,6 +196,7 @@ void() emit_weather =
 {
 	// Check source entity and style type are valid
 	if (emit_checksource()) return;
+	if (!ext_dppart) return;
 
 	// Setup next particle (loop)
 	self.think = emit_weather;

@@ -690,7 +690,11 @@ void() monster_dcrossbow =
 	self.weaponstate = CROSS_DOWN;		// Maintain crossbow state
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
-	self.attack_offset = '20 12 28';
+	self.attack_offset = '20 12 28';	// Where to fire bolt from
+	
+	// check for sniper mode, no distance checks for attacks
+	if (self.spawnflags & MON_DCROSSSNIPER)
+		self.enemymaxdist = TRUE;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

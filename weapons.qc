@@ -63,7 +63,7 @@ void() W_FireAxe =
 {
 	local vector source, org, vec;
 	local float src_dist, dotprod, axedmg;
-	local entity onflr, tself, tother;
+	local entity onflr;
 
 	makevectors (self.v_angle);				// Player forward angle
 	source = self.origin + '0 0 16';		// Move source point up body
@@ -91,22 +91,9 @@ void() W_FireAxe =
 				dotprod = vec * v_forward;
 				if (dotprod > 0.6) {				// Is the body infront of the player
 					onflr.origin = org;				// Move gib closer to floor
-					onflr.bodyonflr = string_null;	// no more body gibbing
-					tself = self; tother = other;	// save self/other
-					self = onflr; other = tself;	// switch around
-					if (onflr.classgroup == CG_ZOMBIE) {
-						self.health = 0;
-						Killed(onflr, tself);
-					}
-					else {
-						self.max_health = MON_NOGIBVELOCITY; // use minimal velocity
-						monster_ThrowGib();			// throw parts
-					}
-					
-					self = tself; other = tother;	// switch back
-					SpawnBlood (onflr, onflr.origin, '0 0 50', axedmg*4);
-					if (onflr.bodyonflrtrig) trigger_strs(onflr.bodyonflrtrig,self); 
-					return;																// Finished
+					// Now a function in ai_gibs, used by boil explosion as well
+					monster_flrbody_gib(onflr, axedmg*4);
+					return;
 				}
 			}
 			// See if there are anymore bodies close by
@@ -264,7 +251,7 @@ void(float shotcount, vector spread) FireBullets =
 		src = self.origin + v_forward*10;
 		src_z = self.absmin_z + self.size_z * 0.7;
 		// Auto aim assist (builtin function 44)
-		if (query_configflag(SVR_AUTOAIM)) dir = aim(self, SPEED_PLAYAIM);
+		if (autoaim_cvar < 1) dir = aim(self, SPEED_PLAYAIM);
 		// Straight line forward where crosshair is pointing
 		else dir = normalize(v_forward * SPEED_PLAYAIM);
 	}
@@ -321,8 +308,10 @@ void() W_FireShotgun =
 	else spread_pat = SPREAD_SG;
 	
 	// Choose between a projectile or hitscan system
-	if (query_configflag(SVR_SHOTGPROJ))
+	if (query_configflag(SVR_SHOTGPROJ)) {
 		FireBullets (QUANTITY_SG, spread_pat);
+		Launch_ShellCasing(1);	// Shell casings
+	}
 	else {
 		Launch_Shells(QUANTITY_SGP, spread_pat, CT_PROJ_SG);
 		Launch_ShellCasing(1);	// Shell casings
@@ -385,8 +374,10 @@ void() W_FireSuperShotgun =
 	else spread_pat = SPREAD_SSG;
 
 	// Choose between a projectile or hit-scan system
-	if (query_configflag(SVR_SHOTGPROJ))
+	if (query_configflag(SVR_SHOTGPROJ)) {
 		FireBullets (ssg_qty, spread_pat);	// Hit-scan
+		Launch_ShellCasing(shell_qty);
+	}
 	else {
 		Launch_Shells(ssg_qty, spread_pat, CT_PROJ_SSG);
 		Launch_ShellCasing(shell_qty);
@@ -410,7 +401,7 @@ void(float oz, float ox) W_FireSpikes =
 
 	// Check for auto aim state
 	// Auto aim assist (builtin function 44)
-	if (query_configflag(SVR_AUTOAIM)) dir = aim(self, SPEED_PLAYSPIKE);
+	if (autoaim_cvar < 1) dir = aim(self, SPEED_PLAYSPIKE);
 	// Straight line forward where crosshair is pointing
 	else dir = normalize(v_forward * SPEED_PLAYSPIKE);
 
@@ -469,7 +460,7 @@ void() W_FireGrenade =
 	}
 	else {
 		// Check for auto aim state
-		if (query_configflag(SVR_AUTOAIM)) dir = aim(self, SPEED_PLAYAIM);
+		if (autoaim_cvar < 1) dir = aim(self, SPEED_PLAYAIM);
 		else dir = normalize(v_forward * SPEED_PLAYGRENADE);
 		// Work out default speed and elevation
 		dir = dir * SPEED_PLAYGRENADE;
@@ -501,7 +492,7 @@ void() W_FireRocket =
 	org = self.origin + v_forward * 8 + '0 0 16';
 
 	// Auto aim assist (builtin function 44)
-	if (query_configflag(SVR_AUTOAIM)) dir = aim(self, SPEED_RLPLAYER);
+	if (autoaim_cvar < 1) dir = aim(self, SPEED_RLPLAYER);
 	// Straight line forward where crosshair is pointing
 	else dir = normalize(v_forward * SPEED_RLPLAYER);
 	
@@ -534,7 +525,7 @@ void() W_FirePlasma =
 
 	// Check for auto aim state
 	// Auto aim assist (builtin function 44)
-	if (query_configflag(SVR_AUTOAIM)) dir = aim(self, SPEED_PLAYPLASMA);
+	if (autoaim_cvar < 1) dir = aim(self, SPEED_PLAYPLASMA);
 	// Straight line forward where crosshair is pointing
 	else dir = normalize(v_forward * SPEED_PLAYPLASMA);
 

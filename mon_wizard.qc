@@ -286,8 +286,14 @@ void() setup_wizard =
 	self.attack_offset = '0 0 30';		// Acid spit start location
 
 	// Allow wizards to keep a certain distance above the enemy
-	if (self.spawnflags & MON_WIZARD_ABOVE) self.th_checkattack = GargoyleCheckAttack;
-	else self.th_checkattack = WizardCheckAttack;
+	if (self.spawnflags & MON_WIZARD_ABOVE) {
+		self.th_checkattack = GargoyleCheckAttack;
+	}
+	else {
+		// Default behaviour, really high distance checks
+		self.th_checkattack = WizardCheckAttack;
+		self.enemymaxdist = TRUE;
+	}
 	self.th_pain = wiz_pain;
 	self.th_die = wiz_die;
 		

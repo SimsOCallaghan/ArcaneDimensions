@@ -168,18 +168,22 @@ void()	jim_stand1	=[	$idle1,	jim_stand1 ] {
 	// Standing idle has gentle bobbing up and down
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_FLY;
-	jim_update(JS_IDLE); ai_stand();};
+	jim_update(JS_IDLE); ai_stand();
+};
 void()	jim_walk1	=[	$idle1,	jim_walk1 ] {
 	// Movement is steps, not velocity
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
-	jim_update(JS_IDLE); ai_walk(8);};
+	jim_update(JS_IDLE); ai_walk(8);
+};
 void()	jim_run1	=[	$idle1,	jim_run1 ] {
 	// Movement is steps, only velocity when firing weapon
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
 	jim_update(JS_IDLE);
-	ai_run(16);};
+	ai_run(16);
+	if (self.movespeed != 0) ai_face();
+};
 
 //======================================================================
 // Range (LASERS or ROCKETS)
@@ -190,8 +194,10 @@ void() jim_laser =
 
 	if (!self.enemy) return;
 	if (self.health < 1) return;
+	
 	// Always make sure there is no monster or obstacle in the way
-	if ( visxray(self.enemy, self.attack_offset, '0 0 12', FALSE) ) return;
+	// Cannot use enemy entity direct, enemytarget will be active
+	if ( !visxray(SUB_entEnemyTarget(), self.attack_offset, '0 0 12', FALSE) ) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);
@@ -216,8 +222,10 @@ void() jim_rocket =
 	
 	if (!self.enemy) return;
 	if (self.health < 1) return;
+	
 	// Always make sure there is no monster or obstacle in the way
-	if ( visxray(self.enemy, self.attack_offset, '0 0 -12', FALSE) ) return;
+	// Cannot use enemy entity direct, enemytarget will be active
+	if ( !visxray(SUB_entEnemyTarget(), self.attack_offset, '0 0 -12', FALSE) ) return;
 	
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "jim/rocket_fire.wav", 1, ATTN_NORM);	
@@ -237,7 +245,9 @@ void() jim_rocket =
 //----------------------------------------------------------------------------
 void(float vspeed) jim_vel = { 
 	// Turn and face enemy and update attack velocity
-	ai_face(); self.velocity = self.attack_track * vspeed;
+	ai_face(); 
+	if (self.movespeed == 0) 
+		self.velocity = self.attack_track * vspeed;
 };
 
 //----------------------------------------------------------------------------
@@ -246,7 +256,7 @@ void(float vspeed) jim_vel = {
 void() jim_attack =
 {
 	self.solid = SOLID_SLIDEBOX;
-	self.movetype = MOVETYPE_FLY;
+	if (self.movespeed == 0) self.movetype = MOVETYPE_FLY;
 	makevectors(self.angles);
 	// Always fly upwards away from the player
 	self.pos1 = v_up * (50 + random() * 100);
@@ -461,6 +471,7 @@ void() jim_die =
 	self.movetype = MOVETYPE_FLY;	// Free velocity movement
 	self.touch = jim_is_dead;		// still can touch stuff
 	self.cnt = 0;					// Death frame 0
+	self.movespeed = 0;				// Make sure turret mode off
 	// The avelocity works better when negative (twisting upward)
 	self.avelocity_x = (random() * 50) - 100;
 	self.avelocity_y = (random() * 50) - 100;

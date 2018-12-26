@@ -205,6 +205,8 @@ particlemax : Amount of ACTIVE particles per map
 no_item_offset  : All ammo/heal items use central point rotation
 no_item_rotate  : No random rotated for all items
 no_zaware       : Switch OFF zaware monster attacks
+no_sgprojectile : Switches OFF ALL shotgun projectiles
+no_sgcasing     : Switches OFF ALL shotgun casings
 no_liquiddmg    : Switch OFF liquid (slime/lava) monster damage
 knight_defskin  : Default skin (0-3) type for new knight model
 bodyflrcheck    : All monster dead body check floor for gravity
@@ -528,23 +530,20 @@ void() worldspawn =
 		// surface content
 		ext_dpsurf = checkextension("DP_QC_GETSURFACE");
 		// particle rain/snow system
+		// QSS supports weather extensions in v7+
 		ext_dprain = checkextension("DP_TE_PARTICLERAIN");
 		ext_dpsnow = checkextension("DP_TE_PARTICLESNOW");
 		// Engine support for proper rotating/colliding bmodels
 		//ext_dprot = checkextension("DP_SV_ROTATINGBMODEL");
 
 		// Check for FTE/QS-S point particle extensions
-		// Sadly it seems the QS-Spike engine is not going to declare
-		// the particle functions to the MOD, so it looks like there
-		// is no way to detect if rain/snow effects are active
+		// Engine wants config files in different locations
 		if (checkextension("FTE_SV_POINTPARTICLES")) {
 			ext_dppart = TRUE;
 			if (checkextension("FTE_PART_NAMESPACE_EFFECTINFO")) {
-				// The default should be root of MOD directory
-				// QS-Spike/FTE has other plans ...
+				// Load particle effects file (DP default=mod root)
 				particleeffectnum("effectinfo.txt");
-				// Rain/Snow checkextension don't exist atm
-				// Maybe one day the QSS engine will support it!
+				// Load up default weather effects
 				particleeffectnum("fte_weather.cfg");
 			}
 		}
@@ -555,6 +554,9 @@ void() worldspawn =
 	else if (engine == ENG_DPEXT) dprint("DP Compatible\n");
 	else dprint("Unknown\n");
 
+	// Large maps cannot use this function, check for disable
+	if (self.no_surfacecheck == TRUE) ext_dpsurf = 0;
+	
 	//----------------------------------------------------------------------
 	// Check for any custom water alpha defined on the worldspawn
 	// This is not very precise because FTOS is only ONE decimal place
@@ -564,6 +566,9 @@ void() worldspawn =
 		cvar_set ("r_wateralpha", ftos(liquid_alpha));
 	}
 
+	// Default is auto aim OFF
+	autoaim_cvar = 1;
+	
 	//----------------------------------------------------------------------
 	// Check for any custom gravity settings or ziggy secret map
 	if (!self.gravity) map_gravity = DEF_GRAVITY;
@@ -594,7 +599,7 @@ void() worldspawn =
 	if (query_configflag(SVR_PARTICLES) == SVR_PARTICLES) {
 		if (self.particlemax > 0) part_max = self.particlemax;
 		else part_max = PARTICLE_MAXENTS;
-		// DP setup uses engine particles
+		// DP/FTE setup uses engine particles
 		if (engine == ENG_DPEXT) part_max = part_max * 0.5;	
 		dprint("\b[WORLD]\b Max particles (");
 		dprint(ftos(part_max)); dprint(")\n");

@@ -9,6 +9,11 @@ float LIGHT_CANDLESHADOW = 8;
 float LIGHT_SWITCHFADE = 16;
 float LIGHT_NOEFFECTS = 128;
 
+// To help reduce signon buffer size, allow for light entities
+// to be delay spawned (especially light models like candles)
+// Cannot use target key because compiler uses it for light styles
+.string	lighttarget;
+
 //----------------------------------------------------------------------
 void() play_light_sound = 
 {
@@ -86,7 +91,10 @@ void() light_on =
 void() light_off =
 {
 	self.estate = ESTATE_OFF;
-	if (self.mdl) self.model = "";
+	if (self.mdl) {
+		self.modelindex = 0;
+		self.model = "";
+	}
 	lightstyle(self.style, "a");
 	if (self.attachment) 
 		sound (self.attachment, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_STATIC);
@@ -313,6 +321,7 @@ void() light_flame_large_yellow =
 	precache_model (self.mdl);
 	if (self.noise == "") self.noise = "ambience/fire1.wav";
 	precache_sound (self.noise);
+	// The default length of the ambient sound used
 	if (!self.waitmin) self.waitmin = 2.165;
 	
 	// If DP engine active remove candle model shadow
@@ -473,7 +482,7 @@ void() light_fixture1 =
 };
 
 /*======================================================================
-/*QUAKED light_candle (0 1 0) (-4 -4 -16) (4 4 16) LIGHTOFF FLAMEOFF x SHADOW x x x x
+/*QUAKED light_candle (0 1 0) (-4 -4 -16) (4 4 16) LIGHTOFF FLAMEOFF x SHADOWS x STATIC x x
 Wide variety of Candles (from Rogue Software)
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
@@ -486,6 +495,7 @@ light      : sets brightness, 300 is default
 LIGHTOFF : Starts off and waits for trigger
 FLAMEOFF : The candle is displayed off (no light/flame)
 SHADOW   : Turn on shadows in DP engine
+STATIC   : Turn entity into static upon spawn (frame 0)
 -------- NOTES --------
 Wide variety of Candles (from Rogue Software)
 
@@ -503,6 +513,40 @@ void() light_candle_off =
 	self.estate = ESTATE_OFF;
 	self.frame = (self.t_width-1)*2;
 	lightstyle(self.style, "a");
+};
+
+//----------------------------------------------------------------------
+void() light_candle_setup =
+{
+	// Setup model and no world interaction
+	setmodel (self, self.mdl);
+	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
+
+	// If DP engine active remove candle model shadow
+	if (engine == ENG_DPEXT && !(self.spawnflags & LIGHT_CANDLESHADOW)) 
+		self.effects = self.effects + EF_NOSHADOW;
+
+	// Setting the angle key in the editor to UP/DOWN = random rotation	
+	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
+		self.angles_y = rint(random()*359);
+	
+	// Setup light
+	if (self.spawnflags & LIGHT_FLAMEOFF) {
+		self.estate = ESTATE_OFF;
+		self.frame = (self.t_width-1)*2;
+	}
+	
+	// Is switchable light style defined?
+	if (self.style >= 32) {
+		// Setup Entity State functionality
+		if (self.targetname != "") self.use = entity_state_use;
+		self.estate_on = light_candle_on;
+		self.estate_off = light_candle_off;
+		if (self.spawnflags & LIGHT_STARTOFF) self.estate_off();
+		else self.estate_on();
+	}
+	// Check for static option, after switchable lights
+	else if (self.spawnflags & ENT_SPNSTATIC) makestatic(self);
 };
 
 //----------------------------------------------------------------------
@@ -526,35 +570,31 @@ void() light_candle =
 	if (self.t_width < 0) self.t_width = 1 + rint(random()*2);
 	else if (self.t_width == 0 || self.t_width > 3) self.t_width = 1;
 
-	setmodel (self, self.mdl);
-	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
-	self.frame = 1 + (self.t_width-1)*2;			// Def = on state
+	self.modelindex = 0;
+	self.model = string_null;				// hide bmodel surface
+	self.frame = 1 + (self.t_width-1)*2;	// Def = on state
+	self.movetype = MOVETYPE_NONE;			// Create baseline
+	self.solid = SOLID_NOT;
+	self.nextthink = 0;
 
 	// The model should not be setup flush to floor because it is a light
 	// source and will look really odd, setup entity 16 units above floor
 	// and the "lip" key will move it back down again
 	if (!self.lip) self.lip = 16;
 	self.origin_z = self.origin_z - self.lip;
-	
-	// If DP engine active remove candle model shadow
-	if (engine == ENG_DPEXT && !(self.spawnflags & LIGHT_CANDLESHADOW)) 
-		self.effects = self.effects + EF_NOSHADOW;
 
-	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-		self.angles_y = rint(random()*359);
-
-	if (self.spawnflags & LIGHT_FLAMEOFF) {
-		self.estate = ESTATE_OFF;
-		self.frame = (self.t_width-1)*2;
-	}
-	// Is switchable light style defined?
-	else if (self.style >= 32) {
-		// Setup Entity State functionality
-		if (self.targetname != "") self.use = entity_state_use;
-		self.estate_on = light_candle_on;
-		self.estate_off = light_candle_off;
-		if (self.spawnflags & LIGHT_STARTOFF) self.estate_off();
-		else self.estate_on();
+	// Check for static entity option first
+	if (self.spawnflags & ENT_SPNSTATIC) light_candle_setup();
+	else {
+		// Check for spawn delay on model (signon buffer issues)
+		// Code left so light_candles can be switched on/off
+		if (self.lighttarget != "" && !self.style) {
+			self.targetname = self.lighttarget;
+			// Use the entity state system for max compatibility
+			self.estate = ESTATE_OFF;
+			self.use = entity_state_use;
+			self.estate_on = light_candle_setup;
+		}
+		else light_candle_setup();
 	}
 };

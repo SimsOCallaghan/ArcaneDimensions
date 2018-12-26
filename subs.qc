@@ -8,6 +8,7 @@ void(entity inflictor, entity attacker, float damage) SUB_Null_pain = {};
 void() SUB_CalcMoveDone;
 void() SUB_CalcAngleMoveDone;
 void(vector marker_org, float marker_type) spawn_marker;
+void(float hud_item) update_hud_totals;
 
 //======================================================================
 // To determine if an entity is still active this function generates
@@ -397,10 +398,15 @@ void() SUB_UseTargets =
 		while(t) {
 			// Check for activate mosnters? Tidy up kill counter
 			if (t.flags & FL_MONSTER && t.health > 0) {
-				if (!t.nomonstercount) {
-					killed_monsters = killed_monsters + 1;
-					WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
-				}
+				// If a monster marked with no monster count dies
+				// update HUD totals to reflect death properly
+				if (t.nomonstercount) {
+					total_monsters = total_monsters + 1;
+					update_hud_totals(HUD_MONSTERS);
+				}	
+				// Update global monster death totals
+				killed_monsters = killed_monsters + 1;
+				WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
 			}
 			// Added extra check to prevent player client removal!?!
 			if (!(t.flags & FL_CLIENT)) {

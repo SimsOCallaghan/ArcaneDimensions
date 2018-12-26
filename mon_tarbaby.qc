@@ -197,6 +197,7 @@ void() tbaby_die2 =[ $exp, tbaby_run1 ] {
 	WriteCoord (MSG_BROADCAST, self.origin_x);
 	WriteCoord (MSG_BROADCAST, self.origin_y);
 	WriteCoord (MSG_BROADCAST, self.origin_z);
+	
 	// Sprite explosion for Fitz engines
 	// Check for DP particle system as visuals is done with TE_TAREXPLOSION
 	if (!ext_dppart) SpawnExplosion(EXPLODE_SMALL, self.origin, SOUND_REXP3);

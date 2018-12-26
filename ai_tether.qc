@@ -14,6 +14,7 @@
 .float		tetherwait;			// Amount of time to wait before returning
 .float		tethertimer;		// Time before returning to tether point
 .float		tetherturn;			// Make sure monster turns towards enemy
+.float		tetherpause;		// % to not pause attack at max range
 .entity		tetherfocus;		// Enemy to turn towards while waiting
 
 float TETHER_RADIUS = 300;		// Default tether radius
@@ -93,6 +94,10 @@ float() check_tethersystem =
 			// Can monster see the enemy?
 			if (enemy_vis) return TRUE;
 			else {
+				// Check for no pause override
+				if (self.tetherpause > 0) {
+					if (random() <= self.tetherpause) return TRUE;
+				}
 				// At max range + cannot see enemy, exit combat
 				self.tetherfocus = self.enemy;	// Save for later
 				self.enemy = self.goalentity = self.movetarget = world;

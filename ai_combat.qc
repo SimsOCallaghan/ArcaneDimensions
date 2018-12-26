@@ -57,10 +57,15 @@ void(entity targ, entity attacker) Killed =
 		
 			// bump the monster counter
 			if (self.flags & FL_MONSTER) {
-				if (!self.nomonstercount) {
-					killed_monsters = killed_monsters + 1;
-					WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
-				}
+				// If a monster marked with no monster count dies
+				// update HUD totals to reflect death properly
+				if (self.nomonstercount) {
+					total_monsters = total_monsters + 1;
+					update_hud_totals(HUD_MONSTERS);
+				}	
+				// Update global monster death totals
+				killed_monsters = killed_monsters + 1;
+				WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
 			}
 		
 			ClientObituary(self, attacker);
@@ -288,8 +293,8 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	if ( (self.flags & FL_MONSTER) && attacker != world) {
 		// Is the current attacker not self and not current enemy target?
 		if (self != attacker && attacker != SUB_entEnemyTarget()) {
-			if ( self.noinfighting && attacker.flags & FL_MONSTER 
-				|| attacker.noinfighting) {
+			if ( self.noinfighting == TRUE && attacker.flags & FL_MONSTER 
+				|| attacker.noinfighting == TRUE) {
 				// Prevent monsters from infighting
 				// but let them react to the player
 			}
@@ -299,8 +304,8 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 				// Is the attacker a different classgroup and switching target available?
 				if ( self.classgroup != attacker.classgroup && self.switchtimer < time) {
 					// Prevent the monster from rapidily switching targets
-					if (self.switchattacker != attacker) self.switchtimer = time + 1;
-					else self.switchtimer = time + 0.1 + random();
+					if (self.switchattacker != attacker) self.switchtimer = time + self.switchoverride;
+					else self.switchtimer = time + ( (self.switchoverride + random()) * 0.5);
 					// Switch to new target
 					self.switchattacker = attacker;
 
@@ -405,7 +410,7 @@ void(entity inflictor, entity attacker, float damage, entity ignore, float check
 			// setup as a dead exception path
 			if (checkclass == IGNORECLASS && head.classtype == ignore.classtype) { }
 			else {
-				// Check for any breakable which is prone to explosive damage
+				// Check for any breakables which are prone to explosive damage
 				if (ai_foundbreakable(attacker, head,TRUE) && head.brktrigmissile !=0) {
 					trigger_ent(head, attacker);
 				}

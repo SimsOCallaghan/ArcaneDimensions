@@ -20,8 +20,8 @@ part_emitter.qc
 ai_gibs.qc
 ai_enemytarget.qc
 ai_pathcorner.qc
-ai_checkattack.qc
 ai_tether.qc
+ai_checkattack.qc
 ai_explosion.qc
 ai_ammoresist.qc
 ai_subs.qc
@@ -82,6 +82,7 @@ mon_dguard.qc
 mon_dknight.qc
 mon_drole.qc
 mon_dsergeant.qc
+mon_eel.qc
 mon_freddie.qc
 mon_gargoyle.qc
 mon_gaunt.qc
@@ -97,6 +98,7 @@ mon_scorpion.qc
 mon_seeker.qc
 mon_skullwiz.qc
 mon_spider.qc
+mon_swampling.qc
 mon_voreling.qc
 mon_wraith.qc
 mon_zombiek.qc
@@ -112,6 +114,5 @@ mon_bossboglord.qc
 mon_bosseidolon.qc
 mon_bossfiretop.qc
 mon_bossicegolem.qc
-mon_bosslichfiend.qc
 mon_bossnour.qc
 

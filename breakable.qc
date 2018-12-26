@@ -238,10 +238,11 @@ brkavel   : Amount of breaking object angle velocity (def 200)
 brkfade   : Fade time before rubble fades away (def 4+random()x4)
 brkmondmg : Damage multiplier for monster damage against breakable
 angles    : direction to throw rubble (override default = impact direction)
+brkgravity     : Change the gravity for rubble, useful for underwater (Value = 0-1)
 brktrigjump    : Trigger if damaged by jumping monster attack
 brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg
 brktrignoplayer: No player/clients can damage this breakable
-brkgravity     : Change the gravity for rubble, useful for underwater (Value = 0-1)
+brkdelaydamage : Time pause before enabling damage on this breakable
 -------- SPAWNFLAGS --------
 STARTOFF  : Will wait for trigger to spawn
 NODAMAGE  : Cannot be damaged or shot, trigger only
@@ -348,8 +349,8 @@ void() breakable_particle =
 //----------------------------------------------------------------------
 void() breakable_touch =
 {
-	if (check_skycontent(self.origin)) {entity_remove(self, 0.1); return;}
 	if (self.touchedvoid) { entity_remove(self,0.1); return; }
+	if (check_skycontent(self.origin)) {entity_remove(self, 0.1); return;}
 	if (other.classtype == CT_FUNCBREAKOBJ) return;	// Ignore other breakables
 	if (other.solid == SOLID_TRIGGER) return;		// Ignore trigger fields
 	self.wait = TRUE;	// No more particles
@@ -397,6 +398,7 @@ void() funcbreakable_use =
 	local float content_loop, content_flag;
 
 	if (self.waitmin == TRUE) return;	// Trigger once block
+	if (self.waitmin2 > time) return;	// Spawn damage block
 
 	//----------------------------------------------------------------------
 	// Play initial breaking sound (exception - silent spawnflag)
@@ -410,6 +412,7 @@ void() funcbreakable_use =
 		self.use = SUB_Null;			// No more triggers
 		self.takedamage = DAMAGE_NO;	// No more pain/damage
 		self.model = "";				// hide model
+		self.modelindex = 0;			// Make sure no model
 		self.solid = SOLID_NOT;			// no world interaction
 		self.movetype = MOVETYPE_NONE;
 		// Work out bottom corner of min/max bounding box
@@ -419,6 +422,7 @@ void() funcbreakable_use =
 		self.waitmin = TRUE;			// Only fire breakable ONCE
 		self.use = SUB_Null;			// No more triggers
 		self.takedamage = DAMAGE_NO;	// No more pain/damage
+		self.modelindex = 0;			// Make sure no model
 		self.model = "";				// hide model
 		self.solid = SOLID_NOT;			// no world interaction
 		self.movetype = MOVETYPE_NONE;
@@ -968,8 +972,8 @@ void() breakable_cache =
 //----------------------------------------------------------------------
 void() breakable_defaults =
 {
-	// Reset trigger ONCE function
-	self.waitmin = FALSE;
+	// Setup breakable use blockers (trig once, delay damage)
+	self.waitmin = self.waitmin2 = FALSE;
 
 	// Setup rubble counter = count + random*cnt
 	if (self.count <= 0) self.count = 4;
@@ -1019,6 +1023,14 @@ void() breakable_defaults =
 };
 
 //----------------------------------------------------------------------
+void() funcbreakable_damageon =
+{
+	self.takedamage = DAMAGE_YES;
+	self.th_pain = funcbreakable_pain;
+	self.th_die = funcbreakable_death;
+};
+
+//----------------------------------------------------------------------
 void() breakable_on =
 {
 	// Make sure use function reset
@@ -1055,9 +1067,23 @@ void() breakable_on =
 		self.th_die = SUB_Null;
 	}
 	else {
-		self.takedamage = DAMAGE_YES;
-		self.th_pain = funcbreakable_pain;
-		self.th_die = funcbreakable_death;
+		// Check for any damage pause before spawning new breakable
+		// This is to prevent any breakables from spawning and
+		// instantly being destroyed by radius damage from explosions
+		// Really designed for multiple break stages
+		if (self.brkdelaydamage > 0) {
+			self.takedamage = DAMAGE_NO;
+			self.th_pain = SUB_Null_pain;
+			self.th_die = SUB_Null;
+			self.think = funcbreakable_damageon;
+			self.nextthink = self.waitmin2 = time + self.brkdelaydamage;
+		}
+		else {
+			self.takedamage = DAMAGE_YES;
+			self.th_pain = funcbreakable_pain;
+			self.th_die = funcbreakable_death;
+		}
+		
 		self.bleedcolour = self.pos1_x;
 		// Setup location (origin) to spawn particles
 		if (self.bsporigin) self.oldorigin = bmodel_origin(self);
@@ -1091,7 +1117,11 @@ void() func_breakable =
 		setmodel (self, self.model);	// set size and link into world
 		setorigin (self, self.origin);	
 		setsize (self, self.mins , self.maxs);
-		spawn_marker(bmodel_origin(self), SPNMARK_YELLOW);
+		self.oldorigin = bmodel_origin(self);
+		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
+		dprint("\b[BRKMDL]\b Origin - ");
+		dprint(vtos(self.oldorigin));
+		dprint("\n");
 		remove(self);
 		return;
 	}
@@ -1178,6 +1208,7 @@ void() breakable_wall_state =
 	else {
 		self.solid = SOLID_NOT;
 		self.movetype = MOVETYPE_NONE;
+		self.modelindex = 0;
 		self.model = "";
 	}
 };

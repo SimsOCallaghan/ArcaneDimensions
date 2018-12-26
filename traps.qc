@@ -202,6 +202,10 @@ void() trap_shooter_use =
 };
 
 //----------------------------------------------------------------------
+// Vanilla ID QC Hack
+void() spikeshooter_use = {};
+
+//----------------------------------------------------------------------
 void() trap_shooter_reset =
 {
 	self.estate = ESTATE_ON;

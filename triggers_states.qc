@@ -2,6 +2,7 @@
  TRIGGER STATE FUNCTIONS
 ======================================================================*/
 float TRIG_NOTOUCH = 1;			// Touch functionality is disabled
+float TRIG_DEVMODE = 4;			// Will only trigger in dev model
 float TRIG_INVIEW = 8;			// player has to see trigger
 float TRIG_MODCHECK = 16;		// Will remove this entity if THIS mod is active
 float TRIG_MONSTERS = 32;		// Cane be touched/triggered by monsters
@@ -86,6 +87,13 @@ void() trigger_bmodel_fire =
 {
 	// Is the trigger blocked? (trigger_once)
 	if (self.attack_finished > time) return;
+	
+	// Check for developer mode only triggers
+	if (self.spawnflags & TRIG_DEVMODE && developer == 0) {
+		// This feature only work for ONCE/MULTIPLE triggers
+		if (self.classtype == CT_TRIGONCE || 
+			self.classtype == CT_TRIGMULTI) return;
+	}
 	
 	//----------------------------------------------------------------------
 	// The Shotgun and Axe upgrades can make maps too easy, allow for

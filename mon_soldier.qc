@@ -190,7 +190,11 @@ void()	army_atkr8	=[	$shoot8,army_atkr9	] {};
 void()	army_atkr9	=[	$shoot9,army_run1	] {ai_face();};
 
 //======================================================================
-void()	army_grenade_atk1 =[	$shoot1, army_grenade_atk2	] {ai_face();};
+void()	army_grenade_atk1 =[	$shoot1, army_grenade_atk2	] {
+	ai_face();
+	// Check enemy for grenade resistance?
+	if (self.enemy.bouncegrenade) army_atk1();
+};
 void()	army_grenade_atk2 =[	$shoot2, army_grenade_atk3	] {ai_face();
 	MonsterGrenadeSound(); self.attack_speed = MonsterGrenadeSpeed();
 	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, self.attack_speed);};
@@ -394,6 +398,7 @@ void() monster_army =
 	precache_sound (self.pain_sound2);
 
 	precache_sound ("player/udeath.wav");	// gib death
+	precache_sound ("soldier/sattck1.wav");	// Shotgun sound
 
 	self.sight_sound = "soldier/sight1.wav";
 	precache_sound (self.sight_sound);
@@ -424,7 +429,6 @@ void() monster_army =
 	if (!self.classtype) {
 		self.classtype = CT_MONARMY;
 		if (self.ammo_shells < 1) self.ammo_shells = rint(2 + random()*4);
-		precache_sound ("soldier/sattck1.wav");
 		// If no skin override is defined, pick a random one instead
 		if (!self.exactskin) self.randomskin = 4;
 	}
@@ -433,6 +437,10 @@ void() monster_army =
 	
 	monster_start();
 };
+
+
+
+
 
 //----------------------------------------------------------------------
 void() monster_army_rocket =

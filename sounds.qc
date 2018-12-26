@@ -17,6 +17,7 @@ Custom ambient (must be looped) sound, CANNOT toggle/switch state
 volume : volume of sound (default 1, capped at 1)
 noise : custom sound to play (looped)
 -------- SPAWNFLAGS --------
+STARTOFF : Wait for trigger, will become static
 -------- NOTES --------
 Custom ambient (must be looped) sound, CANNOT toggle/switch state
 ============================================================================*/
@@ -32,6 +33,10 @@ void() ambient_custom_loop =
 	
 	precache_sound (self.noise);
 	if (self.volume <= 0) self.volume = 1;
+	if (self.volume > 1) self.volume = 1;
+	
+	// Ambient sounds can ONLY be setup on frame 1
+	// The command (ambientsound) does not work delayed
 	ambient_sound_setup();
 };
 //----------------------------------------------------------------------
@@ -162,19 +167,38 @@ void() ambient_custom_play =
 	// Internal state used for switch off sound
 	self.state = STATE_ON;
 	
-	// Check for multiple random sounds, else play sound
-	if (self.noise2 != "" && random() < 0.5) 
-		sound (self, self.impulse, self.noise2, self.volume, self.speed);
-	else sound (self, self.impulse, self.noise, self.volume, self.speed);
-	// If any targets defined, trigger them
-	if (self.target != "") trigger_strs(self.target, self);
+	// Check for random volume changes
+	if (self.t_width > 0) {
+		self.volume = self.t_width + (random() * self.t_length);
+		if (self.volume > 1) self.volume = 1;
+	}
+	
+	// Check for special weather sounds?
+	if (self.no_weather == TRUE) {
+		// Check if weather system still active?
+		if (!query_configflag(SVR_WEATHER)) {
+			// never has multiple sounds
+			sound (self, self.impulse, self.noise, self.volume, self.speed);
+		}
+	}
+	else {
+		// Check for multiple random sounds
+		if (self.noise2 != "" && random() < 0.5)
+			sound (self, self.impulse, self.noise2, self.volume, self.speed);
+		else sound (self, self.impulse, self.noise, self.volume, self.speed);
+		
+		// If any targets defined, trigger them
+		if (self.target != "") trigger_strs(self.target, self);
+	}
 	
 	// Keep playing sound?
 	// If sound is setup to play once, don't turn off sound before finished
 	// Let the sound play out and switch off ambient sound entity
 	if (self.spawnflags & SOUND_PLAYONCE) self.estate = ESTATE_DISABLE;
 	else {
-		self.nextthink = time + self.delay + random()*self.wait;
+		// Check for any random time element
+		if (self.wait == 0) self.nextthink = time + self.delay;
+		else self.nextthink = time + self.delay + random()*self.wait;
 		self.think = ambient_custom_play;
 	}
 };
@@ -270,4 +294,208 @@ void() ambient_custom_sound =
 		}
 		else self.estate_on();
 	}
+};
+
+//----------------------------------------------------------------------
+void() ambient_custom_water =
+{
+	if (self.noise == "") self.noise = "ambience/water1.wav";
+	if (!self.volume) self.volume = 0.75;
+	ambient_custom_loop();
+};
+
+//----------------------------------------------------------------------
+void() ambient_custom_rain =
+{
+	if (self.count == 1) {
+		// Long dripping water sound
+		self.noise = "ambience/rain1_nl.wav";
+		if (!self.speed) self.speed = 2;
+		if (!self.volume) self.volume = 0.4;
+		// Sound is 7s long, 0.1s for overlap
+		self.delay = 6.9;
+	}
+	else {
+		// Very short intense rain sound
+		self.noise = "ambience/rain2_nl.wav";
+		if (!self.speed) self.speed = 1;
+		if (!self.volume) self.volume = 0.5;
+		// Sound is 3s long, 0.1s for overlap
+		self.delay = 2.9;
+	}
+	
+	self.wait = -1;			// pretend loop, no pause
+	self.waitmin = -1;		// No start delay
+	self.no_weather = TRUE;	// Keep checking weather system
+	
+	// Always start off, must be triggered
+	self.spawnflags = ENT_STARTOFF;
+	
+	// Back into main function
+	ambient_custom_sound();
+};
+
+//----------------------------------------------------------------------
+void() ambient_custom_rumble =
+{
+	// Pick a random sound to start with
+	if (self.count < 0) self.count = random()*3;
+		
+	// Setup sound wav names
+	if (self.count <= 1) {
+		self.noise = "ambience/rumble1.wav";
+		// Pick an alternative random sound
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/rumble2.wav";
+			else self.noise2 = "ambience/rumble3.wav";
+		}
+	}
+	else if (self.count <= 2) {
+		self.noise = "ambience/rumble2.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/rumble1.wav";
+			else self.noise2 = "ambience/rumble3.wav";
+		}
+	}
+	else {
+		self.noise = "ambience/rumble3.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/rumble1.wav";
+			else self.noise2 = "ambience/rumble2.wav";
+		}
+	}
+	
+	// Default values for rumble
+	if (!self.volume) { self.t_width = 0.5; self.t_length = 0.5; }
+	if (!self.speed) self.speed = 1;
+	if (!self.delay) self.delay = 20;
+	if (!self.wait) self.wait = 20;
+	if (!self.waitmin) self.waitmin = 6 + random()*6;
+	
+	// Back into main function
+	ambient_custom_sound();
+};
+
+//----------------------------------------------------------------------
+void() ambient_custom_wind =
+{
+	// Pick a random sound to start with
+	if (self.count < 0) self.count = random()*6;
+		
+	// Setup sound wav names
+	if (self.count <= 1) {
+		self.noise = "ambience/windgust1.wav";
+		// Pick an alternative random sound
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/windgust2.wav";
+			else self.noise2 = "ambience/windgust3.wav";
+		}
+	}
+	else if (self.count <= 2) {
+		self.noise = "ambience/windgust2.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/windgust1.wav";
+			else self.noise2 = "ambience/windgust3.wav";
+		}
+	}
+	else if (self.count <= 3) {
+		self.noise = "ambience/windgust3.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/windgust1.wav";
+			else self.noise2 = "ambience/windgust2.wav";
+		}
+	}
+	else if (self.count <= 4) {
+		self.noise = "ambience/windgust4.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/windgust5.wav";
+			else self.noise2 = "ambience/windgust6.wav";
+		}
+	}
+	else if (self.count <= 5) {
+		self.noise = "ambience/windgust5.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/windgust4.wav";
+			else self.noise2 = "ambience/windgust6.wav";
+		}
+	}
+	else {
+		self.noise = "ambience/windgust6.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/windgust4.wav";
+			else self.noise2 = "ambience/windgust5.wav";
+		}
+	}
+	
+	// Default values for wind
+	if (!self.volume) self.volume = 1;
+	if (!self.speed) self.speed = 1;
+	if (!self.delay) self.delay = 10;
+	if (!self.wait) self.wait = 10;
+	if (!self.waitmin) self.waitmin = 4 + random()*4;
+	
+	// Back into main function
+	ambient_custom_sound();
+};
+
+//----------------------------------------------------------------------
+void() ambient_custom_wood =
+{
+	// Pick a random sound to start with
+	if (self.count < 0) self.count = random()*4;
+		
+	if (self.count <= 1) {
+		self.noise = "ambience/woodcreak2a.wav";
+		// Pick an alternative random sound
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/woodcreak2b.wav";
+			else self.noise2 = "ambience/woodcreak2c.wav";
+		}
+	}
+	else if (self.count <= 2) {
+		self.noise = "ambience/woodcreak2b.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/woodcreak2c.wav";
+			else self.noise2 = "ambience/woodcreak2d.wav";
+		}
+	}
+	else if (self.count <= 3) {
+		self.noise = "ambience/woodcreak2c.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/woodcreak2a.wav";
+			else self.noise2 = "ambience/woodcreak2d.wav";
+		}
+	}
+	else {
+		self.noise = "ambience/woodcreak2d.wav";
+		if (self.lefty) {
+			if (random() < 0.5) self.noise2 = "ambience/woodcreak2a.wav";
+			else self.noise2 = "ambience/woodcreak2b.wav";
+		}
+	}
+	
+	// Default values for wood
+	if (!self.volume) self.volume = 1;
+	if (!self.speed) self.speed = 2;
+	if (!self.delay) self.delay = 15;
+	if (!self.wait) self.wait = 30;
+	if (!self.waitmin) self.waitmin = 8 + random()*8;
+	
+	// Back into main function
+	ambient_custom_sound();
+};
+
+//----------------------------------------------------------------------
+void() ambient_custom_chime =
+{
+	if (self.noise == "") self.noise = "ambience/chimes.wav";
+	if (!self.speed) self.speed = 2;
+	if (!self.volume) self.volume = 1;
+	if (!self.wait) self.wait = 10;
+	if (!self.delay) self.delay = 10;
+	if (!self.waitmin) self.waitmin = 10 + random()*10;
+	if (!self.waitmin2) self.waitmin2 = -1;
+
+	// Back into main function
+	ambient_custom_sound();
 };

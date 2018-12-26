@@ -109,7 +109,7 @@ void() ClientPowerups =
 	// - Give player 12s of air after suit finishes
 	//----------------------------------------------------------------------
 	if (self.radsuit_finished > 0) {
-		self.air_finished = time + 12;		// don't drown
+		self.air_finished = time + WATER_AIR;	// don't drown
 
 	// sound and screen flash when items starts to run out
 		if (self.radsuit_finished < time + 3) {

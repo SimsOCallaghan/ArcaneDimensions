@@ -1,7 +1,7 @@
 /*==============================================================================
 BOG LORD (Based on Shambler)
 ==============================================================================*/
-/*
+
 $frame stand1 stand2 stand3 stand4 stand5 stand6 stand7 stand8 stand9
 $frame stand10 stand11 stand12 stand13 stand14 stand15 stand16 stand17
 
@@ -165,13 +165,17 @@ void(vector leftofs, vector rightofs, float sbframe, float chfeet) bogl_slimebal
 	// Frame 0 is start of the sequence (move everything into place)
 	if (sbframe == 0) {
 		setorigin(self.attachment, self.origin);
-		setmodel(self.attachment, MODEL_PROJ_BLORD1B);
+		if (self.spawnflags & MON_BOGL_STRONG) 
+			setmodel(self.attachment, MODEL_PROJ_BLORD2B);
+		else setmodel(self.attachment, MODEL_PROJ_BLORD1B);
 		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment.movetype = MOVETYPE_NONE;
 		self.attachment.solid = SOLID_NOT;
 		
 		setorigin(self.attachment2, self.origin);
-		setmodel(self.attachment2, MODEL_PROJ_BLORD1B);
+		if (self.spawnflags & MON_BOGL_STRONG) 
+			setmodel(self.attachment2, MODEL_PROJ_BLORD2B);
+		else setmodel(self.attachment2, MODEL_PROJ_BLORD1B);
 		setsize (self.attachment2, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment2.movetype = MOVETYPE_NONE;
 		self.attachment2.solid = SOLID_NOT;
@@ -267,21 +271,27 @@ void(vector leftofs, vector rightofs, float sbframe) bogl_casting =
 	// Frame 0 is start of the sequence (move everything into place)
 	if (sbframe == 0) {
 		setorigin(self.attachment, self.origin);
-		setmodel(self.attachment, MODEL_PROJ_BLORDBEAM);
+		if (self.spawnflags & MON_BOGL_STRONG) 
+			setmodel(self.attachment, MODEL_PROJ_BLORDBEAM2);
+		else setmodel(self.attachment, MODEL_PROJ_BLORDBEAM1);
 		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment.movetype = MOVETYPE_NONE;
 		self.attachment.solid = SOLID_NOT;
 		self.attachment.frame = 1;
 
 		setorigin(self.attachment2, self.origin);
-		setmodel(self.attachment2, MODEL_PROJ_BLORDBEAM);
+		if (self.spawnflags & MON_BOGL_STRONG) 
+			setmodel(self.attachment2, MODEL_PROJ_BLORDBEAM2);
+		else setmodel(self.attachment2, MODEL_PROJ_BLORDBEAM1);
 		setsize (self.attachment2, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment2.movetype = MOVETYPE_NONE;
 		self.attachment2.solid = SOLID_NOT;
 		self.attachment2.frame = 1;
 
 		setorigin(self.attachment3, self.origin);
-		setmodel(self.attachment3, MODEL_PROJ_BLORD1B);
+		if (self.spawnflags & MON_BOGL_STRONG) 
+			setmodel(self.attachment3, MODEL_PROJ_BLORD2B);
+		else setmodel(self.attachment3, MODEL_PROJ_BLORD1B);
 		setsize (self.attachment3, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment3.movetype = MOVETYPE_NONE;
 		self.attachment3.solid = SOLID_NOT;
@@ -310,9 +320,8 @@ void(vector leftofs, vector rightofs, float sbframe) bogl_casting =
 	self.attachment3.angles_y = rint(random()*359);
 	self.attachment3.frame = sbframe+8;
 	
-	// Spawn some particles in the palm of the hands
-	particle_explode(self.pos1, 5+random()*5, 1, PARTICLE_BURST_YELLOW, PARTICLE_BURST_LOSTUP);
-	particle_explode(self.pos2, 5+random()*5, 1, PARTICLE_BURST_YELLOW, PARTICLE_BURST_LOSTUP);	
+	particle_explode(self.pos1, 5+random()*5, 1, self.part_style, PARTICLE_BURST_LOSTUP);
+	particle_explode(self.pos2, 5+random()*5, 1, self.part_style, PARTICLE_BURST_LOSTUP);	
 };
 
 //----------------------------------------------------------------------
@@ -328,15 +337,25 @@ void() bogl_magic4 =[ $magic4, bogl_magic5 ] {monster_footstep(FALSE);
 void() bogl_magic5 =[ $magic5, bogl_magic6 ] {
 	bogl_casting('-3 34 119','19 -15 110',3);};
 void() bogl_magic6 =[ $magic6, bogl_magic9 ] {bogl_lightning();
-	// Finished with growing balls of energy
+	// Finished with growing ball of energy
 	bogl_finish_attachment();
-	SpawnExplosion(EXPLODE_POISON_MED, self.pos3, "boglord/slime_explode.wav");
+	SpawnExplosion(self.part_life, self.pos3, "boglord/slime_explode.wav");
 };
 void() bogl_magic9 =[ $magic9, bogl_magic10 ] {bogl_lightning();};
 void() bogl_magic10 =[ $magic10, bogl_magic11 ] {bogl_lightning();monster_footstep(FALSE);};
 void() bogl_magic11 =[ $magic11, bogl_magic12 ] {
 	if (skill == SKILL_NIGHTMARE) bogl_lightning();};
 void() bogl_magic12 =[ $magic12, bogl_run1 ] {};
+
+//============================================================================
+void() bogl_tetherattack =
+{
+	// Completely randomize tether attack chance 50/50
+	// Both attacks have different advantages with different
+	// skill levels, might as well make it equal chance
+	if (random() > 0.5) self.th_melee();
+	else self.th_missile();
+};
 
 //============================================================================
 void() bogl_pain1 =[ $pain1, bogl_pain2 ] {};
@@ -394,6 +413,18 @@ void() bogl_die =
 		sound (self, CHAN_VOICE, "boglord/death1.wav", 1, ATTN_NORM);
 		bogl_death1 ();
 	}
+	else {
+		//Explosion for gib death!
+		T_RadiusDamage (self, self, self.dmg, world, DAMAGEALL);
+		// Sprite/Particle based explosion
+		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+		WriteByte (MSG_BROADCAST, TE_EXPLOSION);
+		WriteCoord (MSG_BROADCAST, self.origin_x);
+		WriteCoord (MSG_BROADCAST, self.origin_y);
+		WriteCoord (MSG_BROADCAST, self.origin_z);
+		// Play original explosion sound or replacement
+		SpawnExplosion(EXPLODE_SMALL, self.origin, SOUND_REXP3);
+	}
 };
 
 //----------------------------------------------------------------------
@@ -408,45 +439,61 @@ void() bogl_wakeup3 =[ $smash9,		bogl_wakeup4 ] {};
 void() bogl_wakeup4 =[ $smash10,	bogl_wakeup5 ] {};
 void() bogl_wakeup5 =[ $smash11,	bogl_wakeup6 ] {};
 void() bogl_wakeup6 =[ $smash12,	bogl_run1 ] {};
-*/
 
 /*======================================================================
 QUAKED monster_boglord (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_boglord =
 {
-	// Not available in 1.5 (saved for ad_sep release)
-	// projectiles.qc line 596
-	//	else if (proj_type == CT_PROJ_BLBOLT) setmodel (newmis, MODEL_PROJ_BLORDBOLT);
-	// projectiles.qc line 980+
-	//	else if (proj_type == CT_PROJ_BLORD) {
-	//		setmodel (newmis, MODEL_PROJ_BLORD1B);
-	//		newmis.frame = 7; // Large size
-	//		newmis.noise = "boglord/slime_explode.wav";
-	//	}
-	
-	remove(self);
-	return;
-	/*
 	if (deathmatch) { remove(self); return; }
 
-	self.mdl = "progs/mon_boglord.mdl";
-	self.headmdl = "progs/h_boglord.mdl";		// Large head
-	self.gib1mdl = "progs/gib_blclaw1.mdl";		// Left claw
-	self.gib2mdl = "progs/gib_blclaw2.mdl";		// Right claw
-	self.gib3mdl = "progs/gib_blfoot1.mdl";		// foot
-	self.gib4mdl = "progs/gib_blfoot2.mdl";		// foot
+	// One model, two different skins
+	self.mdl = "progs/mon_bossboglord.mdl";
 
+	// Detect version types
+	if (self.spawnflags & MON_BOGL_STRONG) {
+		// Unique models for blood trail on model flag
+		self.headmdl = "progs/h_boglordb.mdl";		// +2 skins
+		self.gib1mdl = "progs/gib_blclaw1b.mdl";	// Left claw
+		self.gib2mdl = "progs/gib_blclaw2b.mdl";	// Right claw
+		self.gib3mdl = "progs/gib_blfoot1b.mdl";	// foot
+		self.gib4mdl = "progs/gib_blfoot2b.mdl";	// foot
+		self.part_style = PARTICLE_BURST_RED;
+		self.part_life = EXPLODE_MED;
+		if (self.health < 1) self.health = 2000;
+		self.exactskin = 1;	// Dark red/purple
+	}
+	else {
+		// Unique models for wizard trail on model flags
+		self.headmdl = "progs/h_boglord.mdl";		// +2 skins
+		self.gib1mdl = "progs/gib_blclaw1.mdl";		// Left claw
+		self.gib2mdl = "progs/gib_blclaw2.mdl";		// Right claw
+		self.gib3mdl = "progs/gib_blfoot1.mdl";		// foot
+		self.gib4mdl = "progs/gib_blfoot2.mdl";		// foot
+		self.poisonous = TRUE;				// Green vulcan blood!
+		self.gibtype = GIBTYPE_POISON;		// Liquid Poison
+		self.part_style = PARTICLE_BURST_YELLOW;
+		self.part_life = EXPLODE_POISON_MED;
+		if (self.health < 1) self.health = 1200;
+		self.exactskin = 0;	// Swampy green
+	}
+
+	// Precache model + unique particle trail
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
 	precache_model (self.gib1mdl);
 	precache_model (self.gib2mdl);
 	precache_model (self.gib3mdl);
 	precache_model (self.gib4mdl);
+	
+	// All extra/projectiles (both types)
 	precache_model (MODEL_PROJ_BLORD1B);	// Slime ball
-	precache_model (MODEL_PROJ_BLORD1S);	// Large Blobs
-	precache_model (MODEL_PROJ_BLORDBEAM);	// Lightning between hands
-	precache_model (MODEL_PROJ_BLORDBOLT);	// Large Bolt Projectile
+	precache_model (MODEL_PROJ_BLORD2B);	// Fire ball
+	precache_model (MODEL_PROJ_BLORD1S);	// Floor blobs
+	precache_model (MODEL_PROJ_BLORDBEAM1);	// Lightning between hands
+	precache_model (MODEL_PROJ_BLORDBEAM2);
+	precache_model (MODEL_PROJ_BLORDBOLT1);	// Large Bolt Projectile
+	precache_model (MODEL_PROJ_BLORDBOLT2);
 	
 	self.idle_sound = "boglord/idle1.wav";
 	self.idle_sound2 = "boglord/idle2.wav";
@@ -487,18 +534,17 @@ void() monster_boglord =
 	self.bbmaxs = '32 32 80';
 	self.bboxtype = BBOX_CUSTOM;		// Custom size
 	self.bossflag = TRUE;				// Boss flag (like FL_MONSTER)
-	if (self.health < 1) self.health = 1500;
-	self.gibhealth = -40;
+	self.gibhealth = -60;
 	self.gibbed = FALSE;				// Starts complete
 	self.pain_flinch = 400;				// Really low chance of pain
 	self.pain_timeout = 2;				// long pause on pain
-	self.infightextra = 4;				// Does not like infighting
+	self.infightextra = 8;				// Does not like infighting
 	self.steptype = FS_TYPELARGE;		// Large stomping feet
 	self.blockudeath = TRUE;			// No player gib sound
-	self.poisonous = TRUE;				// Green vulcan blood!
-	self.gibtype = GIBTYPE_POISON;		// Liquid Poison
 	self.tetherturn = TRUE;				// Always turn towards enemy
-
+	self.tetherpause = 0.9;				// Rarely pauses to attacks
+	self.dmg = 40;						// Radius dmg for gibondeath
+	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0.75;
@@ -512,11 +558,11 @@ void() monster_boglord =
 	self.th_pain = bogl_pain;
 	self.th_die = bogl_die;
 	self.th_wakeup = bogl_wakeup1;
-	self.th_tether = bogl_smash1;	// Slime ball attack!
+	self.th_tether = bogl_tetherattack;
 
 	self.classtype = CT_MONBOGLORD;
 	self.classgroup = CG_DEMON;
 	self.classmove = MON_MOVEWALK;
 	
-	monster_start(); */
+	monster_start();
 };

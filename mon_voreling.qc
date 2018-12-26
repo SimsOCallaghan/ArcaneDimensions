@@ -310,7 +310,10 @@ void() voreling_droptouch =
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
 	setsize(self, self.bbmins, self.bbmaxs);
-	self.view_ofs = '0 0 24';		// Restore view offset
+
+	// Reset view offset (based on bbox height)
+	self.view_ofs = '0 0 0';
+	self.view_ofs_z = self.maxs_z*0.5;
 
 	self.touch = SUB_Null;			// No more jump touching
 	FoundHuntTarget(TRUE);			// Setup goals and warn other monsters

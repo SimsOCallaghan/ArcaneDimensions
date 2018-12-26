@@ -13,11 +13,12 @@ void() toggleupgradelg;		// Toggle Lightning Upgrade (inventory only)
 void() togglepixels;		// Toggle Texture modes
 void() togglecoopartifacts;	// Toggle COOP can drop artifacts
 void() togglecoopammoboxes;	// Toggle COOP ammo boxes to respawn
+void() toggleweather;		// Toggle weather systems
+void() toggledevhelpers;	// Toggle dev helpers (mark/arrows)
 
 void() display_configflag;	// Display config flag
 void() display_playinfo;	// Display Player information
 void() display_version;		// Display MOD information
-void() toggleaipath;		// Toggle AI path extra info
 void() CycleParticleDebug;	// Cycle particle debug messages
 
 void(float sigil_bit) givesigil;	// Testing only
@@ -43,8 +44,25 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.50P1\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.6\n");
 };
+
+/*======================================================================
+ Prints origin and mangle to console screen
+ Useful for creating good locations for intermission camera's
+ ** Been replaced with viewpos and setview console commands **
+======================================================================*/
+void() display_playinfo =
+{
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	sprint(self,"\b[INFO]\b Org ("); sprint(self,vtos(self.origin));
+	sprint(self,") Ang ("); sprint(self,vtos(self.v_angle));
+	sprint(self,")\n");
+};
+
 
 /*======================================================================
  ImpulseCommands
@@ -64,17 +82,18 @@ void() ImpulseCommands =
 	else if (self.impulse == 130) toggleshotgunproj();	// Toggle SG Projectile
 	else if (self.impulse == 135) toggleshotguncase();	// Toggle SG Casing
 	else if (self.impulse == 140) display_version();	// Display MOD config flag
+	else if (self.impulse == 142) display_playinfo();	// Display Player information
 	else if (self.impulse == 145) StartIntermissionCamera();
 	else if (self.impulse == 150) togglecoopartifacts();// Toggle COOP can drop artifacts
 	else if (self.impulse == 155) togglecoopammoboxes();// Toggle COOP ammo boxes to respawn
+	else if (self.impulse == 160) toggleweather();		// Toggle Weather Systems
 	
 	// Only works developer only)
 	else if (self.impulse == 200) toggleupgradeaxe();	// Toggle Axe Upgrade
 	else if (self.impulse == 205) toggleupgradessg();	// Toggle Shotgun Upgrade
 	else if (self.impulse == 210) toggleupgradelg();	// Toggle Lightning Upgrade
 	else if (self.impulse == 220) display_configflag();	// Display MOD config flag
-	else if (self.impulse == 225) display_playinfo();	// Display Player information
-	else if (self.impulse == 230) toggleaipath();		// Display AI path extra info
+	else if (self.impulse == 230) toggledevhelpers();	// Toggle Dev Helpers (mark/arrow)
 	else if (self.impulse == 235) CycleParticleDebug();	// Cycle particle debug
 
 	else if (self.impulse == 240) givesigil(SVR_RUNE_ALL);	// Give all sigils to player
@@ -232,6 +251,7 @@ void() sync_configflag =
 //----------------------------------------------------------------------
 void() display_configflag =
 {
+	// No warning message, called from client.qc
 	if (developer == 0) return;
 
 	dprint("\n\b[CONFIG]\b MOD Settings ("); 
@@ -243,29 +263,33 @@ void() display_configflag =
 	// Particle system
 	if (query_configflag(SVR_PARTICLES)) dprint("+ Particle System enabled\n");
 	else dprint("- Particle System disabled\n");
+	if (query_configflag(SVR_WEATHER)) dprint("- Weather System disabled\n");
+	else dprint("+ Weather System enabled\n");
 	// All new MOD weapons
-	if (world.upgrade_axe < 0) dprint("W Axe Upg Remove on Worldspawn\n");
+	if (world.upgrade_axe < 0) dprint("W Axe Upg Removed on Worldspawn\n");
 	else if (world.upgrade_axe > 0) dprint("W Axe Upg Added on Worldspawn\n");
 	else if (query_temp1flag(SVR_UPDAXE)) dprint("* Axe Upgrade in quake.rc\n");
 	else if (query_configflag(SVR_UPDAXE)) dprint("+ Axe Upgrade from inventory\n");
 	else dprint("- NO Axe upgrade detected\n");
 
-	if (world.upgrade_ssg < 0) dprint("W SSG Upg Remove on Worldspawn\n");
+	if (world.upgrade_ssg < 0) dprint("W SSG Upg Removed on Worldspawn\n");
 	else if (world.upgrade_ssg > 0) dprint("W SSG Upg Added on Worldspawn\n");
 	else if (query_temp1flag(SVR_UPDSSG)) dprint("* SSG Upgrade in quake.rc\n");
 	else if (query_configflag(SVR_UPDSSG)) dprint("+ SSG Upgrade from inventory\n");
 	else dprint("- NO SSG upgrade detected\n");
 
-	if (world.upgrade_lg < 0) dprint("W LG Upg Remove on Worldspawn\n");
+	if (world.upgrade_lg < 0) dprint("W LG Upg Removed on Worldspawn\n");
 	else if (world.upgrade_lg > 0) dprint("W LG Upg Added on Worldspawn\n");
 	else if (query_temp1flag(SVR_UPDLG)) dprint("* LG Upgrade in quake.rc\n");
 	else if (query_configflag(SVR_UPDLG)) dprint("+ LG Upgrade from inventory\n");
 	else dprint("- NO LG upgrade detected\n");
 
 	// New Shotgun bullet projectile/casing system
-	if (query_configflag(SVR_SHOTGPROJ)) dprint("- Shotgun hitscan system\n");
+	if (world.no_sgprojectile > 0) dprint("W SG Projs Disabled on worldspawn\n");
+	else if (query_configflag(SVR_SHOTGPROJ)) dprint("- Shotgun hitscan system\n");
 	else dprint("+ Shotgun projectiles system\n");
-	if (query_configflag(SVR_SHOTGCASE)) dprint("- Shotgun casing disabled\n");
+	if (world.no_sgcasing > 0) dprint("W SG Casing Disabled on worldspawn\n");
+	else if (query_configflag(SVR_SHOTGCASE)) dprint("- Shotgun casing disabled\n");
 	else dprint("+ Shotgun casing enabled\n");
 
 	// Items updates; origin points and random rotation
@@ -275,16 +299,16 @@ void() display_configflag =
 	else dprint("+ All items are randomly rotated\n");
 
 	// General MOD settings
-	if (query_configflag(SVR_AUTOAIM)) dprint("- Player weapon autoaim enabled\n");
-	else dprint("+ Player weapon autoaim disabled\n");
+	if (autoaim_cvar >= 1) dprint("+ Player weapon autoaim disabled\n");
+	else dprint("- Player weapon autoaim enabled\n");
 	if (query_configflag(SVR_ZAWARE)) dprint("- Z Aware Monster combat disabled\n");
 	else dprint("+ Z Aware Monster combat enabled\n");
 	if (query_configflag(SVR_FOOTSTEP)) dprint("- footstep sounds disabled\n");
 	else dprint("+ footstep sounds enabled\n");
-	if (query_configflag(SVR_LIQDAM)) dprint("- monster liquid damage off\n");
-	else dprint("+ monster liquid damage on\n");
-	if (query_configflag(SVR_AIPATH)) dprint("- Path Corner Arrows disabled\n");
-	else dprint("+ Path Corner Arrows enabled\n");
+	if (query_configflag(SVR_LIQDAM)) dprint("- monster liquid damage disabled\n");
+	else dprint("+ monster liquid damage enabled\n");
+	if (query_configflag(SVR_DEVHELPER)) dprint("- Dev helpers (mark/arrow) disabled\n");
+	else dprint("+ Dev helpers (mark/arrow) enabled\n");
 	
 	// Body fade/floor checks
 	if (map_bodyfadeaway > 0) dprint("+ Monster dead body fade away\n");
@@ -326,21 +350,6 @@ void() display_configflag =
 };
 
 /*======================================================================
- Prints origin and mangle to console screen
- Useful for creating good locations for intermission camera's
-======================================================================*/
-void() display_playinfo =
-{
-	// Default return conditions (must be player)
-	if ( !(self.flags & FL_CLIENT) ) return;
-	
-	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Org ("); sprint(self,vtos(self.origin));
-	sprint(self,") Ang ("); sprint(self,vtos(self.v_angle));
-	sprint(self,")\n");
-};
-
-/*======================================================================
  Give the player various sigils (serverflag)
  Give the player silver/gold keys
 ======================================================================*/
@@ -374,15 +383,8 @@ void(float key_bit) givekey =
 };
 
 /*======================================================================
- TOGGLE auto aim feature (default OFF)
+ Various MOD features
 ======================================================================*/
-void() updateautoaim =
-{
-	if (query_configflag(SVR_AUTOAIM)) cvar_set("sv_aim", "0.93");
-	else cvar_set("sv_aim", "1.00");
-};
-
-//----------------------------------------------------------------------
 void() toggleautoaim =
 {
 	// Default return conditions (must be player)
@@ -390,19 +392,17 @@ void() toggleautoaim =
 	
 	self.impulse = 0;
 	
-	// Toggle the state of the console variable using the server flag
-	if (query_configflag(SVR_AUTOAIM)) update_configflag(SVR_AUTOAIM,FALSE);
-	else update_configflag(SVR_AUTOAIM,TRUE);
+	// Toggle the state of the console variable
+	if (autoaim_cvar >= 1) autoaim_cvar = 0.93;
+	else autoaim_cvar = 1;
+	cvar_set("sv_aim", ftos(autoaim_cvar));
 	
-	updateautoaim();
 	sprint(self, "\b[Impulse]\b Auto aim state ("); 
-	if (query_configflag(SVR_AUTOAIM)) sprint(self, "ON)\n");
+	if (autoaim_cvar < 1) sprint(self, "ON)\n");
 	else sprint(self, "OFF)\n");
 };
 
-/*======================================================================
- TOGGLE Z aware monsters (default ON)
-======================================================================*/
+//----------------------------------------------------------------------
 void() togglezaware =
 {	
 	// Default return conditions (must be player)
@@ -419,9 +419,28 @@ void() togglezaware =
 	else sprint(self, "Enabled)\n");
 };
 
-/*======================================================================
- TOGGLE footsteps (default ON)
-======================================================================*/
+//----------------------------------------------------------------------
+void() togglepixels =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	
+	sprint(self, "\b[SETTINGS]\b texture filtering ("); 
+	if (pixelmode == TRUE) {
+		pixelmode = FALSE;
+		stuffcmd(self, "\ngl_texturemode GL_LINEAR_MIPMAP_LINEAR\n");
+		sprint(self, "blurry)\n");
+	}
+	else {
+		pixelmode = TRUE;
+		stuffcmd(self, "\ngl_texturemode GL_NEAREST_MIPMAP_LINEAR\n");
+		sprint(self, "crispy)\n");
+	}
+};
+
+//----------------------------------------------------------------------
 void() togglefootstep =
 {
 	// Default return conditions (must be player)
@@ -438,9 +457,7 @@ void() togglefootstep =
 	else sprint(self, "ON)\n");
 };
 
-/*======================================================================
- TOGGLE Liquid Damage (default ON)
-======================================================================*/
+//----------------------------------------------------------------------
 void() toggleliquiddmg =
 {
 	// Default return conditions (must be player)
@@ -457,47 +474,7 @@ void() toggleliquiddmg =
 	else sprint(self, "ON)\n");
 };
 
-/*======================================================================
- TOGGLE AI path extra info (default ON)
-======================================================================*/
-void() toggleaipath =
-{
-	// Default return conditions (must be player)
-	if ( !(self.flags & FL_CLIENT) ) return;
-	
-	self.impulse = 0;
-	
-	// Toggle the state of the console variable using the server flag
-	if (query_configflag(SVR_AIPATH)) update_configflag(SVR_AIPATH, FALSE);
-	else update_configflag(SVR_AIPATH, TRUE);
-	
-	sprint(self, "\b[Impulse]\b Path Corner Arrows ("); 
-	if (query_configflag(SVR_AIPATH)) sprint(self, "OFF)\n");
-	else sprint(self, "ON)\n");
-	sprint(self, "Reload / Quickload map to see changes!\n");
-};
-
-/*======================================================================
- Toggle through particle debug messages
-======================================================================*/
-void() CycleParticleDebug =
-{
-	// Default return conditions (must be player)
-	if ( !(self.flags & FL_CLIENT) ) return;
-	
-	self.impulse = 0;
-	
-	part_debug = part_debug + 1;
-	if (part_debug > PARTICLE_DEBUGMAX) part_debug = 0;
-
-	sprint(self, "\b[Impulse]\b Particle debug level (");
-	sprint(self, ftos(part_debug));
-	sprint(self, ")\n");
-};
-
-/*======================================================================
- TOGGLE SG Projectiles (default ON)
-======================================================================*/
+//----------------------------------------------------------------------
 void() toggleshotgunproj =
 {
 	// Default return conditions (must be player)
@@ -513,9 +490,7 @@ void() toggleshotgunproj =
 	else sprint(self, "ON)\n");
 };
 
-/*======================================================================
- TOGGLE SG Casings (default ON)
-======================================================================*/
+//----------------------------------------------------------------------
 void() toggleshotguncase =
 {
 	// Default return conditions (must be player)
@@ -531,8 +506,96 @@ void() toggleshotguncase =
 	else sprint(self, "ON)\n");
 };
 
+//----------------------------------------------------------------------
+void() togglecoopartifacts =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Drop Artifacts ("); 
+	if (coop_artifacts == TRUE) {
+		coop_artifacts = FALSE;
+		sprint(self, "FALSE)\n");
+	}
+	else {
+		coop_artifacts = TRUE;
+		sprint(self, "TRUE)\n");
+	}
+};
+
+//----------------------------------------------------------------------
+void() togglecoopammoboxes =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Ammo Boxes Respawn ("); 
+	if (coop_ammoboxes == TRUE) {
+		coop_ammoboxes = FALSE;
+		sprint(self, "FALSE)\n");
+	}
+	else {
+		coop_ammoboxes = TRUE;
+		sprint(self, "TRUE)\n");
+	}
+};
+
+//----------------------------------------------------------------------
+void() update_weather =
+{
+	// Check for advanced engines
+	if (ext_active) {
+		// FTE/QSS only supports one console command for weather
+		// Engine does not remember setting and resets it
+		if (checkextension("FTE_SV_POINTPARTICLES"))
+			if (query_configflag(SVR_WEATHER))
+				stuffcmd(self, "\nr_part_rain 0\n");
+			else stuffcmd(self, "\nr_part_rain 1\n");
+		else {
+			// DP engine remembers rain/snow weather settings
+			// DP has separate commands for weather types
+			if (query_configflag(SVR_WEATHER)) {
+				// Weather disabled
+				stuffcmd(self, "\ncl_particles_rain 0\n");
+				stuffcmd(self, "\ncl_particles_snow 0\n");
+			}
+			else {
+				// Weather enabled
+				stuffcmd(self, "\ncl_particles_rain 1\n");
+				stuffcmd(self, "\ncl_particles_snow 1\n");
+			}
+		}
+	}
+};
+
+//----------------------------------------------------------------------
+void() toggleweather =
+{
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	// Enhanced engines enabled?
+	if (!ext_active) {
+		sprint(self,"\b[Impulse]\b Engine does not support weather.\n");
+		return;
+	}
+	
+	self.impulse = 0;
+
+	// Toggle the state of the console variable using the server flag
+	if (query_configflag(SVR_WEATHER)) update_configflag(SVR_WEATHER, FALSE);
+	else update_configflag(SVR_WEATHER, TRUE);
+	
+	sprint(self, "\b[Impulse]\b Particle weather system ("); 
+	if (query_configflag(SVR_WEATHER)) sprint(self, "OFF)\n");
+	else sprint(self, "ON)\n");
+	update_weather();
+};
+
+
 /*======================================================================
- TOGGLE Axe Upgrade
+ Require DEVELOPER mode to be active
 ======================================================================*/
 void() toggleupgradeaxe =
 {
@@ -556,9 +619,7 @@ void() toggleupgradeaxe =
 	if (self.weapon == IT_AXE) W_SetCurrentAmmo(self);
 };
 
-/*======================================================================
- TOGGLE Super Shotgun Upgrade
-======================================================================*/
+//----------------------------------------------------------------------
 void() toggleupgradessg =
 {
 	// Default return conditions (must be player and developer)
@@ -582,9 +643,7 @@ void() toggleupgradessg =
 	if (self.weapon == IT_SUPER_SHOTGUN) W_SetCurrentAmmo(self);
 };
 
-/*======================================================================
- TOGGLE Lightning Gun Upgrade
-======================================================================*/
+//----------------------------------------------------------------------
 void() toggleupgradelg =
 {
 	// Default return conditions (must be player and developer)
@@ -608,67 +667,47 @@ void() toggleupgradelg =
 	if (self.weapon == IT_LIGHTNING) W_SetCurrentAmmo(self);
 };
 
-/*======================================================================
- TOGGLE texture pixel mode (linear = blurry, nearest = crispy)
-======================================================================*/
-void() togglepixels =
-{	
+//----------------------------------------------------------------------
+void() toggledevhelpers =
+{
 	// Default return conditions (must be player)
 	if ( !(self.flags & FL_CLIENT) ) return;
-	
+	if (developer == 0) {
+		sprint(self,"\b[IMPULSE]\b Only works in developer mode!\n");
+		return;
+	}
+
 	self.impulse = 0;
-	sprint(self, "\b[SETTINGS]\b texture filtering ("); 
-	if (pixelmode == TRUE) {
-		pixelmode = FALSE;
-		stuffcmd(self, "\ngl_texturemode GL_LINEAR_MIPMAP_LINEAR\n");
-		sprint(self, "blurry)\n");
-	}
-	else {
-		pixelmode = TRUE;
-		stuffcmd(self, "\ngl_texturemode GL_NEAREST_MIPMAP_LINEAR\n");
-		sprint(self, "crispy)\n");
-	}
+
+	// Toggle the state of the console variable using the server flag
+	if (query_configflag(SVR_DEVHELPER)) update_configflag(SVR_DEVHELPER, FALSE);
+	else update_configflag(SVR_DEVHELPER, TRUE);
+	
+	sprint(self, "\b[Impulse]\b Dev Helpers are ("); 
+	if (query_configflag(SVR_DEVHELPER)) sprint(self, "OFF)\n");
+	else sprint(self, "ON)\n");
 };
 
-/*======================================================================
- TOGGLE coop player backpacks being able to drop artifacts
-======================================================================*/
-void() togglecoopartifacts =
-{	
+//----------------------------------------------------------------------
+void() CycleParticleDebug =
+{
 	// Default return conditions (must be player)
 	if ( !(self.flags & FL_CLIENT) ) return;
+	if (developer == 0) {
+		sprint(self,"\b[IMPULSE]\b Only works in developer mode!\n");
+		return;
+	}
 	
 	self.impulse = 0;
-	sprint(self, "\b[SETTINGS]\b COOP Drop Artifacts ("); 
-	if (coop_artifacts == TRUE) {
-		coop_artifacts = FALSE;
-		sprint(self, "FALSE)\n");
-	}
-	else {
-		coop_artifacts = TRUE;
-		sprint(self, "TRUE)\n");
-	}
+	
+	part_debug = part_debug + 1;
+	if (part_debug > PARTICLE_DEBUGMAX) part_debug = 0;
+
+	sprint(self, "\b[Impulse]\b Particle debug level (");
+	sprint(self, ftos(part_debug));
+	sprint(self, ")\n");
 };
 
-/*======================================================================
- TOGGLE ammo boxes to respawn in coop mode
-======================================================================*/
-void() togglecoopammoboxes =
-{	
-	// Default return conditions (must be player)
-	if ( !(self.flags & FL_CLIENT) ) return;
-	
-	self.impulse = 0;
-	sprint(self, "\b[SETTINGS]\b COOP Ammo Boxes Respawn ("); 
-	if (coop_ammoboxes == TRUE) {
-		coop_ammoboxes = FALSE;
-		sprint(self, "FALSE)\n");
-	}
-	else {
-		coop_ammoboxes = TRUE;
-		sprint(self, "TRUE)\n");
-	}
-};
 
 /*======================================================================
  IMPULSE 9

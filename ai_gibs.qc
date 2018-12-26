@@ -12,6 +12,8 @@
 .float		gib1skin;			// Special gib model unique skin no
 .float		gib2skin;			// Special gib model unique skin no
 .float		gib3skin;			// Special gib model unique skin no
+.float		gib4skin;			// Special gib model unique skin no
+.float		gib5skin;			// Special gib model unique skin no
 .float		gib1frame;			// Frame range to randomly pick from
 .float		gib2frame;			// Frame range to randomly pick from
 .float		gib3frame;			// Frame range to randomly pick from
@@ -218,8 +220,12 @@ void() CheckFloorGib =
 void() TouchGib =
 {
 	// Always check for sky and void functions first
-	if (check_skycontent(self.origin)) {entity_remove(self, 0.1); return;}
 	if (self.touchedvoid) return;				// Marked for removal
+	
+	//if (check_skycontent(self.origin)) {entity_remove(self, 0.1); return;}
+	// Disabled - will cause extreme slowdowns with DP/FTE engines 
+	// This function will check the whole surface list which can be
+	// crazy for extremely large maps
 
 	// Check if the gib can damage (only players) on touch
 	if (self.gib1dmg > 0 && other.flags & FL_CLIENT) {
@@ -317,9 +323,11 @@ void(entity gibent) DPP_blood_trail =
 		gibent.traileffectnum = particleeffectnum(DPP_TRPBLOOD);
 	}
 	else {
+		// DISABLED - Excessive blood trails can be bad for large maps
 		// Typical blood stains (20% chance of more blood)
-		if (random() < 0.2) gibent.traileffectnum = particleeffectnum(DPP_ITSBLOOD);
-		else gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
+		//if (random() < 0.2) gibent.traileffectnum = particleeffectnum(DPP_ITSBLOOD);
+		//else gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
+		gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
 	}
 };
 
@@ -418,9 +426,16 @@ void(float gib_no, float gib_qty) ThrowGib =
 			if (self.gib3frame) gibitem.frame = rint(random()*self.gib3frame);
 			if (self.gib3origin) gibitem.oldorigin = self.gib3origin;
 		}
-		// Extra Custom Gib (just models, no paramters)
-		else if (gib_no == 14) gibitem.mdl = self.gib4mdl;
-		else if (gib_no == 15) gibitem.mdl = self.gib4mdl;
+		// Extra Custom Gib (just models, minimal paramters)
+		else if (gib_no == 14) {
+			gibitem.mdl = self.gib4mdl;
+			if (self.gib4skin > 0) gibitem.skin = self.gib4skin;
+		}
+		// Extra Custom Gib (just models, minimal paramters)
+		else if (gib_no == 15) {
+			gibitem.mdl = self.gib5mdl;
+			if (self.gib5skin > 0) gibitem.skin = self.gib5skin;
+		}
 		// Special head gib (based on headmdl and skin no)
 		else if (gib_no == 25) {
 			gibitem.mdl = self.headmdl;
@@ -460,8 +475,12 @@ void(float gib_no, float gib_qty) ThrowGib =
 			
 			//----------------------------------------------------------------------
 			// This version copes with taller enemies by using all of the bounding box
-			if (CheckZeroVector(gibitem.oldorigin))
-				gibitem.oldorigin = self.origin + self.gib_ofs + crandom()*self.maxs;
+			if (CheckZeroVector(gibitem.oldorigin)) {
+				gibitem.oldorigin_x = crandom()*(self.bbmaxs_x*0.75);
+				gibitem.oldorigin_y = crandom()*(self.bbmaxs_y*0.75);
+				gibitem.oldorigin_z = (random()*self.bbmaxs_z)-12;
+				gibitem.oldorigin = gibitem.oldorigin + self.origin + self.gib_ofs;
+			}
 			setorigin(gibitem, gibitem.oldorigin);
 		
 			//----------------------------------------------------------------------
@@ -526,6 +545,7 @@ void() monster_ThrowGib =
 	if (self.gib1mdl != "") ThrowGib(11, 1);
 	if (self.gib2mdl != "") ThrowGib(12, 1);
 	if (self.gib3mdl != "") ThrowGib(13, 1);
+	if (self.gib4mdl != "") ThrowGib(14, 1);
 
 	//----------------------------------------------------------------------
 	// Work through each monster type (default = humanoid)
@@ -599,16 +619,12 @@ void() monster_ThrowGib =
 	else if (self.classtype == CT_MONWIZARD) {
 		ThrowGib(4, 1 + rint(random()*3));
 	}
-	else if (self.classtype == 	CT_MONSHAM) {
+	else if (self.classtype == CT_MONSHAM) {
 		ThrowGib(3, 1);
 		ThrowGib(4, 2 + rint(random()*4));
 		ThrowGib(5, 2 + rint(random()*4));
 	}
 	else if (self.classtype == 	CT_MONBOGLORD) {
-		ThrowGib(11, 1);	// Claw 1
-		ThrowGib(12, 1);	// Claw 2
-		ThrowGib(13, 1);	// Foot 1
-		ThrowGib(14, 1);	// Foot 2
 		ThrowGib(4, 5 + rint(random()*5));
 		ThrowGib(5, 10 + rint(random()*10));
 	}
@@ -651,6 +667,38 @@ void() monster_check_gib =
 
 	// Can only gib a monster once!
 	if (self.gibbed) return;
+	
+	// Make sure gibondeath has gib velocity (health value)
+	if (self.gibondeath) self.health = self.gibhealth;
+	// Is it time to throw a gib party?
 	if ( self.health < (self.gibhealth + 1) || self.gibondeath)
 		monster_ThrowGib();
+};
+
+//======================================================================
+// Forward compiler reference
+void(entity targ, entity attacker) Killed;
+
+//======================================================================
+// Gib a body on the floor (special setup)
+//======================================================================
+void(entity onflr, float impactdmg) monster_flrbody_gib =
+{
+	local entity tself, tother;
+	
+	onflr.bodyonflr = string_null;	// no more body gibbing
+	tself = self; tother = other;	// save self/other
+	self = onflr; other = tself;	// switch around
+	if (onflr.classgroup == CG_ZOMBIE) {
+		self.health = 0;
+		Killed(onflr, tself);
+	}
+	else {
+		self.max_health = MON_NOGIBVELOCITY; // use minimal velocity
+		monster_ThrowGib();			// throw parts
+	}
+	
+	self = tself; other = tother;	// switch back
+	SpawnBlood (onflr, onflr.origin, '0 0 50', impactdmg*4);
+	if (onflr.bodyonflrtrig) trigger_strs(onflr.bodyonflrtrig,self); 
 };

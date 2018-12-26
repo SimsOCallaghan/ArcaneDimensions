@@ -393,13 +393,15 @@ void() func_door_touch =
 			// Does the player have the correct key? (silver/gold)
 			if ( (self.items & other.items) != self.items ) {
 				if (self.owner.items == IT_KEY1) {
-					if (self.worldtype == 1) centerprint (other, "You need the silver runekey");
+					if (self.message2 != "") centerprint (other, self.message2);
+					else if (self.worldtype == 1) centerprint (other, "You need the silver runekey");
 					else if (self.worldtype == 2) centerprint (other, "You need the silver keycard");
 					else centerprint (other, "You need the silver key");
 					sound (self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
 				}
 				else {
-					if (self.worldtype == 1) centerprint (other, "You need the gold runekey");
+					if (self.message2 != "") centerprint (other, self.message2);
+					else if (self.worldtype == 1) centerprint (other, "You need the gold runekey");
 					else if (self.worldtype == 2) centerprint (other, "You need the gold keycard");
 					else centerprint (other, "You need the gold key");
 					sound (self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
@@ -413,6 +415,9 @@ void() func_door_touch =
 				else sprint(other, "Gold key\n");
 				// Take key from player inventory
 				other.items = other.items - self.items;
+				// Check for a custom unlock sound
+				if (self.locksounds > 0)
+					sound (self, CHAN_WEAPON, self.noise, 1, ATTN_NORM);
 			}
 		}
 
@@ -568,6 +573,9 @@ void() func_door =
 	if (self.locksounds == 1) self.noise = "doors/rattle1.wav";
 	else if (self.locksounds == 2) self.noise = "doors/rattle2.wav";
 	else if (self.locksounds == 3) self.noise = "doors/rattle6.wav";
+	else if (self.locksounds == 13) self.noise = "misc/trigger1.wav";
+	else if (self.locksounds == 14) self.noise = SOUND_EMPTY; 
+	else if (self.locksounds == 16) self.noise = "misc/secret3.wav";
 
 	//Pre-cache all sounds
 	precache_sound (self.noise);
@@ -598,11 +606,12 @@ void() func_door =
 
 	//----------------------------------------------------------------------
 	// Is the door locked via special keys (silver/gold)
+	// Make sure any rogue entity keys are removed
+	self.items = self.moditems = 0;
 	if (self.spawnflags & DOOR_SILVER_KEY) self.items = IT_KEY1;
 	else if (self.spawnflags & DOOR_GOLD_KEY) self.items = IT_KEY2;
-		
-	// Check for custom key requirement (only supports 1-4 types
-	if (self.customkey > 0) {
+	// Check for custom key requirement (only supports 1-4 types)
+	else if (self.customkey > 0) {
 		self.items = IT_KEY1 | IT_KEY2;
 		if (self.message2 == "") self.message2 = "You need the custom key";
 		if (self.customkey == 1) self.moditems = IT_CKEY1;

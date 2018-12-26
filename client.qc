@@ -292,6 +292,15 @@ void() SyncModInventory =
 	}
 
 	//----------------------------------------------------------------------
+	// Projectile Shotgun
+	//----------------------------------------------------------------------
+	// Check for worldspawn feature to turn off projectiles + casing
+	if (world.no_sgprojectile > 0) 
+		update_configflag(SVR_SHOTGPROJ, TRUE);
+	if (world.no_sgcasing > 0)
+		update_configflag(SVR_SHOTGCASE, TRUE);
+
+	//----------------------------------------------------------------------
 	// Plasma Gun
 	//----------------------------------------------------------------------
 	// Check worldspawn for upgrade_lg first, add/deny inventory
@@ -667,6 +676,19 @@ void() PlayerPreThink =
 		prethink = TRUE;			// prethink flag complete
 		postthink = FALSE;			// postthink flag reset
 		sync_configflag();			// Setup and sync serverflag
+		// Some clients load faster, prevent player gasping for air
+		self.air_finished = time + WATER_AIR;
+		
+		// Double check which engine is active?
+		// A DP/FTE Quickload could be happening and the
+		// Particle system needs to cope with the change
+		ext_active = cvar("pr_checkextension");
+		if (!ext_active) {
+			// Revert to default = Fitz engine setup
+			engine = ENG_FITZ;
+			ext_dppart = ext_dpfog = ext_dpsurf = FALSE;
+			ext_dprain = ext_dpsnow = FALSE;
+		}
 	}
 			
 	// If Intermission system active check for button0-2 keys
@@ -745,7 +767,6 @@ void() PlayerPostThink =
 		// - first couple of frames the player is not setup correctly
 		if (self.flags & FL_CLIENT) {
 			postthink = TRUE;			// postthink flag complete
-			updateautoaim();			// Make sure autoaim cvar set
 			// Reset any screen cshift parameters, eng often leaves them
 			if (!self.cshift_upd) self.cshift_time = -1;
 			
@@ -763,6 +784,10 @@ void() PlayerPostThink =
 			}
 			else liquid_alpha = cvar("r_wateralpha");	
 
+			// Check engine for actual autoaim setting
+			// Always reset with newgame and quickload
+			autoaim_cvar = cvar("sv_aim");
+			
 			// Setup/change global fog if enabled (default)
 			if (!(query_configflag(SVR_NOFOGCMDS))) {
 				// Create fog controller and/or update engine fog
@@ -772,7 +797,8 @@ void() PlayerPostThink =
 
 			// Update console with MOD settings
 			display_configflag();
-			display_version();			
+			display_version();	
+			update_weather();
 		}
 	}
 	if (intermission_running > 0) return;	// intermission or finale
@@ -850,7 +876,7 @@ void() WaterMove =
 	//dprint (ftos(self.waterlevel));
 	// Fix noclip water gasping bug by giving air to the player
 	if (self.movetype == MOVETYPE_NOCLIP) {
-		self.air_finished = time + 1; 
+		if (self.air_finished < time + 2) self.air_finished = time + 2; 
 		return;
 	}
 	if (self.health < 0) return;
@@ -858,9 +884,9 @@ void() WaterMove =
 	if (self.waterlevel != 3) {
 		if (self.air_finished < time)
 			sound (self, CHAN_VOICE, "player/gasp2.wav", 1, ATTN_NORM);
-		else if (self.air_finished < time + 9)
+		else if (self.air_finished < time + (WATER_AIR-3))
 			sound (self, CHAN_VOICE, "player/gasp1.wav", 1, ATTN_NORM);
-		self.air_finished = time + 12;
+		self.air_finished = time + WATER_AIR;
 		self.dmg = 2;
 	}
 	else if (self.air_finished < time) {	// drown!
@@ -1150,11 +1176,14 @@ void(entity targ, entity attacker) ClientObituary =
 				if (attacker.classtype == CT_MONIDCHTHON) bprint (" was blown apart by Chthon\n");
 				else if (attacker.classtype == CT_MONIDSHUB) bprint (" became one with Shub-Niggurath\n");
 				// New bosses
-				else if (attacker.classtype == CT_MONBOGLORD) bprint (" was obliterated by The Bog Lord\n");
+				else if (attacker.classtype == CT_MONBOGLORD) {
+					if (attacker.spawnflags & MON_BOGL_STRONG)
+						bprint (" was toasted by a Fire Shambler\n");
+					else bprint (" was obliterated by The Bog Lord\n");
+				}
 				else if (attacker.classtype == CT_MONFIRETOP) bprint (" was destroyed by the Firetop Guardian\n");
 				else if (attacker.classtype == CT_MONEIDOLON) bprint (" was pulverized by the Sculptor\n");
 				else if (attacker.classtype == CT_MONICEGOLEM) bprint (" was shattered by the Ice Golem\n");
-				else if (attacker.classtype == CT_MONLICHFIEND) bprint (" was shredded by the Lich Fiend\n");
 				else if (attacker.classtype == CT_MONNOUR) bprint (" was picked apart by the Scragmother\n");
 				// Custom chthon and shub can have unique client death messages
 				else if (attacker.classtype == CT_MONXXCHTHON) {
@@ -1221,6 +1250,7 @@ void(entity targ, entity attacker) ClientObituary =
 				// Quoth MOD enemies
 				else if (attacker.classtype == CT_MONVORELING) bprint (" was nibbled by a Voreling\n");
 				else if (attacker.classtype == CT_MINIONVORELING) bprint (" was nibbled by a Voreling\n");
+				else if (attacker.classtype == CT_MONSWAMPLING) bprint (" was bitten by a Swampling\n");
 				else if (attacker.classtype == CT_MONDROLE) bprint (" was decimated by a Drole\n");
 				else if (attacker.classtype == CT_MONFREDDIE) bprint (" was exterminated by Freddie\n");
 				else if (attacker.classtype == CT_MONGAUNT) bprint (" was blasted by a Gaunt\n");
@@ -1238,7 +1268,7 @@ void(entity targ, entity attacker) ClientObituary =
 				else if (attacker.classtype == CT_MONJIMROCKET) bprint (" was blown away by Jim\n");
 
 				// ijed/rrp enemies
-				else if (attacker.classtype == CT_MONBOIL) bprint (" was blown away by Boil\n");
+				else if (attacker.classtype == CT_MONBOIL) bprint (" was blown away by a Boil\n");
 				else if (attacker.classtype == CT_MONSEEKER) bprint (" was destroyed by a Seeker\n");
 
 				// Not present in original ID levels

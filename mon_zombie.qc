@@ -400,6 +400,8 @@ void() zombie_wakeup	= {
 	self.use = SUB_Null;				// No more using at this point
 	if (!self.enemy) FindTarget();		// If no enemy, look around?
 
+	// Make sure bounding box is correct, if blocked can be set 0,0,0
+	setsize (self, self.bbmins, self.bbmaxs);
 	// Turn monster collision on and test if can walk forward
 	self.solid = SOLID_SLIDEBOX;
 	if (!walkmove (0, 0))
@@ -447,8 +449,15 @@ void(float frameno) zombie_onground = {
 		self.nextthink = self.pausetime;
 		self.think = SUB_Null;
 
+		// Check for spawning onfloor orientation flag
+		// aflag = 1 Forward = 2 Backward
+		if (self.aflag < 1 || self.aflag > 2) {
+			if (random() < 0.5) self.aflag = 1;
+			else self.aflag = 2;
+		}
+
 		// Pick random starting pose
-		if (random() < 0.5) {
+		if (self.aflag == 1) {
 			self.zombieflr = MONAI_ZOMBIEUPB;
 			self.frame = $painb9;
 		}
@@ -460,6 +469,8 @@ void(float frameno) zombie_onground = {
 		if (self.angles_y < 1) self.angles_y = rint(random()*359);
 		self.use = self.th_wakeup;
 		self.fixangle = TRUE;
+		// Reset onspawn fall down angle (only used once)
+		self.aflag = 0;
 	}
 	else {
 		self.zombieflr = frameno;	// Wakeup pose for later

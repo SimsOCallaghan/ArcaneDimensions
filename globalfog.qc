@@ -11,7 +11,7 @@ puts the specified message into the console when the client spawns.
 void() stuffcmd_think =
 {
 	// wait key used for commands that are development mode only
-	if (!self.wait || (self.wait && developer)) {
+	if (!self.wait || (self.wait && developer > 0)) {
 		if (client_ent && client_ent.flags & FL_CLIENT) {
 			stuffcmd(client_ent, self.message);
 			stuffcmd(client_ent, "\n");
@@ -84,7 +84,11 @@ void(entity str_player, float str_num, float topbit, float botbit, float buffer)
 		str_pow = str_pow / 10;
 
 		// Divide number by pow to get divider
-		str_result = floor(str_num / str_pow);
+		// Floor can produce rounding errors (fix it with 0.01)
+		str_result = floor((str_num / str_pow)+0.01);
+		// Result must be 0-9 digits
+		if (str_result > 9) str_result = 0;
+		if (str_result < 1) str_result = 0;
 		
 		if (str_result > 0 || str_first) {
 			str_first = TRUE;
@@ -128,8 +132,12 @@ void(entity str_player, float str_num, float topbit, float botbit, float buffer)
 		str_pow = str_pow / 10;
 
 		// Divide number by pow to get divider
-		str_result = floor(str_num / str_pow);
-		
+		// Floor can produce rounding errors (fix it with 0.01)
+		str_result = floor((str_num / str_pow)+0.01);
+		// Result must be 0-9 digits
+		if (str_result > 9) str_result = 0;
+		if (str_result < 1) str_result = 0;
+
 		if (str_result > 0 || str_first) {
 			str_first = TRUE;
 			// Print digit to buffer type
@@ -153,13 +161,15 @@ void(entity client) change_fog  =
 	if (!fog_control) return;
 	
 	// Update fog parameters to console buffer
-	stuffcmd(client, "\nfog ");
+	stuffcmd(client, "\n\n\nfog ");
 	if (ext_dpfog) lftos(client, fog_control.fog_currden+0.05, 1,3, BUFFER_STUFFCMD); 
 	else lftos(client, fog_control.fog_currden, 1,3, BUFFER_STUFFCMD);
 	
 	stuffcmd(client, " "); 
-	lftos(client, fog_control.fog_currcol_x, 1,3, BUFFER_STUFFCMD); stuffcmd(client, " "); 
-	lftos(client, fog_control.fog_currcol_y, 1,3, BUFFER_STUFFCMD); stuffcmd(client, " "); 
+	lftos(client, fog_control.fog_currcol_x, 1,3, BUFFER_STUFFCMD); 
+	stuffcmd(client, " "); 
+	lftos(client, fog_control.fog_currcol_y, 1,3, BUFFER_STUFFCMD); 
+	stuffcmd(client, " "); 
 	lftos(client, fog_control.fog_currcol_z, 1,3, BUFFER_STUFFCMD); 
 	// Extra fog parameters for DarkPlaces extended engines
 	if (ext_dpfog) {

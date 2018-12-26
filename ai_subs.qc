@@ -376,8 +376,9 @@ void() HuntTarget =
 	
 	// Some monsters have special wakeup animations before attacking
 	self.nextthink = time + 0.1;
-	self.think = self.th_run;		// Start running
-	SUB_AttackFinished (1);			// wait a while before first attack
+	self.think = self.th_run;
+	// Default 1s wait (NM adjusted) before attacking
+	if (!self.attack_instant) SUB_AttackFinished (1);
 };
 
 /*======================================================================
@@ -505,14 +506,15 @@ float() FindTarget =
 	// Check for debug mode, invis artifact, menu system active
 	//----------------------------------------------------------------------
 	if (playtarg.flags & FL_NOTARGET) return FALSE;
-	if (playtarg.items & IT_INVISIBILITY) return FALSE;
+	// Boss monsters can see invisible players!
+	if (playtarg.items & IT_INVISIBILITY && self.bossflag == FALSE) return FALSE;
 	if (intermission_running) return FALSE;
 
 	//----------------------------------------------------------------------
 	// Is the client/player >1000 = FAR do nothing, too far away
 	//----------------------------------------------------------------------
 	enemy_range = range (client);
-	if (enemy_range == RANGE_FAR) return FALSE;
+	if (enemy_range == RANGE_FAR && !self.attack_sniper) return FALSE;
 		
 	//----------------------------------------------------------------------
 	// Do not wake up unless the client (player/monster) is visible
@@ -529,9 +531,9 @@ float() FindTarget =
 			return FALSE;
 	}
 	//----------------------------------------------------------------------
-	// (Distance < 1000) Is client infront?
+	// (Distance 500+) Is client infront?
 	//----------------------------------------------------------------------
-	else if (enemy_range == RANGE_MID) {
+	else if (enemy_range > RANGE_NEAR) {
 			if (!infront (client)) return FALSE;
 	}
 

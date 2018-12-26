@@ -209,6 +209,7 @@ void(entity targ) entity_hide =
 	targ.think = SUB_Null;				// No more thinking/animation
 	targ.nextthink = -1;				// Never fire think
 	targ.estate = ESTATE_OFF;			// Entity state off
+	targ.modelindex = 0;				// Make sure no model
 	setmodel (targ, "");				// invisible
 	targ.takedamage = DAMAGE_NO;		// No pain/death triggers
 	targ.movetype = MOVETYPE_NONE;		// Stationary
@@ -230,13 +231,14 @@ void(entity targ, float removetime) entity_remove =
 
 //======================================================================
 // Show where broken monster/items are located (developer only)
-// SPNMARK_YELLOW, SPNMARK_BLUE, SPNMARK_GREEN, SPNMAKR_RED
+// SPNMARK_YELLOW, SPNMARK_BLUE, SPNMARK_GREEN,
+// SPNMARK_RED, SPNMARK_PURPLE, SPNMARK_WHITE
 //----------------------------------------------------------------------
 void(vector marker_org, float marker_type) spawn_marker =
 {
 	local entity brokend;
 	
-	if (developer) {
+	if (developer > 0) {
 		brokend = spawn();
 		brokend.classtype = CT_DEVMARKER;
 		brokend.movetype = MOVETYPE_NONE;
@@ -368,6 +370,7 @@ void() model_fade =
     if (self.alpha > 1) self.alpha = 1;
     else if (self.alpha <= 0) {
         self.alpha = 0;
+		self.modelindex = 0;	// Make sure no model
         self.model = "";
         // Remove model by default
         if (!self.height) {

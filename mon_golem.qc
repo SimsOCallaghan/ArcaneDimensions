@@ -266,8 +266,8 @@ void() golem_knock22 = [ $knock22, golem_knock23 ] {golem_mcharge(5);};
 void() golem_knock23 = [ $knock23, golem_knock24 ] {golem_mcharge(5);};
 void() golem_knock24 = [ $knock24, golem_run1 ] {
 	golem_mcharge(5); 
-	// Double check enemy is still alive?
-	if (self.enemy.health > 1) {
+	// Make sure golem can do range attacks (melee only ver exists)
+	if (self.enemy.health > 1 && !(self.spawnflags & MON_GOLEM_MELEEONLY)) {
 		// If the enemy is visible, quickly go for range attack
 		if (!visblocked_wide(self.enemy, '0 0 34', '0 0 24')) {
 			SUB_AttackFinished (2 + 2*random());

@@ -668,7 +668,7 @@ void() monster_ogre_fishing =
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = 0.5;	// Rocket resistance
+	self.resist_rockets = 1;	// Rocket resistance
 	self.resist_cells = 0;
 
 	self.th_checkattack = OgreCheckAttack;

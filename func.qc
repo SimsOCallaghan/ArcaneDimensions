@@ -14,7 +14,7 @@ float BOB_COLLISION = 2;		// Collision for misc_bob
 float BOB_NONSOLID = 4;			// Non solid for func_bob
 
 /*======================================================================
-/*QUAKED func_wall (0 .5 .8) ? x AFRAME x x MODCHECK x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED func_wall (0 .5 .8) ? x AFRAME x x MODCHECK STATIC STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A SOLID bmodel with toggled animated texture
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -26,6 +26,7 @@ _shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 AFRAME   : Start with the A frame animated texture
 MODCHECK : Will remove this entity if THIS mod is active
+STATIC : Turn entity into static upon spawn (frame 0)
 STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
 A SOLID bmodel with toggled animated texture
@@ -83,18 +84,27 @@ void() func_wall =
 	if (self.spawnflags & FUNC_AFRAME) self.frame = 1;
 	if (self.spawnflags & FUNC_MODCHECK) remove(self);
 
-	// Setup Entity State functionality
-	if (self.targetname != "") self.use = entity_state_use;
-	self.estate_on = func_wall_on;
-	self.estate_off = func_wall_off;
-	self.estate_use = func_wall_use;
-	self.estate_aframe = func_wall_aframe;
-	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
-	else self.estate_on();
+	// Check for static entity option first
+	if (self.spawnflags & ENT_SPNSTATIC) {
+		self.movetype = MOVETYPE_PUSH;
+		self.solid = SOLID_BSP;
+		setmodel (self, self.mdl);
+		makestatic(self);
+	}
+	else {
+		// Setup Entity State functionality
+		if (self.targetname != "") self.use = entity_state_use;
+		self.estate_on = func_wall_on;
+		self.estate_off = func_wall_off;
+		self.estate_use = func_wall_use;
+		self.estate_aframe = func_wall_aframe;
+		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+		else self.estate_on();
+	}
 };
 
 /*======================================================================
-/*QUAKED func_illusionary (0 .5 .8) ? x AFRAME x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED func_illusionary (0 .5 .8) ? x AFRAME x x x STATIC STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A NON SOLID bmodel with texture toggle
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -105,6 +115,7 @@ _shadow     : Will cast shadows on other models and itself
 _shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 AFRAME : Start with the A frame animated texture
+STATIC : Turn entity into static upon spawn (frame 0)
 STARTOFF : Requires trigger to activate
 -------- NOTES --------
 A NON SOLID bmodel with texture toggle
@@ -135,13 +146,22 @@ void() func_illusionary =
 	self.mdl = self.model;
 	if (self.spawnflags & FUNC_AFRAME) self.frame = 1;
 
-	// Setup Entity State functionality
-	if (self.targetname != "") self.use = entity_state_use;
-	self.estate_on = func_illusionary_on;
-	self.estate_off = func_wall_off;
-	self.estate_use = func_wall_use;
-	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
-	else self.estate_on();
+	// Check for static entity option first
+	if (self.spawnflags & ENT_SPNSTATIC) {
+		self.movetype = MOVETYPE_NONE;
+		self.solid = SOLID_NOT;
+		setmodel (self, self.mdl);
+		makestatic(self);
+	}
+	else {
+		// Setup Entity State functionality
+		if (self.targetname != "") self.use = entity_state_use;
+		self.estate_on = func_illusionary_on;
+		self.estate_off = func_wall_off;
+		self.estate_use = func_wall_use;
+		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+		else self.estate_on();
+	}
 };
 
 /*======================================================================
@@ -820,6 +840,7 @@ void() func_bob =
 	}
 	else {
 		self.bsporigin = FALSE;
+		self.modelindex = 0;
 		self.model = "";
 	}
 	
@@ -830,7 +851,7 @@ void() func_bob =
 	if (self.count <1) self.count = 2;		// Direction switch timer
 	if (self.waitmin <=0) self.waitmin = 1;			// Speed up
 	if (self.waitmin2 <=0) self.waitmin2 = 0.75;	// Slow down
-	if (self.delay < 0) self.delay = random()* fabs(self.delay);
+	if (self.delay < 0) self.delay = random() + random() + random();
 	
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;

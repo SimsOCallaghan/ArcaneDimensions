@@ -336,7 +336,7 @@ float(entity pe_ent) misc_particle_style =
 		pe_ent.dpp_name = DPP_FLAMEL;		// smoke and particles floating up
 	}
 	//----------------------------------------------------------------------
-	// Skill Particle Stream (triggered)
+	// Skill Particle Stream (Designed for 4 sides of pillar)
 	//----------------------------------------------------------------------
 	else if (pe_ent.part_style == PARTICLE_STYLE_SKILL) {
 		pe_ent.spr_name1 = PART_DOTMED_RED;
@@ -356,6 +356,78 @@ float(entity pe_ent) misc_particle_style =
 		pe_ent.spawn_base = 0.01;			// Fast Spawn rate
 		pe_ent.spawn_rand = 0.2;			// Spawn rate randomness
 		pe_ent.dpp_name = DPP_SKILLPILLAR;	// Directional particle stream
+		pe_ent.dpp_rnd = 0;					// NO Random time multiplier
+		pe_ent.dpp_vel = normalize(v_forward);	// Particle direction
+	}
+	//----------------------------------------------------------------------
+	// Skill Particle Stream (Designed for Silver Key Doors)
+	//----------------------------------------------------------------------
+	else if (pe_ent.part_style == PARTICLE_STYLE_BSKILL) {
+		pe_ent.spr_name1 = PART_DOTMED_BLUE;
+		pe_ent.spr_name2 = PART_DOTSML_GREY;
+		pe_ent.spr_name3 = PART_DOTSML_BLUE;
+		pe_ent.part_limit = 35;				// Maximum particles
+		pe_ent.part_life = 2;				// Long life
+		pe_ent.part_ofs = '0 0 0';			// center of target object
+		// The angle of the particle entity is using the ANGLE key
+		makevectors(pe_ent.pemit_source.angles);
+		pe_ent.part_vel = v_forward * 10;	// Slow speed away from skill column
+		pe_ent.part_vol = '4 4 4';			// Volume (X/Y/Z)
+		pe_ent.part_velrand = '4 4 8';		// Volume wobble
+		pe_ent.part_veltype = PARTICLE_ORIGIN_VOL;	// Inside volume
+		pe_ent.wakeup_dist = 768;			// Long range distance
+		pe_ent.wakeup_timer = 1;			// Small change on distance timer
+		pe_ent.spawn_base = 0.01;			// Fast Spawn rate
+		pe_ent.spawn_rand = 0.2;			// Spawn rate randomness
+		pe_ent.dpp_name = DPP_BSKILLPILLAR;	// Directional particle stream
+		pe_ent.dpp_rnd = 0;					// NO Random time multiplier
+		pe_ent.dpp_vel = normalize(v_forward);	// Particle direction
+	}
+	//----------------------------------------------------------------------
+	// Skill Particle Stream (Designed for Green Key Doors)
+	//----------------------------------------------------------------------
+	else if (pe_ent.part_style == PARTICLE_STYLE_GSKILL) {
+		pe_ent.spr_name1 = PART_DOTSML_GREEN;
+		pe_ent.spr_name2 = PART_DOTMED_GREEN;
+		pe_ent.spr_name3 = PART_DOTSML_YELLOW;
+		pe_ent.part_limit = 35;				// Maximum particles
+		pe_ent.part_life = 2;				// Long life
+		pe_ent.part_ofs = '0 0 0';			// center of target object
+		// The angle of the particle entity is using the ANGLE key
+		makevectors(pe_ent.pemit_source.angles);
+		pe_ent.part_vel = v_forward * 10;	// Slow speed away from skill column
+		pe_ent.part_vol = '4 4 4';			// Volume (X/Y/Z)
+		pe_ent.part_velrand = '4 4 8';		// Volume wobble
+		pe_ent.part_veltype = PARTICLE_ORIGIN_VOL;	// Inside volume
+		pe_ent.wakeup_dist = 768;			// Long range distance
+		pe_ent.wakeup_timer = 1;			// Small change on distance timer
+		pe_ent.spawn_base = 0.01;			// Fast Spawn rate
+		pe_ent.spawn_rand = 0.2;			// Spawn rate randomness
+		pe_ent.dpp_name = DPP_GSKILLPILLAR;	// Directional particle stream
+		pe_ent.dpp_rnd = 0;					// NO Random time multiplier
+		pe_ent.dpp_vel = normalize(v_forward);	// Particle direction
+	}
+	//----------------------------------------------------------------------
+	// Skill Particle Stream (Designed for Purple Key Doors)
+	//----------------------------------------------------------------------
+	else if (pe_ent.part_style == PARTICLE_STYLE_PSKILL) {
+		pe_ent.spr_name1 = PART_DOTSML_PURP;
+		pe_ent.spr_name2 = PART_DOTMED_PURP;
+		pe_ent.spr_name3 = PART_DOTSML_PURP;
+		pe_ent.part_limit = 35;				// Maximum particles
+		pe_ent.part_life = 2;				// Long life
+		pe_ent.part_ofs = '0 0 0';			// center of target object
+		// The angle of the particle entity is using the ANGLE key
+		makevectors(pe_ent.pemit_source.angles);
+		pe_ent.part_vel = v_forward * 10;	// Slow speed away from skill column
+		pe_ent.part_vol = '4 4 4';			// Volume (X/Y/Z)
+		pe_ent.part_velrand = '4 4 8';		// Volume wobble
+		pe_ent.part_veltype = PARTICLE_ORIGIN_VOL;	// Inside volume
+		pe_ent.wakeup_dist = 768;			// Long range distance
+		pe_ent.wakeup_timer = 1;			// Small change on distance timer
+		pe_ent.spawn_base = 0.01;			// Fast Spawn rate
+		pe_ent.spawn_rand = 0.2;			// Spawn rate randomness
+		pe_ent.dpp_name = DPP_PSKILLPILLAR;	// Directional particle stream
 		pe_ent.dpp_rnd = 0;					// NO Random time multiplier
 		pe_ent.dpp_vel = normalize(v_forward);	// Particle direction
 	}
@@ -620,9 +692,42 @@ float(entity pe_ent) misc_particle_style =
 	// Item - Custom Backpack
 	//----------------------------------------------------------------------
 	else if (pe_ent.part_style == PARTICLE_STYLE_BACKPACK) {
-		pe_ent.spr_name1 = PART_DOTMED_GREY;
-		pe_ent.spr_name2 = PART_DOTSML_WHITE;
-		pe_ent.spr_name3 = PART_DOTSML_GREY;
+		if (pe_ent.pemit_source.exactskin == 1) {
+			pe_ent.spr_name1 = PART_DOTSML_GREEN;
+			pe_ent.spr_name2 = PART_DOTMED_GREEN;
+			pe_ent.spr_name3 = PART_DOTSML_GREEN;
+			pe_ent.dpp_name = DPP_BACKPACKG;	// Green
+		}
+		else if (pe_ent.pemit_source.exactskin == 2) {
+			pe_ent.spr_name1 = PART_DOTSML_BLUE;
+			pe_ent.spr_name2 = PART_DOTMED_BLUE;
+			pe_ent.spr_name3 = PART_DOTSML_GREY;
+			pe_ent.dpp_name = DPP_BACKPACKB;	// Blue
+		}
+		else if (pe_ent.pemit_source.exactskin == 3) {
+			pe_ent.spr_name1 = PART_DOTSML_RED;
+			pe_ent.spr_name2 = PART_DOTMED_RED;
+			pe_ent.spr_name3 = PART_DOTSML_GOLD;
+			pe_ent.dpp_name = DPP_BACKPACKR;	// Red
+		}
+		else if (pe_ent.pemit_source.exactskin == 4) {
+			pe_ent.spr_name1 = PART_DOTSML_GOLD;
+			pe_ent.spr_name2 = PART_DOTSML_GOLD;
+			pe_ent.spr_name3 = PART_DOTSML_YELLOW;
+			pe_ent.dpp_name = DPP_BACKPACKY;	// Yellow
+		}
+		else if (pe_ent.pemit_source.exactskin == 5) {
+			pe_ent.spr_name1 = PART_DOTSML_GREEN;
+			pe_ent.spr_name2 = PART_DOTMED_GREEN;
+			pe_ent.spr_name3 = PART_DOTSML_YELLOW;
+			pe_ent.dpp_name = DPP_BACKPACKG;	// Green
+		}
+		else {
+			pe_ent.spr_name1 = PART_DOTMED_GREY;
+			pe_ent.spr_name2 = PART_DOTSML_WHITE;
+			pe_ent.spr_name3 = PART_DOTSML_GREY;
+			pe_ent.dpp_name = DPP_BACKPACK;		// Default Grey/White
+		}
 		pe_ent.part_limit = 50;				// High Amount of particles
 		pe_ent.part_life = 2;				// Short life time
 		pe_ent.part_ofs = '0 0 12';			// Middle of pack
@@ -632,7 +737,6 @@ float(entity pe_ent) misc_particle_style =
 		pe_ent.wakeup_timer = 1;			// Medium timer (runs all the time)
 		pe_ent.spawn_base = 0.1;			// Fast Spawn rate
 		pe_ent.spawn_rand = 0;				// Spawn rate randomness
-		pe_ent.dpp_name = DPP_BACKPACK;		// Grey particles from center
 	}
 	//======================================================================
 	// Artifacts
@@ -737,9 +841,18 @@ float(entity pe_ent) misc_particle_style =
 	// Artifact - Sharp Shooter
 	//----------------------------------------------------------------------
 	else if (pe_ent.part_style == PARTICLE_STYLE_SHARP) {
-		pe_ent.spr_name1 = PART_DOTMED_PURP;
-		pe_ent.spr_name2 = PART_DOTSML_PURP;
-		pe_ent.spr_name3 = PART_DOTSML_GREY;
+		if (pe_ent.pemit_source.exactskin == 1) {
+			pe_ent.spr_name1 = PART_DOTSML_GREEN;
+			pe_ent.spr_name2 = PART_DOTMED_GREEN;
+			pe_ent.spr_name3 = PART_DOTSML_YELLOW;
+			pe_ent.dpp_name = DPP_SHARPG;	// Green particles from center
+		}
+		else {
+			pe_ent.spr_name1 = PART_DOTMED_PURP;
+			pe_ent.spr_name2 = PART_DOTSML_PURP;
+			pe_ent.spr_name3 = PART_DOTSML_GREY;
+			pe_ent.dpp_name = DPP_SHARP;	// Purple particles from center
+		}
 		pe_ent.part_limit = 75;				// High Amount of particles
 		pe_ent.part_life = 1.5;				// Short life time
 		pe_ent.part_ofs = '0 0 16';			// Move up to center
@@ -749,7 +862,6 @@ float(entity pe_ent) misc_particle_style =
 		pe_ent.wakeup_timer = 1;			// Medium timer (runs all the time)
 		pe_ent.spawn_base = 0.1;			// Fast Spawn rate
 		pe_ent.spawn_rand = 0;				// Spawn rate randomness
-		pe_ent.dpp_name = DPP_SHARP;		// Purple particles from center
 	}
 	//----------------------------------------------------------------------
 	// Artifact - Nail Piercer
@@ -1132,6 +1244,9 @@ void() misc_particle =
 	else if (self.message == "SIGIL") self.part_style = PARTICLE_STYLE_SIGIL;
 	else if (self.message == "ALTAR") self.part_style = PARTICLE_STYLE_ALTAR;
 	else if (self.message == "SKILL") self.part_style = PARTICLE_STYLE_SKILL;
+	else if (self.message == "BSKILL") self.part_style = PARTICLE_STYLE_BSKILL;
+	else if (self.message == "GSKILL") self.part_style = PARTICLE_STYLE_GSKILL;
+	else if (self.message == "PSKILL") self.part_style = PARTICLE_STYLE_PSKILL;
 	else if (self.message == "SRING") self.part_style = PARTICLE_STYLE_SRING;
 	else if (self.message == "SUIT") self.part_style = PARTICLE_STYLE_SUIT;
 	else {
@@ -1276,9 +1391,11 @@ targetname   : toggle state (use trigger ent for exact state)
 target       : destination of effect (self -> target)
 target2      : name of a particle template
 message      : Particle style string (upper case) leave blank for custom
-               ARMOR1, ARMOR2, ARMOR3, BOOK, ELECTRIC, FCIRCLE, 
-			   FLAMES, FLAMEL, KEYGOLD, KEYSILVER, MEGAH, PENT,
-			   PORTAL, QUAD, SIGIL, SKILL, SRING, SUIT
+               ALTAR, ARMOR1, ARMOR2, ARMOR3, BOOK, ELECTRIC,
+			   FCIRCLE, FLAMES, FLAMEL, JUMPPAD, 
+			   KEYGOLD, KEYSILVER, KEYRED, KEYGREEN, KEYPURPLE, KEYWHITE,
+			   MEGAH, PENT, PORTAL, QUAD, SIGIL, SRING, SUIT,
+			   SKILL, BSKILL, GSKILL, PSKILL
 -------- SPAWNFLAGS --------
 STARTOFF : Always Starts off and waits for trigger
 -------- NOTES --------

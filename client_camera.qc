@@ -183,7 +183,7 @@ void() NextIntermissionCamera =
 	}
 	
 	// If target exists on camera fire triggers (once)
-	if (self.goalentity.target) {
+	if (self.goalentity.target != "") {
 		trigger_strs(self.goalentity.target, self); 
 		self.goalentity.target = "";
 	}

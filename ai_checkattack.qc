@@ -183,8 +183,15 @@ void() BogLordCheckAttack =
 	// Melee attack(overhead slime balls)
 	//----------------------------------------------------------------------
 	if (ai_checkmelee(MONAI_BOGLORDMELEE)) {
-		self.attack_state = AS_MELEE;
-		self.th_melee ();
+		// Easy to dodge ball attack, bolts are more difficult
+		if (self.spawnflags & MON_BOGL_STRONG)
+			self.attack_chance = random();
+		else {
+			// Easy = 10%, Normal = 20%, Hard = 30%, NM = 40%
+			self.attack_chance = 0.1 + (skill * 0.1);
+		}
+		if (random() < self.attack_chance) self.attack_state = AS_MISSILE;
+		else { self.attack_state = AS_MELEE; self.th_melee (); }
 		return;
 	}
 	
@@ -198,20 +205,22 @@ void() BogLordCheckAttack =
 	// sightline can be blocked by other monsters
 	if (visblocked(self.enemy)) return;
 
-	// Setup attack chance of using melee attack more often
-	// easy=0.5, norm=0.6, hard=0.7, nm=0.8
-	self.attack_chance = 0.5 + (skill * 0.1);
+	// Setup attack chance of using fast bolt attack more often
+	// easy=0.0, norm=0.2, hard=0.4, nm=0.6
+	// The stronger version is just pure random 50/50
+	if (self.spawnflags & MON_BOGL_STRONG) self.attack_chance = random();
+	else self.attack_chance = 0.0 + (skill * 0.2);
 	
-	// Check for inside range for melee attack?
-	if (self.enemydist < MONAI_BOGLORDRANGE && random() > self.attack_chance) {
+	// Give the monster a chance to move if not tethered
+	if (!self.tethered) SUB_AttackFinished (1 + 2*random());
+	
+	// Check for random chance to keep doing overhead smash
+	if (random() > self.attack_chance) {
 		self.attack_state = AS_MELEE;
 		self.th_melee ();
-		return;
 	}
-	else {
-		self.attack_state = AS_MISSILE;
-		SUB_AttackFinished (1 + 2*random());
-	}
+	// Range attack harder to dodge at higher projectile speed
+	else self.attack_state = AS_MISSILE;
 };
 
 /*======================================================================
@@ -399,10 +408,17 @@ void() DefenderCheckAttack =
 	// Does the monster have a clear shot to the player?
 	// sightline can be blocked by other monsters
 	if (visblocked(self.enemy)) return;
-
-	// Aggressive range attack, no % chances
-	self.attack_state = AS_MISSILE;
-	SUB_AttackFinished (1 + 2*random());
+	
+	// Check enemy for grenade resistance?
+	if (self.enemy.bouncegrenade) {
+		self.attack_state = AS_MELEE;
+		self.th_melee ();
+	}
+	else {
+		// Aggressive range attack, no % chances
+		self.attack_state = AS_MISSILE;
+		SUB_AttackFinished (1 + 2*random());
+	}
 };
 
 /*======================================================================
@@ -438,11 +454,15 @@ void() OgreCheckAttack =
 	// sightline can be blocked by other monsters
 	if (visblocked(self.enemy)) return;
 
-	self.attack_state = AS_MISSILE;
-	// Fishing ogre fires much faster than standard
-	if (self.classtype == CT_MONOGREFISH)
-		SUB_AttackFinished (1 + random());
-	else SUB_AttackFinished (1 + 2*random());
+	// Check enemy for grenade resistance?
+	// Move closer to enemy instead for melee range
+	if (!self.enemy.bouncegrenade) {
+		self.attack_state = AS_MISSILE;
+		// Fishing ogre fires much faster than standard
+		if (self.classtype == CT_MONOGREFISH)
+			SUB_AttackFinished (1 + random());
+		else SUB_AttackFinished (1 + 2*random());
+	}
 };
 
 /*======================================================================
@@ -1326,6 +1346,8 @@ void() DFuryCheckAttack =
 	
 	if (enemy_range == RANGE_MELEE) self.attack_chance = 0.9;		// range < 120 map units
 	else if (enemy_range == RANGE_NEAR) self.attack_chance = 0.4;	// range < 500 map units
+	// If jump ability blocked, be more aggressive with range
+	else if (enemy_range > RANGE_NEAR && self.jump_flag == LARGE_TIMER) self.attack_chance = 0.4;
 	else if (enemy_range == RANGE_MID) self.attack_chance = 0.05;	// range < 1000 map units
 	else self.attack_chance = 0;
 	if (random () < self.attack_chance) self.attack_state = AS_MISSILE;
@@ -1360,7 +1382,7 @@ void() DCrossCheckAttack =
 	// Once within a certain range, stay there and snipe at the enemy
 	//----------------------------------------------------------------------
 	// range < 500 map units
-	if (enemy_range == RANGE_NEAR) {
+	if (enemy_range == RANGE_NEAR || self.enemymaxdist) {
 		// If sight blocked by another monster, slide to the side
 		if (!visblocked_wide(self.enemy, self.attack_offset, '0 0 0')) {
 			self.attack_state = AS_SLIDING;
@@ -1784,6 +1806,84 @@ void() VorelingCheckAttack =
 			self.enemydist = range_distance(self.enemy, TRUE);
 			if (self.enemydist < MONAI_JUMPVORELINGNEAR) return;
 			if (self.enemydist > MONAI_JUMPVORELINGFAR) return;
+			// Check for enemy above? (z axis)
+			if (self.enemy.origin_z > self.origin_z) return;
+			self.jumptouch = world;			// Reset last object touched
+			self.count = 0;					// Number of times jumped
+			self.attack_state = AS_JUMP;
+		}
+	}
+};
+
+/*======================================================================
+ SwamplingCheckAttack
+======================================================================*/
+void() SwamplingCheckAttack =
+{
+	//----------------------------------------------------------------------
+	// Melee attack (BITE)
+	//----------------------------------------------------------------------
+	// Check that within range of a bite attack
+	if (ai_checkmelee(MONAI_MELEESWAMPLING)) {
+		self.attack_state = AS_MELEE;
+		return;
+	}
+	//----------------------------------------------------------------------
+	// Range attack (Large Green Swampling = SPIT)
+	// Behaves like a wizards; strafe, spit goo
+	//----------------------------------------------------------------------
+	if (self.spawnflags & MON_SWAMPLING_LARGE) {
+		if (!enemy_vis) return;
+		if (time < self.attack_finished) return;
+
+		// Does the monster have a clear shot to the player?
+		// sightline can be blocked by other monsters
+		if (enemy_range == RANGE_FAR || visblocked(self.enemy)) {
+			if (self.attack_state != AS_STRAIGHT) {
+				self.attack_state = AS_STRAIGHT;
+				self.th_run ();
+			}
+			return;
+		}
+
+		if (enemy_range == RANGE_MELEE) self.attack_chance = 0.9;		// range < 120 map units
+		else if (enemy_range == RANGE_NEAR) self.attack_chance = 0.6;	// range < 500 map units
+		else if (enemy_range == RANGE_MID) self.attack_chance = 0.2;	// range < 1000 map units
+		else self.attack_chance = 0;
+		if (random () < self.attack_chance) {
+			SUB_AttackFinished (2 + random());
+			self.attack_state = AS_MISSILE;
+		}
+		else if (enemy_range == RANGE_MID) {
+			if (self.attack_state != AS_STRAIGHT) {
+				self.attack_state = AS_STRAIGHT;
+				self.th_run ();
+			}
+		}
+		else {
+			if (self.attack_state != AS_SLIDING) {
+				self.attack_state = AS_SLIDING;
+				self.th_slide ();
+			}
+		}
+	}
+	//----------------------------------------------------------------------
+	// Range attack (Small Light Green Swampling = JUMP)
+	// Behaves like a dog; run and jump
+	//----------------------------------------------------------------------
+	else {
+		// Is it time to jump?
+		if (self.jump_flag < time) {
+			// Stop the swampling over or under jumping the enemy
+			if (self.origin_z + self.mins_z > self.enemy.origin_z + self.enemy.mins_z
+			+ 0.75 * self.enemy.size_z) return;
+			if (self.origin_z + self.maxs_z < self.enemy.origin_z + self.enemy.mins_z
+			+ 0.25 * self.enemy.size_z) return;
+				
+			// Too close/far?
+			self.enemydist = range_distance(self.enemy, TRUE);
+			if (self.enemydist < MONAI_JUMPSWAMPLINGNEAR) return;
+			if (self.enemydist > MONAI_JUMPSWAMPLINGFAR) return;
 			// Check for enemy above? (z axis)
 			if (self.enemy.origin_z > self.origin_z) return;
 			self.jumptouch = world;			// Reset last object touched

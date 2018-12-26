@@ -159,8 +159,8 @@ void(entity targ, float zoffset, float rndtimer) SUB_setupEnemyTarget =
 		self.enemytarget.owner = self;
 		self.enemytarget.classtype = CT_ENEMYTARGET;
 
-		// Show enemytarget system in devmode ONLY
-		if (developer > 0) {
+		// Show enemytarget system in devmode ONLY (dev helper)
+		if (developer > 0 && !query_configflag(SVR_DEVHELPER)) {
 			self.enemytarget.mdl = MODEL_BROKEN;
 			setmodel(self.enemytarget, self.enemytarget.mdl);
 		}

@@ -227,6 +227,8 @@ void() generate_particlechain =
 		self.think = generate_particlechain;
 		self.nextthink = time + 0.2;
 	}
+	// Finished generating particle banks
+	else self.waitmin = FALSE;
 };
 
 //----------------------------------------------------------------------
@@ -245,10 +247,45 @@ void() setup_particlechain =
 		dprint("\b[PCHAIN]\b Creating controller\n");
 		part_free = part_end = part_start = world;
 		part_total = part_control.count = 0;
+		part_control.waitmin = TRUE;
 	}
 	// Setup next think
 	part_control.think = generate_particlechain;
 	part_control.nextthink = time + 0.3;
+};
+
+//----------------------------------------------------------------------
+//  Extend particle chain (used by quickload issues)
+//----------------------------------------------------------------------
+void() extend_particlechain =
+{
+	local float new_part_max;
+	
+	// Check for particle chain controller FIRST!
+	if (part_control.classtype != CT_PARTICLECONT) return;
+	// Check if particle bank setup is running already
+	if (part_control.waitmin) return;
+	
+	// Make sure particle banks are reset to default if low
+	if (part_max < PARTICLE_MAXENTS) new_part_max = PARTICLE_MAXENTS;
+	
+	// Check for any worldspawn override value
+	if (world.particlemax > 0) {
+		if (new_part_max < world.particlemax) 
+			new_part_max = world.particlemax;
+	}
+
+	// Does the particle bank max need to change?
+	if (part_max > new_part_max) return;
+	else part_max = new_part_max;
+	
+	dprint("\b[WORLD]\b New max particles (");
+	dprint(ftos(part_max)); dprint(")\n");
+
+	// Setup next think
+	part_control.think = generate_particlechain;
+	part_control.nextthink = time + 0.3;
+	part_control.waitmin = TRUE;
 };
 
 //----------------------------------------------------------------------
@@ -306,7 +343,10 @@ float PARTICLE_STYLE_KEYWHITE = 130;	// White explosion from top of key
 float PARTICLE_STYLE_SIGIL = 140;		// Purple explosion from center of rune
 float PARTICLE_STYLE_ALTAR = 145;		// Red/yellow dots raising around altar
 float PARTICLE_STYLE_SKILL = 150;		// Burst of red/yellow from skill column
-float PARTICLE_STYLE_BACKPACK = 155;	// Grey/White dots from center
+float PARTICLE_STYLE_BSKILL = 152;		// Burst of blue particles
+float PARTICLE_STYLE_GSKILL = 154;		// Burst of green particles
+float PARTICLE_STYLE_PSKILL = 156;		// Burst of purple particles
+float PARTICLE_STYLE_BACKPACK = 175;	// Grey/White dots from center
 
 float PARTICLE_STYLE_SUIT = 200;		// Green dots rising up
 float PARTICLE_STYLE_PENT = 210;		// Red/Black dots from center
@@ -361,6 +401,9 @@ string DPP_FLAMES = "DPP_ITSSFLAME";
 string DPP_FLAMET = "DPP_ITSTFLAME";
 string DPP_FLAMEL = "DPP_ITSLFLAME";
 string DPP_SKILLPILLAR = "DPP_ITSSKILLPILLAR";
+string DPP_BSKILLPILLAR = "DPP_ITSBSKILLPILLAR";
+string DPP_GSKILLPILLAR = "DPP_ITSGSKILLPILLAR";
+string DPP_PSKILLPILLAR = "DPP_ITSPSKILLPILLAR";
 string DPP_ALTARRED = "DPP_ITSALTARRED";
 string DPP_ALTARGREY = "DPP_ITSALTARGREY";
 string DPP_RESPAWN = "DPP_ITSRESPAWN";
@@ -378,12 +421,17 @@ string DPP_KEYPURPLE = "DPP_ITSPURPLEKEY";
 string DPP_KEYWHITE = "DPP_ITSWHITEKEY";
 string DPP_SIGIL = "DPP_ITSSIGIL";
 string DPP_BACKPACK = "DPP_ITSBACKPACK";
+string DPP_BACKPACKB = "DPP_ITSBACKPACKB";
+string DPP_BACKPACKG = "DPP_ITSBACKPACKG";
+string DPP_BACKPACKR = "DPP_ITSBACKPACKR";
+string DPP_BACKPACKY = "DPP_ITSBACKPACKY";
 string DPP_SUIT = "DPP_ITSSUIT";
 string DPP_PENT = "DPP_ITSPENT";
 string DPP_SRING = "DPP_ITSSRING";
 string DPP_QUAD = "DPP_ITSQUAD";
 string DPP_TOMEOFP = "DPP_ITSTOMEOFP";
 string DPP_SHARP = "DPP_ITSSHARP";
+string DPP_SHARPG = "DPP_ITSSHARPG";
 string DPP_PIERCE = "DPP_ITSPIERCE";
 string DPP_WETSUIT = "DPP_ITSWETSUIT";
 

@@ -151,7 +151,10 @@ void() sham_swingl6 =[      $swingl6,      sham_swingl7   ] {ai_charge(9);};
 void() sham_swingl7 =[      $swingl7,      sham_swingl8   ] {ai_charge(5); sham_meleeattack(SHAM_MCLAW,250);};
 void() sham_swingl8 =[      $swingl8,      sham_swingl9   ] {ai_charge(4);};
 void() sham_swingl9 =[      $swingl9,      sham_run1  ] { ai_charge(8);
-if (ai_checkmelee(MONAI_MELEESHAM) && self.enemy.health > 0) self.think = sham_swingr1;};
+	if (ai_checkmelee(MONAI_MELEESHAM)) {
+		if (self.enemy && self.enemy.health > 1) self.think = sham_swingr1;
+	}
+};
 
 //----------------------------------------------------------------------
 void() sham_swingr1	=[      $swingr1,      sham_swingr2   ] {
@@ -164,16 +167,23 @@ void() sham_swingr6 =[      $swingr6,      sham_swingr7   ] {ai_charge(6);};
 void() sham_swingr7 =[      $swingr7,      sham_swingr8   ] {ai_charge(6); sham_meleeattack(SHAM_MCLAW,-250);};
 void() sham_swingr8 =[      $swingr8,      sham_swingr9   ] {ai_charge(3);};
 void() sham_swingr9 =[      $swingr9,      sham_run1  ] { ai_charge(10);
-if (ai_checkmelee(MONAI_MELEESHAM) && self.enemy.health > 0) self.think = sham_swingl1;};
+	if (ai_checkmelee(MONAI_MELEESHAM)) {
+		if (self.enemy && self.enemy.health > 1) self.think = sham_swingl1;
+	}
+};
 
 //----------------------------------------------------------------------
 void() sham_melee =
 {
-	self.meleeattack = random();
-	// Try to start with a smash
-	if (self.meleeattack > 0.6 || self.health == self.max_health) sham_smash1 ();
-	else if (self.meleeattack > 0.3) sham_swingr1 ();
-	else sham_swingl1 ();
+	// If infighting and enemy is low on health, go for smash!
+	if (self.enemy.flags & FL_MONSTER && self.enemy.health < 40) sham_smash1 ();
+	else {
+		self.meleeattack = random();
+		// Try to start with a smash
+		if (self.meleeattack > 0.6 || self.health == self.max_health) sham_smash1 ();
+		else if (self.meleeattack > 0.3) sham_swingr1 ();
+		else sham_swingl1 ();
+	}
 };
 
 //============================================================================
@@ -359,11 +369,27 @@ void() sham_die =
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
 
-// regular death
+	// regular death
 	if (!self.gibbed) {
 		sound (self, CHAN_VOICE, "shambler/sdeath.wav", 1, ATTN_NORM);
 		sham_death1 ();
 	}
+	// Added feature for a Shambler marked with gibondeath
+	// would explode, but it looks confusing
+	// ** Feature removed **
+	/*
+	else {
+		//Explosion for gib death!
+		T_RadiusDamage (self, self, self.dmg, world, DAMAGEALL);
+		// Sprite/Particle based explosion
+		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+		WriteByte (MSG_BROADCAST, TE_EXPLOSION);
+		WriteCoord (MSG_BROADCAST, self.origin_x);
+		WriteCoord (MSG_BROADCAST, self.origin_y);
+		WriteCoord (MSG_BROADCAST, self.origin_z);
+		// Play original explosion sound or replacement
+		SpawnExplosion(EXPLODE_SMALL, self.origin, SOUND_REXP3);
+	} */
 };
 
 //----------------------------------------------------------------------
@@ -455,6 +481,7 @@ void() monster_shambler =
 	self.steptype = FS_TYPELARGE;		// Large stomping feet
 	self.blockudeath = TRUE;			// No player gib sound
 	self.attack_offset = '0 0 40';		// Between hands
+	self.dmg = 20;						// Radius dmg for gibondeath
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

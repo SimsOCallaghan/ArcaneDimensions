@@ -20,6 +20,9 @@ float BACKPACK_SHELLS = 1;
 float BACKPACK_NAILS = 2;
 float BACKPACK_ROCKETS = 4;
 float BACKPACK_CELLS = 8;
+float BACKPACK_GRNTYPE = 1;
+float BACKPACK_YELTYPE = 2;
+float BACKPACK_REDTYPE = 4;
 
 // Various bounding boxes for items
 // vector	VEC_ORID_MIN = '0 0 0';
@@ -2872,12 +2875,31 @@ void() BackpackTouch =
 			// Shards add to the armour value and can go above limit
 			// If no armour present (add a green jacket)
 			other.armorvalue = other.armorvalue + self.armorvalue;
-			// Does the player have any armor already?
-			if (other.armortype == 0 ) {
-				// No armor present, give green with armor shards
-				other.armortype = ARMOR_GRN_TYPE;
-				other.items = other.items | IT_ARMOR1;
+
+			// Yellow armour upgrade
+			// Only update armour type if green armour present
+			if (self.armortype == ARMOR_YEL_TYPE) {
+				if (other.items & IT_ARMOR1 || other.armortype == 0) {
+					other.items = other.items - (other.items & IT_ARMOR1);
+					other.items = other.items | IT_ARMOR2;
+					other.armortype = ARMOR_YEL_TYPE;
+				}
 			}
+			// Red armour upgrade
+			// Remove previous armour type (hud display flag)
+			else if (self.armortype == ARMOR_RED_TYPE) {
+				other.items = other.items - (other.items & IT_ARMOR1);
+				other.items = other.items - (other.items & IT_ARMOR2);
+				other.items = other.items | IT_ARMOR3;
+				other.armortype = ARMOR_RED_TYPE;
+			}
+			// Does the player have any armor already?
+			else if (other.armortype == 0 ) {
+				// No armor present, give green with armor shards
+				other.items = other.items | IT_ARMOR1;
+				other.armortype = ARMOR_GRN_TYPE;
+			}
+			
 			if (self.armorvalue > 0) {
 				s = ftos(self.armorvalue);
 				acount = BackpackText(other, s, " armor shards", acount);
@@ -2967,7 +2989,7 @@ void() BackpackTouch =
 	}
 
 	sprint (other, " from a backpack\n");
-	sound (other, CHAN_ITEM, "weapons/lock4.wav", 1, ATTN_NORM);
+	sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
 	// Check ammo limts, change to best weapon and set ammo type
@@ -3002,6 +3024,9 @@ void() DropBackpack =
 	item.classgroup = CG_AMMOITEM;
 	item.classname = "item_backpack";
 	item.origin = self.origin - '0 0 20';
+	// No way to cache something different without adding to world.qc
+	// Default quake sound for backpacks dropped from monsters
+	item.noise = "weapons/lock4.wav";
 	
 	//----------------------------------------------------------------------
 	// Pyro Enforcers drop armor shards instead!!!
@@ -3143,6 +3168,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+noise         : pickup sound (def=items/backpack_ammo.wav)
 respawn_time  : time to wait before respawning (=-1 instant)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -3187,7 +3213,6 @@ void() item_backpack_setup =
 	if (self.spawnflags & BACKPACK_ROCKETS) self.ammo_rockets = -1;
 	if (self.spawnflags & BACKPACK_CELLS) self.ammo_cells = -1;
 	if (self.armortype == 1) self.armorvalue = -1;
-	else self.armortype = 0;
 
 	// setup random quantity (default = 5)
 	if (self.ammo_shells < 0 || self.ammo_nails < 0 ||
@@ -3216,6 +3241,9 @@ void() item_backpack =
 {
 	self.mdl = MODEL_BACKPACK;
 	precache_model (self.mdl);
+	
+	if (self.noise == "") self.noise = "items/backpack_ammo.wav";
+	precache_sound(self.noise);
 
 	self.classtype = CT_AMMORANDOM;
 	self.classgroup = CG_AMMOITEM;
@@ -3223,12 +3251,57 @@ void() item_backpack =
 	self.bbmaxs = '16 16 32';
 	self.part_active = PARTICLE_STYLE_BACKPACK;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_BACKPACK;
-	self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_CENTER;
 	self.respawn_ofs = '0 0 12';
 	self.touch2 = BackpackTouch;
-
+	
+	// Match particle effect to skin colour
+	if (self.exactskin == 1) self.respawn_style = PARTICLE_BURST_GREEN;
+	else if (self.exactskin == 2) self.respawn_style = PARTICLE_BURST_BLUE;
+	else if (self.exactskin == 3) self.respawn_style = PARTICLE_BURST_RED;
+	else if (self.exactskin == 4) self.respawn_style = PARTICLE_BURST_YELLOW;
+	else if (self.exactskin == 5) self.respawn_style = PARTICLE_BURST_GREEN;
+	else self.respawn_style = PARTICLE_BURST_WHITE;
+	self.respawn_style = self.respawn_style | PARTICLE_BURST_CENTER;
+	
 	// Double checking all the different ammo combinations can be
 	// time consuming, delay spawn the backpack instead
 	self.think = item_backpack_setup;
 	self.nextthink = time + 0.1 + random();
+};
+
+//----------------------------------------------------------------------
+void() item_backpack_armour =
+{
+	// Default armour amount is 15
+	
+	if (self.noise == "") self.noise = "items/backpack_armour.wav";
+	precache_sound(self.noise);
+
+	// Check for different armour types
+	if (self.spawnflags & BACKPACK_GRNTYPE) {
+		self.armortype = ARMOR_GRN_TYPE; self.exactskin = 1;
+		if (self.armorvalue < 1) self.armorvalue = 15;
+	}
+	else if (self.spawnflags & BACKPACK_YELTYPE) {
+		self.armortype = ARMOR_YEL_TYPE; self.exactskin = 4;
+		if (self.armorvalue < 1) self.armorvalue = 30;
+	}
+	else if (self.spawnflags & BACKPACK_REDTYPE) {
+		self.armortype = ARMOR_RED_TYPE; self.exactskin = 3;
+		if (self.armorvalue < 1) self.armorvalue = 45;
+	}
+	// default = shards, no armour type
+	else {
+		self.armortype = 0; self.exactskin = 4;
+		if (self.armorvalue < 1) self.armorvalue = 15;
+	}
+	
+	// make sure all ammo is removed from backpack
+	if (self.spawnflags & BACKPACK_SHELLS) self.spawnflags = self.spawnflags - BACKPACK_SHELLS;
+	if (self.spawnflags & BACKPACK_NAILS) self.spawnflags = self.spawnflags - BACKPACK_NAILS;
+	if (self.spawnflags & BACKPACK_ROCKETS) self.spawnflags = self.spawnflags - BACKPACK_ROCKETS;
+	if (self.spawnflags & BACKPACK_CELLS) self.spawnflags = self.spawnflags - BACKPACK_CELLS;
+
+	// Feed back into backpack function
+	item_backpack();
 };

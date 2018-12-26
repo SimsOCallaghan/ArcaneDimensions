@@ -12,13 +12,23 @@
  
 ======================================================================*/
 float TRIG_COUNTNOMESSAGE = 1;	// Prevents all count messages
+float TRIG_COUNTEXACTNO = 16;	// Display exact count number
+float TRIG_COUNTSTARTDIS = 32;	// Count starts in disabled state
+
 float TRIG_RANDOMTARGET = 2;	// Randomly trigger target/target2
+float TRIG_RELAYSTARTDIS = 32;	// trigger_delay starts disabled
 float TRIG_EXPLODENOEFF = 2;	// No old particle effect
 float TRIG_EXPLODEDUST = 4;		// Exploding projectile dust
 float TRIG_MONKILLDFUNC = 16;	// kill monsters via death function
 
+float TRIG_ENGFITZ = 1;			// Fitz engine
+float TRIG_ENGDP = 2;			// DP engine
+float TRIG_ENGFTE = 4;			// FTE/QSS engine
+float TRIG_ENGRAIN = 16;		// Check for rain effects
+float TRIG_ENGSNOW = 32;		// Check for snow effects
+
 /*======================================================================
-/*QUAKED trigger_relay (0.5 0 0.5) (-8 -8 -8) (8 8 8) x RANDOM x x x x x x Not_Easy Not_Normal Not_Hard
+/*QUAKED trigger_relay (0.5 0 0.5) (-8 -8 -8) (8 8 8) x RANDOM x x x STARTDIS x x Not_Easy Not_Normal Not_Hard
 Triggers target(s) with custom sounds and messages
 -------- KEYS --------
 targetname : trigger entity
@@ -36,6 +46,7 @@ noise   : custom sound to play when triggered
 message : message to display when triggered
 -------- SPAWNFLAGS --------
 RANDOM : Will randomly select between target/target2
+STARTDIS : Will start disabled, will req trigger_entitystate_on to enable
 -------- NOTES --------
 This fixed size trigger cannot be touched, it can only be fired by other events.  
 Can contain killtargets, targets, delays, and messages.
@@ -101,11 +112,13 @@ void() trigger_relay =
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_use = trigger_relay_use;
-	self.estate = ESTATE_ON;
+	// Setup intial entity state (can start disabled)
+	if (self.spawnflags & TRIG_RELAYSTARTDIS) self.estate = ESTATE_DISABLE;
+	else self.estate = ESTATE_ON;
 };
 
 /*======================================================================
-/*QUAKED trigger_counter (0.5 0 0.1) (-8 -8 -8) (8 8 8) NOMESSAGE x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_counter (0.5 0 0.1) (-8 -8 -8) (8 8 8) NOMESSAGE x x x EXACTNO STARTDIS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A counter which triggers target(s) when complete
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -117,6 +130,8 @@ sounds  : 0=silent,1=Secret,2=talk,3=switch,5=custom,6=secret2
 noise   : custom sound to play when complete
 -------- SPAWNFLAGS --------
 NOMESSAGE : disables count display
+EXACTNO : display exact number when counting down
+STARTDIS : Starts disabled and waits for trigger
 STARTOFF : Requires trigger to activate
 -------- NOTES --------
 A counter which triggers target(s) when complete
@@ -138,7 +153,11 @@ void() trigger_counter_use =
 	// Count down messages for trigger
 	if (self.count > 0) {
 		if (activator.flags & FL_CLIENT && !(self.spawnflags & TRIG_COUNTNOMESSAGE) ) {
-			if (self.count >= 4) centerprint (activator, "There are more to go...");
+			if (self.count >= 4) {
+				if (self.spawnflags & TRIG_COUNTEXACTNO)
+					centerprint3 (activator, "Only ", ftos(self.count), " more to go...");
+				else centerprint (activator, "There are more to go...");
+			}
 			else if (self.count == 3) centerprint (activator, "Only 3 more to go...");
 			else if (self.count == 2) centerprint (activator, "Only 2 more to go...");
 			else centerprint (activator, "Only 1 more to go...");
@@ -192,11 +211,93 @@ void() trigger_counter =
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_reset = trigger_counter_reset;
-	self.estate = ESTATE_ON;
+	if (!self.estate) self.estate = ESTATE_ON;
+	// Check for disable state (need trigger_entityon to work again)
+	if (self.spawnflags & TRIG_COUNTSTARTDIS) self.estate = ESTATE_DISABLE;
 
 	// The delay function is not switched off, its activate to use
 	if (self.spawnflags & ENT_STARTOFF) self.estate_use = trigger_counter_delay;
 	else self.estate_use = trigger_counter_use;
+};
+
+/*======================================================================
+/*QUAKED trigger_engine (0 0 1) (-8 -8 -16) (8 8 16) FITZ DP FTE x RAIN SNOW x x
+Triggers target(s) when certain engine active
+-------- KEYS --------
+targetname : trigger entity
+target  : targets to trigger when relay is activated
+wait    : -1 = will only fire targets once
+delay   : delay before firing (after being triggered)
+cnt     : random amount of time to add to delay
+-------- SPAWNFLAGS --------
+FITZ : Only trigger for Fitz engines (default type)
+DP   : Only trigger for DP engine
+FTE  : Only trigger for FTE/QSS engines
+RAIN : Check for rain effect being active
+SNOW : Check for snow effect being active
+-------- NOTES --------
+Triggers target(s) when certain engine active
+
+======================================================================*/
+void() trigger_engine_fire =
+{
+	// Parameter to check at of tests
+	self.aflag = FALSE;
+	
+	// Check each engine type for conditions
+	// This trigger will not reset the activator
+	// Should be done with one of the targets instead
+	if (self.spawnflags & TRIG_ENGFITZ && engine == ENG_FITZ) self.aflag = TRUE;
+	else if (self.spawnflags & TRIG_ENGDP && engine == ENG_DPEXT) self.aflag = TRUE;
+	// Extra check for FTE/QSS (they support DP particles)
+	else if (self.spawnflags & TRIG_ENGFTE && engine == ENG_DPEXT) {
+		if (checkextension("FTE_SV_POINTPARTICLES")) self.aflag = TRUE;
+	}
+
+	if (self.aflag == TRUE) {
+		// Check for engine weather effects
+		if (self.spawnflags & TRIG_ENGRAIN && !ext_dprain) self.aflag = FALSE;
+		if (self.spawnflags & TRIG_ENGSNOW && !ext_dpsnow) self.aflag = FALSE;
+		// Check for weather being disabled
+		if (self.spawnflags & (TRIG_ENGRAIN | TRIG_ENGSNOW)) {
+			if (query_configflag(SVR_WEATHER)) self.aflag = FALSE;
+		}
+	
+		// If engine and/or weather active, fire targets!
+		if (self.aflag == TRUE) SUB_UseTargets();
+	}
+};
+
+//----------------------------------------------------------------------
+void() trigger_engine_use =
+{
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+
+	// Setup to trigger once?
+	if (self.wait < 0) self.attack_finished = LARGE_TIMER;
+	
+	// Check for any trigger delay?
+	if (self.delay > 0) {
+		self.think = trigger_engine_fire;
+		self.nextthink = time + self.delay;
+	}
+	else trigger_engine_fire();
+};		
+
+//----------------------------------------------------------------------
+void() trigger_engine =
+{
+	self.classtype = CR_TRIGENG;
+
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_use = trigger_engine_use;
+	self.estate = ESTATE_ON;
 };
 
 /*======================================================================
@@ -397,11 +498,15 @@ void() trigger_monsterkill_use =
 				self.enemy.enemy = world;
 				self.enemy.health = self.enemy.gibhealth;
 
-				// Update kill counter if no exceptions!
-				if (!self.enemy.nomonstercount) {
-					killed_monsters = killed_monsters + 1;
-					WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
-				}
+				// If a monster marked with no monster count dies
+				// update HUD totals to reflect death properly
+				if (self.enemy.nomonstercount) {
+					total_monsters = total_monsters + 1;
+					update_hud_totals(HUD_MONSTERS);
+				}	
+				// Update global monster death totals
+				killed_monsters = killed_monsters + 1;
+				WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
 
 				// Stop all animation think functions
 				self.enemy.think = SUB_Null;

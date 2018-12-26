@@ -348,6 +348,7 @@ void() skullw_poison_touch =
 	if (self.attack_finished > time) return;
 
 	self.attack_finished = time + 1;
+	self.modelindex = 0;			// Make sure no model
 	self.model = "";
 	self.think = SUB_Remove;
 	self.nextthink = time + 0.1;

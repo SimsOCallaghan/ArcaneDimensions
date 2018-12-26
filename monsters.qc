@@ -43,18 +43,18 @@ void() monster_use =
 	
 	// Spiders/Vorelings can be setup on the ceilings
 	// need to trigger/drop instead them before anything else
-	if (self.classtype == CT_MONSPIDER || self.classtype == CT_MONVORELING) {
-		if (self.spawnflags & MON_SPIDER_CEILING) {
-			// Start with activator as enemy
-			self.enemy = activator;
-			// Work through exceptions
-			if (activator.classtype != CT_PLAYER) self.enemy = world;
-			if (activator.items & IT_INVISIBILITY) self.enemy = world;
-			if (activator.flags & FL_NOTARGET) self.enemy = world;
-			// Drop from ceiling
-			self.th_run();
-			return;
-		}
+	if (self.classtype == CT_MONSPIDER && self.spawnflags & MON_SPIDER_CEILING ||
+		self.classtype == CT_MONSWAMPLING && self.spawnflags & MON_SWAMPLING_CEILING ||
+		self.classtype == CT_MONVORELING && self.spawnflags & MON_VORELING_CEILING) {
+		// Start with activator as enemy
+		self.enemy = activator;
+		// Work through exceptions
+		if (activator.classtype != CT_PLAYER) self.enemy = world;
+		if (activator.items & IT_INVISIBILITY) self.enemy = world;
+		if (activator.flags & FL_NOTARGET) self.enemy = world;
+		// Drop from ceiling
+		self.th_run();
+		return;
 	}
 	
 	// Player exceptions
@@ -561,6 +561,89 @@ void() monster_spawn =
 	}
 
 	//----------------------------------------------------------------------
+	// Check if the monster can spawn without telefragging something
+	if (self.spawnnotelefrag > 0) {
+		// Switch on world interaction
+		self.solid = SOLID_SLIDEBOX;
+		self.movetype = MOVETYPE_STEP;
+		// restore model/bbox to get world collision
+		setmodel(self, self.mdl);
+		setsize (self, self.bbmins, self.bbmaxs);
+		// reset origin, just in case been moved since last
+		setorigin(self, self.oldorigin);
+		
+		// Make sure movement flag types are correct
+		if (self.classmove == MON_MOVEFLY ) 
+			self.flags = self.flags | FL_FLY;
+		else if (self.classmove == MON_MOVESWIM ) 
+			self.flags = self.flags | FL_SWIM;
+
+		// Can the monster walk without collision?
+		if (!walkmove (0, 0)) {
+			dprint("BLOCKED "); dprint(self.classname); dprint(" ");
+			// Switch off monster and wait again
+			self.solid = SOLID_NOT;
+			setmodel(self,"");
+			setsize(self, VEC_ORIGIN, VEC_ORIGIN);
+			self.think = monster_spawn;
+			self.nextthink = time + 0.1 + random()*0.5;
+			return;
+		}
+		else {
+			// make sure monster is not displayed yet
+			// might have a nosight check to do
+			self.solid = SOLID_NOT;
+			setmodel(self,"");
+			setsize(self, VEC_ORIGIN, VEC_ORIGIN);
+		}
+	}
+
+	//----------------------------------------------------------------------
+	// Check for spawnnosight conditions
+	if (self.spawnnosight > 0) {
+		// Setup maximum time limit for spawning regardless
+		if (self.attack_finished == FALSE) {
+			// Default is 30s (check for override condition first)
+			if (self.spawnnosighttime < 1) self.spawnnosighttime = 30;
+			self.attack_finished = time + self.spawnnosighttime;
+		}
+		
+		// Reset sight condition first and find client in PVS
+		self.lefty = FALSE;
+		self.oldenemy = checkclient();
+		// Did the client PVS check return an entity?
+		if (self.oldenemy) {
+			// is the client a player?
+			if (self.oldenemy.flags & FL_CLIENT) {
+				// Check if the player can be seen?
+				enemy_vis = visible(self.oldenemy);
+				if (enemy_vis) self.lefty = TRUE;
+				// Check for an insight spawn distance
+				if (self.spawnnosight > 1) {
+					// Find distance (3d vector distance)
+					self.enemydist = range_distance(self.oldenemy, FALSE);
+					// check for player being too close for spawn
+					if (self.enemydist > self.spawnnosight)
+						self.lefty = FALSE;
+				}
+			}
+			// Checks for notarget/inv player conditions
+			// disabled - not really necessary as a spawn condition
+			//if (self.oldenemy.flags & FL_NOTARGET) self.lefty = FALSE;
+			//if (self.oldenemy.items & IT_INVISIBILITY) self.lefty = FALSE;
+		}
+		
+		// Can the player see the spawn location? wait instead
+		if (self.lefty == TRUE && self.attack_finished > time) {
+			self.think = monster_spawn;
+			self.nextthink = time + 0.1;
+			return;
+		}
+	}
+		
+	//----------------------------------------------------------------------
+	// Time to finally spawn the monster!?! All conditions met!
+	
 	if (self.think1) self.use = self.think1;	// different use function?
 	else self.use = monster_use;				// default trigger event
 	self.solid = SOLID_SLIDEBOX;				// Standard monster movement
@@ -582,6 +665,7 @@ void() monster_spawn =
 	self.liquidbase = self.liquidcheck = 0;		// Used for liquid content damage
 	self.dmgcombined = self.dmgtimeframe = 0;	// combined damage over 0.1s
 	if (!self.pain_flinch) self.pain_flinch = self.health;
+	if (!self.switchoverride) self.switchoverride = 1;
 
 	// Double check that all ammo resistance are within range
 	Resist_CheckRange(self);
@@ -590,8 +674,10 @@ void() monster_spawn =
 	setup_tethersystem();
 	
 	// Long time before first idle sound (except scorpions!)
-	if (self.classtype == CT_MONSCORPION) self.idletimer = time + 0.1 + random();
-	else self.idletimer = time + 4 + (random() * 4);
+	if (self.idletimer < 1) {
+		if (self.classtype == CT_MONSCORPION) self.idletimer = time + 0.1 + random();
+		else self.idletimer = time + 4 + (random() * 4);
+	}
 	
 	// Reset all enemy tracking entities
 	if (!self.enemy) self.enemy = self.movetarget = self.goalentity = world;
@@ -605,7 +691,7 @@ void() monster_spawn =
 	//----------------------------------------------------------------------
 	// Setup different skin options
 	//----------------------------------------------------------------------
-	if (self.exactskin > 0) self.skin = self.exactskin;
+	if (self.exactskin > 0) self.skin = rint(self.exactskin);
 	else if (self.randomskin > 1) self.skin = rint(random()*(self.randomskin-1));
 	if (self.skin < 0) self.skin = 0;	// Double check no negatives
 
@@ -662,7 +748,6 @@ void() monster_spawn =
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_MONGARGOYLE && self.spawnflags & MON_GARGOYLE_PERCH) {
 		self.flags = self.flags | FL_FLY;	// Stop any ground checks
-		self.idletimer = time;				// Always start with idle sounds
 		self.th_stand();
 		return;
 	}
@@ -673,6 +758,7 @@ void() monster_spawn =
 	// normal behaviour (most think functions are intercepted)
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_MONSPIDER && self.spawnflags & MON_SPIDER_CEILING ||
+		self.classtype == CT_MONSWAMPLING && self.spawnflags & MON_SWAMPLING_CEILING ||
 		self.classtype == CT_MONVORELING && self.spawnflags & MON_VORELING_CEILING) {
 		// Work out where the ceiling is (traceline upwards)
 		traceline (self.origin, self.origin+'0 0 4096', TRUE, self);
@@ -687,7 +773,6 @@ void() monster_spawn =
 			// functions will work (checkclient for example)
 			self.view_ofs = '0 0 -24';
 			self.yaw_speed = 20;		// Ground yaw speed
-			self.idletimer = time;		// Always start with idle sounds
 			setsize(self, '-16 -16 -24', '16 16 0');
 		}
 		else {
@@ -887,9 +972,16 @@ void() monster_start =
 	if (!self.gibhealth) self.gibhealth = 0 - self.health;	// Default gib health
 	if (self.turrethealth < 0 || self.turrethealth > 1) self.turrethealth = 0.5;
 
+	// Check if jump function has been disabled?
+	if (self.jump_flag < 0) self.jump_flag = LARGE_TIMER;
+	
 	// Default attack function and class group
 	if (!self.th_checkattack) self.th_checkattack = CheckAttack;
 	if (!self.classgroup) self.classgroup = CG_MONSTERS;
+	
+	// Highlight monsters with forced no_zaware entity key
+	if (self.no_zaware && developer > 0 && !query_configflag(SVR_DEVHELPER)) 
+		spawn_marker(self.origin+'0 0 32', SPNMARK_WHITE);
 
 	// Setup bounding box based on presets
 	monster_bbox();
@@ -939,7 +1031,7 @@ void() monster_start =
 		self.solid = SOLID_NOT;				// No world interaction
 		self.use = monster_spawn;			// Wait for trigger
 		
-		if (developer > 0) {
+		if (developer > 0 && !query_configflag(SVR_DEVHELPER)) {
 			self.movetype = MOVETYPE_NONE;
 			self.solid = SOLID_NOT;
 			setmodel(self, MODEL_BROKEN);
@@ -999,6 +1091,10 @@ NOTFROZEN : Will start active (works with statue spawnflag)
 frame: statue frame to be frozen in. (default 73)
 STATUE : Stone statue until triggered
 NOTFROZEN : Will start active (works with statue spawnflag)
+
+--- Crossbow Knight ---
+SNIPER : no max range limitations for enemies (sniper mode)
+TRACKING : Enable tracking for the firing of bolts (really hard)
 
 --- Golem ---
 frame: statue frame to be frozen in. (default 48)

@@ -67,8 +67,9 @@ entity(string arrowmdl, vector arroworg) path_corner_spawnarrow =
 //----------------------------------------------------------------------
 void() path_corner_updatearrow =
 {
-	// Is the AI pathing info turned off?
-	if (query_configflag(SVR_AIPATH)) return;
+	// Visual AI pathing only active in dev mode
+	if (developer == 0) return;
+	if (query_configflag(SVR_DEVHELPER)) return;
 	if ( !(self.spawnflags & PATHC_TARGET2) ) return;
 
 	// Switch colour of arrow based on route logic
@@ -98,8 +99,9 @@ void() path_corner_updatearrow =
 //----------------------------------------------------------------------
 void() path_corner_setuparrow =
 {
-	// Is the AI pathing info turned off?
-	if (query_configflag(SVR_AIPATH)) return;
+	// Visual AI pathing only active in dev mode
+	if (developer == 0) return;
+	if (query_configflag(SVR_DEVHELPER)) return;
 
 	// Draw back link arrow
 	if (self.spawnflags & PATHC_BACKLINK) {
@@ -127,8 +129,8 @@ void() path_corner_setuparrow =
 		self.movedir = normalize(self.movetarget.oldorigin - self.oldorigin);
 		self.attachment.angles = vectoangles(self.movedir);
 	}
-	// Missing forward link (deadend), this is a bad situation
-	// Highlight this problem with a pointing up RED arrow
+	// Missing forward link (deadend)
+	// Highlight this issue with a pointing up RED arrow
 	else {
 		// There is no forward link, so use back link instead
 		if (self.spawnflags & PATHC_BACKLINK) self.oldenemy = self.movetarget3;
@@ -241,8 +243,10 @@ void() path_corner_setuptargets =
 	
 	// Random time interval as this is not important
 	// Generate developer arrow models on path_corner
-	self.nextthink = time + 0.5 + random();
-	self.think = path_corner_setuparrow;
+	if (developer > 0) {
+		self.nextthink = time + 0.5 + random();
+		self.think = path_corner_setuparrow;
+	}
 	
 };
 
@@ -409,8 +413,8 @@ void() path_corner =
 		return;
 	}
 	
-	// Cache developer arrow models
-	if (developer == 1) {
+	// Cache arrow models if devmode active
+	if (developer > 0) {
 		self.headmdl = MODEL_CORNER1;	// Top of Arrow (forward)
 		self.mdl = MODEL_CORNER2;		// Bottom of Arrow (backward)
 		precache_model(self.headmdl);

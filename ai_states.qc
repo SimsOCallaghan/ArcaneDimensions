@@ -91,9 +91,10 @@ void(float dist) ai_run =
 		}
 	}
 
-	self.show_hostile = time + 1;		// wake up other monsters
+	// Wake up any monsters in visual range
+	self.show_hostile = time + 1;
 
-	// check knowledge of enemy
+	// check visibility of enemy
 	enemy_vis = visible(SUB_entEnemyTarget());
 	if (enemy_vis) self.search_time = time + 5;
 
@@ -152,11 +153,10 @@ void(float dist) ai_run =
 	// These checks are for the next frame, not this one
 	// Exception : wizards need to strafe quickly
 	//----------------------------------------------------------------------
-	// Wizard has special long range behaviour, needs to exist outside range check
-	if (self.classtype == CT_MONWIZARD && !(self.spawnflags & MON_WIZARD_ABOVE) ) 
-		self.th_checkattack ();
+	// Some monsters don't have distance checks, like wizards
 	// All monsters have checkattack defined, no need for ifs and buts!
-	else if (self.enemydist < MON_MAX_RANGE) self.th_checkattack ();
+	if (self.enemymaxdist || self.enemydist < MON_MAX_RANGE) 
+		self.th_checkattack ();
 
 	//----------------------------------------------------------------------
 	if (self.attack_state == AS_SLIDING) {

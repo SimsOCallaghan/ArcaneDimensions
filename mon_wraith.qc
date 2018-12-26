@@ -164,7 +164,8 @@ void() debuff_fade =
 
     if (self.alpha < 0.2) {
         self.alpha = 0;
-        self.model = "";
+		self.modelindex = 0;		// Make sure no model
+        self.model = "";			// hide model
 		self.think = SUB_Remove;
 		self.nextthink = time + 0.1;
         return;
@@ -214,7 +215,8 @@ void() wraith_fire_touch =
 	if (self.attack_finished > time) return;
 
 	self.attack_finished = time + 1;
-	self.model = "";
+	self.modelindex = 0;		// Make sure no model
+	self.model = "";			// hide model
 	self.think = SUB_Remove;
 	self.nextthink = time + 0.1;
 };

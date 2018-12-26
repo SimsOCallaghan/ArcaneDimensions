@@ -173,7 +173,8 @@ void() misc_explobox_off =
 {
 	self.estate = ESTATE_OFF;
 	self.solid = SOLID_NOT;
-	self.model = "";
+	self.modelindex = 0;			// Make sure no model
+	self.model = "";				// hide model
 	self.takedamage = DAMAGE_NO;
 	self.th_die = SUB_Null;
 	self.think = SUB_Null;
@@ -299,7 +300,8 @@ void() misc_lavaball_reset =
 {
 	self.touch = SUB_Null;
 	self.flags = 0;
-	self.model = "";
+	self.modelindex = 0;			// Make sure no model
+	self.model = "";				// Hide model
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;
 	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
@@ -584,6 +586,21 @@ void() misc_drip_spawn =
 	// Is the entity OFF or BLOCKED?
 	if (self.estate & ESTATE_BLOCK) return;
 
+	// make sure player distance check is available
+	if (!self.enemy) self.enemy = find(world, classname, "player");
+	if ( !(self.enemy.flags & FL_CLIENT) ) {
+		self.nextthink = time + 0.1;
+		self.think = misc_drip_spawn;
+		return;
+	}
+	
+	// Is the misc_drip close to the player?
+	if (range_distance(self.enemy, TRUE) > self.wakeup_dist) {
+		self.nextthink = time + random() + self.wait;
+		self.think = misc_drip_spawn;
+		return;
+	}	
+	
 	// Move drip to start position and setup sprite	
 	setorigin (self, self.oldorigin);
 	setmodel (self, self.mdl);
@@ -646,6 +663,8 @@ void() misc_drip =
 
 	// default frequency to 3 seconds
 	if (self.wait <= 0) self.wait = 3;
+	// No point dripping if no drippy player around!
+	if (self.wakeup_dist <= 0) self.wakeup_dist = 1024;
 
 	self.classtype = CT_MISCDRIP;
 	self.classgroup = CG_MISCENT;
@@ -759,7 +778,10 @@ void() misc_smoke_off =
 {
 	self.estate = ESTATE_OFF;
 	// Turn off model if setup
-	if (self.mdl != "") self.model = "";
+	if (self.mdl != "") {
+		self.modelindex = 0;	// Make sure no model
+		self.model = "";		// Hide model
+	}
 };
 
 //----------------------------------------------------------------------
@@ -1108,7 +1130,7 @@ void() misc_shake =
 };
 
 /*======================================================================
-QUAKED misc_model (1 .5 .25) (-16 -16 -16) (16 16 16) x COLLISION x x x x STARTOFF x
+QUAKED misc_model (1 .5 .25) (-16 -16 -16) (16 16 16) x COLLISION x x x STATIC STARTOFF x
 MDL files that can be setup with specific frame/skin and animate groups
 -------- KEYS --------
 mdl : specify model to load, full path (progs/misc_candle1.mdl)
@@ -1124,8 +1146,9 @@ pos2 : used for the selection of skin(s) has several setups
   X=0, Y=0, Z=exact skin number
   X->Y, Z=0 Randomly pick a skin from the X,Y range
 -------- SPAWNFLAGS --------
-COLLISION : model bbox collision enabled
-STARTOFF : Always Starts off and waits for trigger
+COLLISION : Model bbox collision enabled
+STATIC    : Turn entity into static upon spawn (frame 0)
+STARTOFF  : Always Starts off and waits for trigger
 -------- NOTES --------
 MDL files that can be setup with specific frame/skin and animate groups
 
@@ -1148,25 +1171,32 @@ void() misc_model_on =
 {
 	self.estate = ESTATE_ON;
 
-	// Restore model/size and check if collision needed
-	if (self.spawnflags & MISC_COLLISION) self.solid = SOLID_BBOX;
 	setmodel (self, self.mdl);
-	setsize (self, self.mins , self.maxs);
+	// Restore model/size and check if collision needed
+	if (self.spawnflags & MISC_COLLISION) {
+		self.solid = SOLID_BBOX;
+		setsize (self, self.mins , self.maxs);
+	}
+	else setsize (self, VEC_ORIGIN, VEC_ORIGIN);
 	setorigin(self, self.oldorigin + self.view_ofs);
 
 	// Setup skin number (range or exact)	
 	self.skin = self.pos2_z;
-
-	// Check for manual animation loops	
-	if (self.pos1_z == -1) {
-		self.height = self.pos1_x;
-		if (self.pos1_x < self.pos1_y) self.lip = 1;
-		else self.lip = -1;
-		// Manually animate model
-		misc_model_loop();
-	}
 	// Exact frame number
-	else self.frame = self.pos1_z;
+	self.frame = self.pos1_z;
+
+	// Check for static entity option first
+	if (self.spawnflags & ENT_SPNSTATIC) makestatic(self);
+	else {
+		// Check for manual animation loops	
+		if (self.pos1_z == -1) {
+			self.height = self.pos1_x;
+			if (self.pos1_x < self.pos1_y) self.lip = 1;
+			else self.lip = -1;
+			// Manually animate model
+			misc_model_loop();
+		}
+	}
 };
 
 //----------------------------------------------------------------------
@@ -1174,8 +1204,10 @@ void() misc_model_off =
 {
 	// Turn off model/world interaction
 	self.estate = ESTATE_OFF;
-	self.model = string_null;
+	self.model = string_null;				// hide bmodel surface
+	self.movetype = MOVETYPE_NONE;			// Create baseline
 	self.solid = SOLID_NOT;
+	self.nextthink = 0;
 };
 
 //----------------------------------------------------------------------
@@ -1243,12 +1275,16 @@ void() misc_model =
 	if (self.ideal_yaw > 0 && query_configflag(SVR_ITEMROTATE) == FALSE ) 
 		self.angles_y = rint(random()*359);
 	
-	// Setup Entity State functionality
-	if (self.targetname != "") self.use = entity_state_use;
-	self.estate_on = misc_model_on;
-	self.estate_off = misc_model_off;
-	if (self.spawnflags & (MISC_STARTOFF | ENT_STARTOFF)) entity_state_off();
-	else entity_state_on();
+	// Check for static entity option first
+	if (self.spawnflags & ENT_SPNSTATIC) misc_model_on();
+	else {
+		// Setup Entity State functionality
+		if (self.targetname != "") self.use = entity_state_use;
+		self.estate_on = misc_model_on;
+		self.estate_off = misc_model_off;
+		if (self.spawnflags & (MISC_STARTOFF | ENT_STARTOFF)) entity_state_off();
+		else entity_state_on();
+	}
 };
 
 //----------------------------------------------------------------------
@@ -1308,14 +1344,21 @@ void() misc_deadbody_setup =
 };
 
 /*======================================================================
-/*QUAKED misc_player (1 .5 .25) (-16 -16 -24) (16 16 32) x x x x x x STARTOFF x
+/*QUAKED misc_player (1 .5 .25) (-16 -16 -24) (16 16 32) BACK DOWN1 WALL DOWN2 DOWN3 SIDE STARTOFF x
 Dead Player MDL for poses
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
 angle  : facing angle (-1 = random position)
+fixangle : 1 = Use misc_player.mdl instead (less hassle)
 frame  : body pose (49=on back, 67-69=against wall, 60/84/93=face down, 102=on side)
 exactskin : -1= Random, 0-1 Original, 2-3 Green, 4-5 Yellow, 6-7 Red
 -------- SPAWNFLAGS --------
+BACK  : 49=On back
+DOWN1 : 60=Face Down
+WALL  : 69=Against wall
+DOWN2 : 84=Face Down
+DOWN3 : 93=Face Down
+SIDE  : 102=On Side
 STARTOFF : Always Starts off and waits for trigger
 -------- NOTES --------
 Dead Player MDL for poses
@@ -1349,15 +1392,44 @@ Dead Death Knight for poses
 //----------------------------------------------------------------------
 void() misc_player =
 {
-	self.mdl = "progs/player.mdl";		// Standard player model
-	self.gib1mdl = "progs/w_soldiergun.mdl";	// Unique weapon
-	self.gib2mdl = "progs/gib_soldfoot1.mdl";	// Upright foot
-	self.gib3mdl = "progs/gib_soldfoot2.mdl";	// Fallen down foot
+	self.mdl = "progs/player.mdl";				// Standard player model
+	self.headmdl = "progs/h_soldier.mdl";		// Ugly monster mug
+	self.gib1mdl = "progs/gib_soldfoot1.mdl";	// Upright foot
+	self.gib2mdl = "progs/gib_soldfoot2.mdl";	// Fallen down foot
+
+	// Special player model?
+	if (self.fixangle) {
+		self.mdl = "progs/misc_player.mdl";		// Custom model
+		self.gib3mdl = "progs/gib_5.mdl";		// Gib for precache
+		// using special model, simple frame setup
+		if (self.spawnflags & 2) self.frame = 1;
+		else if (self.spawnflags & 4) self.frame = 2;
+		else if (self.spawnflags & 8) self.frame = 3;
+		else if (self.spawnflags & 16) self.frame = 4;
+		else if (self.spawnflags & 32) self.frame = 5;
+		// Must always reset frame
+		else self.frame = 0;
+	}
+	// Normal player model
+	else {
+		self.mdl = "progs/player.mdl";			// Standard player model
+		self.gib3mdl = "progs/w_soldiergun.mdl";// Unique weapon
+		self.gib3sound = GIB_IMPACT_WOOD;
+		// Using original model, skip to correct frames
+		if (self.spawnflags & 1) self.frame = 49;
+		else if (self.spawnflags & 2) self.frame = 60;
+		else if (self.spawnflags & 4) self.frame = 69;
+		else if (self.spawnflags & 8) self.frame = 84;
+		else if (self.spawnflags & 16) self.frame = 93;
+		else if (self.spawnflags & 32) self.frame = 102;
+	}
+	
+	// Make sure stuff is cached
 	precache_model (self.mdl);
+	precache_model (self.headmdl);
 	precache_model (self.gib1mdl);
 	precache_model (self.gib2mdl);
 	precache_model (self.gib3mdl);
-	self.gib1sound = GIB_IMPACT_WOOD;
 	
 	// uses short red knight bounding box
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
@@ -1441,6 +1513,7 @@ void() misc_dknight =
 	// Default pose for dead death knights
 	if (self.frame < 0) self.frame = 0;
 	if (self.frame == 0) self.frame = 243;
+	if (self.exactskin > 0) self.skin = self.exactskin;
 
 	misc_deadbody_setup();	
 };

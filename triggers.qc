@@ -152,7 +152,7 @@ void() trigger_spawn_bubbles =
 };
 
 /*======================================================================
-/*QUAKED trigger_multiple (0.5 0 0.5) ? NOTOUCH x x x MODCHECK MONSTERS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_multiple (0.5 0 0.5) ? NOTOUCH x x DEVMODE MODCHECK MONSTERS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Variable sized bmodel that uses multiple times
 ------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -169,6 +169,7 @@ noise   : custom sound to play when triggered
 message : message to display when triggered
 -------- SPAWNFLAGS --------
 NOTOUCH : can only be triggered via other entities
+DEVMODE  : Will only trigger if developer mode active
 MODCHECK : Will remove this entity if THIS mod is active
 MONSTER  : can be touched/triggered by monsters
 STARTOFF : Requires trigger to activate
@@ -189,7 +190,7 @@ void() trigger_multiple =
 };
 
 /*======================================================================
-/*QUAKED trigger_once (0.5 0 0.5) ? NOTOUCH x x INVIEW MODCHECK MONSTER STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_once (0.5 0 0.5) ? NOTOUCH x DEVMODE INVIEW MODCHECK MONSTER STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Variable sized bmodel that uses once
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -207,6 +208,7 @@ message : message to display when triggered
 t_length : Inview distance (less than) to activate trigger
 -------- SPAWNFLAGS --------
 NOTOUCH  : can only be triggered via other entities
+DEVMODE  : Will only trigger if developer mode active
 INVIEW   : Player has to be infront and look at trigger (>30 & <60)
 MODCHECK : Will remove this entity if THIS mod is active
 MONSTER  : can be touched/triggered by monsters
@@ -455,11 +457,10 @@ void() trigger_teleport_touch =
 	if (other.flags & FL_CLIENT) {
 		other.fixangle = 1;					// turn this way immediately
 		other.teleport_time = time + 0.7;	// Special state for engine
-		if (other.flags & FL_ONGROUND) other.flags = other.flags - FL_ONGROUND;
 		other.velocity = self.goalentity.movedir * self.speed;
 	}
 	// Telporting entities need to check for ground
-	other.flags = other.flags - other.flags & FL_ONGROUND;
+	other.flags = other.flags - (other.flags & FL_ONGROUND);
 };
 
 //----------------------------------------------------------------------
@@ -1070,9 +1071,9 @@ void() trigger_fog =
 	InitTrigger ();
 
 	// A fade time < minimum fade time = instant change
+	if (self.speed == 0) self.speed = 2;
 	if (self.speed < FADEFOG_TIME) self.speed = FADEFOG_TIME;
-	if (!self.speed) self.speed = 2;
-	if (!self.wait) self.wait = 2;
+	if (self.wait == 0) self.wait = 2;
 	self.attack_finished = 0;
 	
 	// Cannot have fog triggers touched by monsters
@@ -1088,7 +1089,7 @@ void() trigger_fog =
 };
 
 /*======================================================================
-/*QUAKED trigger_nomonjump (.5 .5 .5) ? x x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_monsternojump (.5 .5 .5) ? x x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Stop monsters from using jump attack
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -1102,7 +1103,7 @@ STARTOFF : Starts off and waits for trigger
 Stop monsters from using jump attack
 
 ======================================================================*/
-void() trigger_nomonjump_fire =
+void() trigger_monsternojump_fire =
 {
 	// This is after bmodel _use, _killed and _touch, so any reference
 	// to the trigger activator has to go through 'bmodel_act'
@@ -1136,7 +1137,7 @@ void() trigger_nomonjump_fire =
 };
 
 //----------------------------------------------------------------------
-void() trigger_nomonjump =
+void() trigger_monsternojump =
 {
 	self.classtype = CT_TRIGNOJUMP;
 	if (!self.delay) self.delay = 0.5;
@@ -1148,10 +1149,74 @@ void() trigger_nomonjump =
 	self.spawnflags = self.spawnflags | TRIG_ALWAYTOUCH | TRIG_NODAMAGE;
 	
 	// Setup Entity State functionality
-	self.estate_fire = trigger_nomonjump_fire;
+	self.estate_fire = trigger_monsternojump_fire;
 	self.touch = trigger_bmodel_anytouch;
 	trigger_bmodel_setup();
 
+};
+
+//----------------------------------------------------------------------
+// Re-direct because it was renamed to be more consistent
+void() trigger_nomonjump = { trigger_monsternojump(); };
+
+/*======================================================================
+/*QUAKED trigger_monsterdrop (0 .5 .5) (-8 -8 -8) (8 8 8) x x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+Drop monster(s) to floor
+-------- KEYS --------
+targetname : trigger entity (works with entity state system)
+wait   : -1 = trigger_once functionality
+height : the speed thrown upwards (def 50)
+-------- SPAWNFLAGS --------
+STARTOFF : Starts off and waits for trigger
+-------- NOTES --------
+Drop monster(s) to floor
+======================================================================*/
+
+void() trigger_monsterdrop_use =
+{
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+	if (self.target == "") return;
+	
+	// Build initial list from world
+	self.oldenemy = find(world, targetname, self.target);
+	while (self.oldenemy) {
+		// only works with monsters
+		if (self.oldenemy.flags & FL_MONSTER) {
+			// Double check for swim/fly types
+			if (!(self.oldenemy.flags & (FL_FLY || FL_SWIM))) {
+				// Got to be onground already
+				if (self.oldenemy.flags & FL_ONGROUND) {
+					// Set monster in motion
+					self.oldenemy.flags = self.oldenemy.flags - FL_ONGROUND;
+					self.oldenemy.velocity_z = self.height;
+				}
+			}
+		}
+		// Find next monster in list
+		self.oldenemy = find(self.oldenemy, targetname, self.target);
+	}
+	// Setup to trigger once functionality?
+	if (self.wait < 0) {
+		self.attack_finished = LARGE_TIMER;
+		self.estate_off();
+	}
+};
+
+//----------------------------------------------------------------------
+void() trigger_monsterdrop =
+{
+	self.classtype = CT_TRIGMONDROP;
+	if (!self.height) self.height = 50;
+		
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_use = trigger_monsterdrop_use;
+	self.estate = ESTATE_ON;
 };
 
 /*======================================================================
@@ -1356,8 +1421,12 @@ void() trigger_hurt_fire =
 	if (self.spawnflags & TRIG_HURTMONSTER && !(self.bmodel_act.flags & FL_MONSTER)) return;
 	// Check for falling damage conditions (player + flying + speeding)
 	if (self.spawnflags & TRIG_HURTFALLING) {
-		if (self.bmodel_act.flags & FL_MONSTER) return;
+		// Only affects players and monsters
+		if (!(self.bmodel_act.flags & FL_MONSTER) &&
+			!(self.bmodel_act.flags & FL_CLIENT)) return;
 		if (self.bmodel_act.flags & FL_ONGROUND) return;
+		// Can't kill something dead already!
+		if (self.bmodel_act.health < 1) return;
 		if (fabs(self.bmodel_act.velocity_z) < self.speed) return;
 	}
 	
@@ -1611,6 +1680,7 @@ void() trigger_tsound_fade =
 	// Exit condition
     if (self.alpha <= 0) {
         self.alpha = 0.01;
+		self.modelindex = 0;		// Make sure no model
 		self.model = "";
 		self.estate = ESTATE_OFF;
         return;

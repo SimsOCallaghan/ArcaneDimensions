@@ -713,18 +713,31 @@ void(string var, string val) cvar_set = #72;	// sets cvar.value
 void(string var, string s, string s) cvar_setlong = #72; // sets cvar.value
 //----------------------------------------------------------------------
 .float suppressCenterPrint;
-void(entity client, string s) centerprint_builtin = #73;
-void(entity client, string s, string s) centerprint_msg = #73;
-void(entity client, string s, string s, string s) centerprint_msg3 = #73;
-void(entity client, string s, string s, string s, string s) centerprint_msg4 = #73;
-void(entity client, string s) centerprint = {
+void(entity client, string s1) centerprint_builtin = #73;
+void(entity client, string s1, string s2) centerprint_msg = #73;
+void(entity client, string s1, string s2, string s3) centerprint_msg3 = #73;
+void(entity client, string s1, string s2, string s3, string s4) centerprint_msg4 = #73;
+void(entity client, string s1) centerprint = {
 	// Is the centerprint message being used by something else?
 	if (!client.suppressCenterPrint)
-		centerprint_builtin(client, s);
+		centerprint_builtin(client, s1);
 	else {
 		// Send message to client console instead
 		sprint(client, "(centerprint) ");
-		sprint(client, s);
+		sprint(client, s1);
+		sprint(client, "\n");
+	}
+}
+void(entity client, string s1, string s2, string s3) centerprint3 = {
+	// Is the centerprint message being used by something else?
+	if (!client.suppressCenterPrint)
+		centerprint_msg3(client, s1, s2, s3);
+	else {
+		// Send message to client console instead
+		sprint(client, "(centerprint) ");
+		sprint(client, s1);
+		sprint(client, s2);
+		sprint(client, s3);
 		sprint(client, "\n");
 	}
 }

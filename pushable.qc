@@ -53,24 +53,28 @@ float STATE_PUSH = 1;
 float STATE_SOLID = 2;
 
 //======================================================================
-/*QUAKED func_pushable (0 .5 .8) ? x DAMAGE EXPLODE NOFLRCHECK FLOATING NOMONSTER STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED func_pushable (0 .5 .8) ? x DAMAGE x NOFLRCHECK FLOATING NOMONSTER STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Moveable brushwork (pushable)
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
-target     : targets to fire when pushable is dead (only used once)
 style      : sound move/impact types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 10=custom
 noise1     : Custom move sound 1 (style=10)
 noise2     : Custom move sound 2
 noise3     : Custom move sound 3
 bleedcolour: Impact particle colour (starting point on palette)
+target     : target(s) to fire when pushable is dead (once only)
+deathtarget: target(s) to fire when pushable is dead (once only)
 target2    : points to a func_breakable_spawner to trigger on death
+message    : Message to display when killed by player
+message2   : Message to display when touched by player
+wait       : Time for showing touch/death message (=-1 once, def=2)
 health     : damage taken before death
+death_dmg  : will explode on death (reqs health)
 speed      : pushing speed (def = 1)
 waitmin    : length of pushable sounds (def=0.5s)
 waitmin2   : Alpha value to fade block down to when pushing
 -------- SPAWNFLAGS --------
 DAMAGE    : Pushable can be damaged or destroyed
-EXPLODE   : Pushable will explode on death (reqs=HP+damage)
 NOFLRCHECK: No floor below check for extra velocity
 FLOATING  : Pushable starts off floating (until touched)
 NOMONSTER : Cannot be damaged by monsters
@@ -80,30 +84,21 @@ Moveable brushwork (pushable)
 */
 //======================================================================
 
-void() pushable_controller_think =
+//----------------------------------------------------------------------
+void() func_pushable_push =
 {
-	// Keep the controller alive
-	self.think = pushable_controller_think;
-	self.nextthink = time + 0.1;
-	
-	// Block entity state exceptions
-	if (self.owner.estate & ESTATE_BLOCK) return;
-	
-	// Check if the player is touching the pushable?
-	// If the player is standing on the block, no alpha
-	if (self.owner.pain_finished > time && self.owner.state == STATE_PUSH) {
-		// Is the alpha set the right amount?
-		if (self.owner.alpha > self.owner.waitmin2) {
-			self.owner.alpha = self.owner.alpha - 0.01;
-			self.nextthink = time + FADEMODEL_TIME;
-		}
-	}
-	else {
-		if (self.owner.alpha < 1.00) {
-			self.owner.alpha = self.owner.alpha + 0.01;
-			self.nextthink = time + FADEMODEL_TIME;
-		}
-	}
+	self.movetype = MOVETYPE_STEP;	// Default monster move type
+	self.solid = SOLID_SLIDEBOX;	// Discrete movement stepping
+	self.state = STATE_PUSH;		// Can be moved by player
+};
+
+//----------------------------------------------------------------------
+void() func_pushable_solid = 
+{
+	self.movetype = MOVETYPE_PUSH;	// Blocks projectiles
+	self.solid = SOLID_BSP;			// Square bounding box
+	self.state = STATE_SOLID;		// No world interaction
+	self.inpain = FALSE;			// Reset touch flag
 };
 
 //----------------------------------------------------------------------
@@ -119,7 +114,7 @@ void() func_pushable_movement =
 	self.inpain = FALSE;
 	
 	// Check for moving sound
-	if (self.attack_finished < time && self.pos3_z >= self.bbmins_z) {
+	if (self.attack_finished < time && self.state == STATE_PUSH) {
 		// Random start to setup blending and overlap
 		self.attack_finished = time + self.waitmin + (random()*self.waitmin);
 		// Make sure sound WAVs don't repeat in a row
@@ -181,33 +176,17 @@ void() func_pushable_touch =
 {
 	// Block entity state exceptions
 	if (self.estate & ESTATE_BLOCK) return;
-	
-	// Save for later
-	self.attachment2 = other;
 
 	// Allow for pushables to stack
 	if (other.classtype == CT_FUNCPUSHABLE && other.state == STATE_PUSH) {
 		// Switch to solid block
-		self.movetype = MOVETYPE_PUSH;
-		self.solid = SOLID_BSP;
-		self.state = STATE_SOLID;
+		func_pushable_solid();
 		return;
 	}
+	
 	// Only works for the player
 	if ( !(other.flags & FL_CLIENT) ) return;
 
-	// Check for a touch message
-	if (self.message != "" && self.idletimer < time) {
-		if (self.wait > 0) self.idletimer = time + self.wait;
-		centerprint(other,self.message);
-		if (self.wait < 0) self.message = "";
-	}
-	
-	// Save player details for later
-	self.dest1 = other.origin;
-	self.dest2 = other.view_ofs;
-	self.finalangle = other.angles;
-	self.finaldest = other.velocity;
 	// Touch function is active
 	self.inpain = TRUE;
 
@@ -215,6 +194,36 @@ void() func_pushable_touch =
 	// Create an overlap for the touch to stop working
 	self.pain_finished = time + 0.5;
 	
+	// Check for a touch message
+	if (self.message2 != "" && self.idletimer < time) {
+		if (self.wait > 0) self.idletimer = time + self.wait;
+		centerprint(other, self.message2);
+		if (self.wait < 0) self.message2 = "";
+	}
+
+	// Slow down the detection of the touching object
+	//
+	// This is not an ideal solution, its a horrible hack!
+	// The touching entity should be consistent with its Z axis
+	// origin if the entity is not moving up or down.
+	// For some reason the Z axis is inconsistent +/- 18 units
+	// Cannot slowdown the touch function because the movement
+	// of the pushable stutters and looks terrible.
+	// Touch functions cycle at really high frame rates so
+	// its easier to slowdown the reading the entity instead!
+	//
+	if (self.oldenemy != other || self.meleetimer < time) {
+		// Save player details for later
+		self.oldenemy = other;
+		self.dest1 = self.oldenemy.origin;
+		self.dest2 = self.oldenemy.view_ofs;
+		// Slowdown the reading of the touching entity
+		self.meleetimer = time + 0.01;
+	}
+	
+	self.finalangle = self.oldenemy.angles;
+	self.finaldest = self.oldenemy.velocity;
+
 	// Setup origin of player (at feet level)
 	self.pos3 = self.dest1 - self.dest2;
 	
@@ -223,22 +232,12 @@ void() func_pushable_touch =
 	self.bbmaxs = self.origin + self.maxs;
 
 	// Check if player is above/below pushable
-	if (self.pos3_z >= self.bbmaxs_z) {
-		// Stop the bmodel interacting with player
-		self.movetype = MOVETYPE_PUSH;
-		self.solid = SOLID_BSP;
-		self.state = STATE_SOLID;
-		return;
-	}
+	if (self.pos3_z >= self.bbmaxs_z) 
+		func_pushable_solid();		// Stop the bmodel interacting with player
 	else {
-		// bmodel can be moved (again)
-		self.movetype = MOVETYPE_STEP;
-		self.solid = SOLID_SLIDEBOX;
-		self.state = STATE_PUSH;
+		func_pushable_push();		// bmodel can be moved (again)
+		func_pushable_movement();	// Move the pushable block
 	}
-	
-	// Move the pushable block
-	func_pushable_movement();
 };
 
 //----------------------------------------------------------------------
@@ -278,11 +277,12 @@ void() func_pushable_death =
 		self.enemy = find (world, targetname, self.target2);
 		// Make sure its a breakable spawner ONLY!
 		if (self.enemy.classtype == CT_FUNCBREAKSPN) {
-			// Work out bmodel origin
+			// Copy over pushable bmodel origin and volume to breakable
 			self.enemy.origin = self.oldorigin;
 			setorigin(self.enemy, self.enemy.origin);
 			self.enemy.brkvol = self.size;
-			trigger_ent(self.enemy, self);
+			// Use entity which killed pushable for breakable direction
+			trigger_ent(self.enemy, self.activate);
 		}
 	}
 
@@ -298,55 +298,61 @@ void() func_pushable_death =
 		T_RadiusDamage (self, self, self.death_dmg, world, DAMAGEALL);
 	}
 	
+	// Fire death targets (check DT first, because target can have uses)
+	if (self.deathtarget != "") trigger_strs(self.deathtarget, self.activate);
+	if (self.target != "") trigger_strs(self.target, self.activate);
+
+	// Any final words ...
+	if (self.activate.flags & FL_CLIENT && self.message != "")
+		centerprint (self.activate, self.message);
+	
+	// Fire once condition?
+	if (self.wait < 0) {
+		self.target = self.deathtarget = self.message = "";
+	}
+	
+	// Check for any pushable above? (fake physics)
+	self.move_state = bmodel_origin(self);
+	
+	// Trace up and see if anything is above
+	traceline(self.move_state, self.move_state + '0 0 1024', FALSE, self);
+
+	// Check for a pushable entity above (but not touching)
+	if (trace_ent != self && trace_ent.classtype == CT_FUNCPUSHABLE)
+		trigger_ent(trace_ent, self);
+	
 	// Switch off entity instead of hide/remove
 	// So the pushable can be reset again
 	self.estate_off();
 };
 
-//----------------------------------------------------------------------
-void() func_pushable_reset = 
-{	
-	// If the block is OFF then leave it
-	if (self.spawnflags & ENT_STARTOFF) return;
-
-	// reset to original position
-	setorigin(self, VEC_ORIGIN);
-	// Make sure the bmodel drops down, no weird ofset
-	self.velocity = self.avelocity = '0 0 0';
-	self.estate_on();	
-};
-
-//----------------------------------------------------------------------
-void() func_pushable_off = 
+//======================================================================
+// The pushable needs a controller to reach to the touch function
+// and to reset the alpha fade if the pushable is not being touched
+//======================================================================
+void() pushable_controller_think =
 {
-	self.estate = ESTATE_OFF;
-	self.movetype = MOVETYPE_NONE;
-	self.solid = SOLID_NOT;
-	setmodel (self, "");
-	// Switch off impact particles
-	self.takedamage = DAMAGE_NO;
-};
-
-//----------------------------------------------------------------------
-void() func_pushable_on = 
-{
-	// No longer need this spawnflag, remove it
-	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
-
-	self.estate = ESTATE_ON;
-	self.movetype = MOVETYPE_STEP;
-	self.solid = SOLID_SLIDEBOX;
-	setmodel (self, self.mdl);
-
-	// Switch on impact particles
-	self.takedamage = DAMAGE_AIM;
-	// Reset health to spawn 
-	self.health = self.max_health;
-
-	if (!(self.spawnflags & PUSH_FLOATING)) {
-		// Make sure it drops to ground on spawn
-		self.origin_z = self.origin_z + 4;
-		self.flags = self.flags - (self.flags & FL_ONGROUND);
+	// Keep the controller alive
+	self.think = pushable_controller_think;
+	self.nextthink = time + 0.1;
+	
+	// Block entity state exceptions
+	if (self.owner.estate & ESTATE_BLOCK) return;
+	
+	// Check if the player is touching the pushable?
+	// If the player is standing on the block, no alpha
+	if (self.owner.pain_finished > time && self.owner.state == STATE_PUSH) {
+		// Is the alpha set the right amount?
+		if (self.owner.alpha > self.owner.waitmin2) {
+			self.owner.alpha = self.owner.alpha - 0.01;
+			self.nextthink = time + FADEMODEL_TIME;
+		}
+	}
+	else {
+		if (self.owner.alpha < 1.00) {
+			self.owner.alpha = self.owner.alpha + 0.01;
+			self.nextthink = time + FADEMODEL_TIME;
+		}
 	}
 };
 
@@ -362,7 +368,8 @@ void() func_pushable_controller_setup =
 	self.attachment.movetype = MOVETYPE_NONE;
 	self.attachment.solid = SOLID_NOT;
 	// Move to pushable bmodel origin location
-	setorigin(self.attachment, self.pos2);
+	self.attachment.origin = bmodel_origin(self);
+	setorigin(self.attachment, self.attachment.origin);
 	setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 	
 	// Start fade controller think loop
@@ -370,7 +377,81 @@ void() func_pushable_controller_setup =
 	self.attachment.nextthink = time + 0.1;
 };
 
+//======================================================================
+// Entity state functions
+//======================================================================
+void() func_pushable_use =
+{
+	// Switch on pushable first
+	if (self.estate == ESTATE_OFF) entity_state_on();
+	else {
+		// Let the pushable move around
+		func_pushable_push();
+		self.flags = self.flags - (self.flags & FL_ONGROUND);
+		// Push upward using size as force
+		self.velocity_z = self.t_width;
+	}
+};
+
 //----------------------------------------------------------------------
+void() func_pushable_reset = 
+{	
+	// If the block starts off(disabled) then do nothing
+	if (self.spawnflags & ENT_STARTOFF) return;
+
+	// reset to original position
+	setorigin(self, VEC_ORIGIN);
+	// Make sure the bmodel drops down, no weird ofset
+	self.velocity = self.avelocity = '0 0 0';
+	self.estate_on();	
+};
+
+//----------------------------------------------------------------------
+void() func_pushable_off = 
+{
+	// Do nothing if pushable is already off
+	if (self.estate == ESTATE_OFF) return;
+	
+	self.estate = ESTATE_OFF;
+	self.movetype = MOVETYPE_NONE;
+	self.solid = SOLID_NOT;
+	setmodel (self, "");
+	// Switch off impact particles
+	self.takedamage = DAMAGE_NO;
+};
+
+//----------------------------------------------------------------------
+void() func_pushable_on = 
+{
+	// Do nothing if pushable is already on
+	if (self.estate == ESTATE_ON) return;
+	
+	// No longer need this spawnflag, remove it
+	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
+
+	self.estate = ESTATE_ON;
+	func_pushable_push();
+	setmodel (self, self.mdl);
+	
+	// Setup touch fade controller
+	if (!self.attachment) func_pushable_controller_setup();
+
+	// Switch on impact particles
+	self.takedamage = DAMAGE_AIM;
+	// Reset health to spawn 
+	self.health = self.max_health;
+
+	if (!(self.spawnflags & PUSH_FLOATING)) {
+		// Make sure it drops to ground on spawn
+		self.origin_z = self.origin_z + 4;
+		self.flags = self.flags - (self.flags & FL_ONGROUND);
+	}
+	else func_pushable_solid();
+};
+
+//======================================================================
+// Main entity definition
+//======================================================================
 void() func_pushable =
 {
 	if (check_bmodel_keys()) return;	// Check for bmodel errors
@@ -440,6 +521,8 @@ void() func_pushable =
 
 	// Default parameters and states
 	if (!self.speed) self.speed = 1;
+	if (!self.wait) self.wait = 2;
+	
 	// Length of dragging sounds
 	if (!self.waitmin) self.waitmin = 0.5;
 	// Create halway point for random start
@@ -465,12 +548,10 @@ void() func_pushable =
 	self.max_health = self.health;
 	
 	// Setup the bmodel ready for interaction
-	self.movetype = MOVETYPE_PUSH;
-	self.solid = SOLID_BSP;
+	func_pushable_solid();
 	setmodel(self, self.mdl);
 	setorigin(self, VEC_ORIGIN);
 	setsize(self, self.mins, self.maxs);
-	self.pos2 = bmodel_origin(self);
 	
 	// Work out average size of block
 	self.t_width = rint((self.size_x + self.size_y) * 0.5);
@@ -481,8 +562,8 @@ void() func_pushable =
 	if (check_coop() == TRUE) return;
 	
 	// Setup Entity State functionality
-	if (self.targetname != "") self.use = entity_state_use;
-//	self.estate_use = func_pushable_use;
+	self.use = entity_state_use;
+	self.estate_use = func_pushable_use;
 	self.estate_on = func_pushable_on;
 	self.estate_off = func_pushable_off;
 	self.estate_reset = func_pushable_reset;
@@ -491,8 +572,4 @@ void() func_pushable =
 	// Setup pushable in correct state
 	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 	else self.estate_on();
-	
-	// Setup pushable fade controller (spread out think timers)
-	self.nextthink = time + 0.1 + random()*0.5;
-	self.think = func_pushable_controller_setup;
 };

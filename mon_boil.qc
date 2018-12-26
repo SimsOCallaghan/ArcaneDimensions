@@ -372,6 +372,7 @@ void() monster_boil =
 	if (self.death_dmg < 1) self.death_dmg = DAMAGE_BOIL;
 	if (self.infightextra < 1) self.infightextra = 16;
 	self.attack_instant = 1;			// Start moving right away
+	self.deathstring = " was blown away by a Boil\n";
 	
 	// Setup timer for flesh gib squirting from body
 	if (self.wait < 1) self.wait = 4;

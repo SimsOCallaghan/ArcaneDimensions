@@ -571,6 +571,7 @@ void() setup_lostsoul =
 	self.lostenemy = world;				// Setup old enemy
 	self.losttimer = LARGE_TIMER;		// Stop lost timer
 	self.lostsearch = FALSE;			// Not searching for an enemy
+	self.deathstring = " was found by a Lost Soul\n";
 	
 	// I can understand lost souls would be the perfect candidate for
 	// poison attacks, but they are tricky already! default = disabled.

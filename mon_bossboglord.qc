@@ -463,6 +463,7 @@ void() monster_boglord =
 		if (self.health < 1) self.health = 2000;
 		self.exactskin = 1;			// Dark red/purple
 		self.poisonous = FALSE;		// Cannot be poisonous
+		self.deathstring = " was toasted by a Fire Shambler\n";
 	}
 	else {
 		// Unique models for wizard trail on model flags
@@ -479,6 +480,7 @@ void() monster_boglord =
 		precache_poisongibs();			// precache gibs
 		self.poisonous = TRUE;			// Green vulcan blood!
 		self.gibtype = GIBTYPE_POISON;	// Liquid Poison
+		self.deathstring = " was obliterated by The Bog Lord\n";
 	}
 
 	// Precache model + unique particle trail

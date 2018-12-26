@@ -307,6 +307,7 @@ void() monster_centurion =
 	if (!self.exactskin) self.randomskin = 6;
 	self.ammo_cells = rint(random()*3);
 	self.attack_offset = '28 8.5 24';
+	self.deathstring = " was vaporized by a Centurion\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

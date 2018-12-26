@@ -252,6 +252,7 @@ void() monster_oldone =
 	self.bboxtype = BBOX_CUSTOM;	// Custom BBox size
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
+	self.deathstring = " became one with Shub-Niggurath\n";
 
 	setmodel(self, self.mdl);					// Setup model
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size

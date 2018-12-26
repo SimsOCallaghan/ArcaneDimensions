@@ -526,6 +526,7 @@ void() monster_chthon =
 	self.pain_finished = LARGE_TIMER;
 	self.no_liquiddmg = TRUE;		// no slime/lava damage
 	self.gibbed = FALSE;			// Still in one piece
+	self.deathstring = " was blown apart by Chthon\n";
 
 	self.pain_flinch = 400;			// Shambler level
 	self.pain_timeout = 2;			// Stop constant pain

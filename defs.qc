@@ -311,6 +311,9 @@ float	STATE_DOWN		= 3;
 float	STATE_DISABLED	= 4;
 float	STATE_ENABLED	= 5;
 float	STATE_DELETE	= 6;
+float	STATE_MOVING	= 7;
+float	STATE_ONE		= 1;
+float	STATE_TWO		= 2;
 
 vector	VEC_ORIGIN = '0 0 0';
 

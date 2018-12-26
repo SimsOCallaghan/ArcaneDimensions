@@ -790,6 +790,7 @@ void() monster_dfury =
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
 	self.meleeoffset = '24 0 16';		// Jump attack offset
 	self.attack_offset = '20 0 10';		// Average of both attacks
+	self.deathstring = " was sliced by a Fury Knight\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

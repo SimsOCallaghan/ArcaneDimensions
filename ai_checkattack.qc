@@ -170,8 +170,8 @@ void() ShamCheckAttack =
 	// sightline can be blocked by other monsters
 	if (visblocked(self.enemy)) return;
 
-	self.attack_state = AS_MISSILE;
 	SUB_AttackFinished (2 + (2*random()));
+	self.attack_state = AS_MISSILE;
 };
 
 /*======================================================================

@@ -79,7 +79,7 @@ void() func_button_use =
 	// Deal with DELAY functionality first
 	if (self.spawnflags & ENT_STARTOFF) self.estate_on();
 	else {
-		// Block USE functionality if state wrong or door moving
+		// Block USE functionality if state wrong
 		if (self.estate & ESTATE_BLOCK) return;
 
 		self.enemy = other;

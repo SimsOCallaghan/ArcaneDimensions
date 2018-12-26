@@ -355,7 +355,7 @@ void()	zombiek_jump18=[	$atta18,	zombiek_run1 ] {ai_resetangles();};
 /*======================================================================
   PAIN
 ========================================================================*/
-void()	zombiek_paina1	=[	$paina1,		zombiek_paina2	] {ai_painforward(8);};
+void()	zombiek_paina1	=[	$paina1,		zombiek_paina2	] {zombiek_sound(4);ai_painforward(8);};
 void()	zombiek_paina2	=[	$paina2,		zombiek_paina3	] {ai_painforward(3);};
 void()	zombiek_paina3	=[	$paina3,		zombiek_paina4	] {ai_painforward(3);};
 void()	zombiek_paina4	=[	$paina4,		zombiek_paina5	] {ai_painforward(3);monster_footstep(FALSE);};
@@ -369,7 +369,7 @@ void()	zombiek_paina11	=[	$paina11,		zombiek_paina12	] {ai_painforward(2);};
 void()	zombiek_paina12	=[	$paina12,		zombiek_run1	] {ai_painforward(1);self.inpain = 0;};
 
 //----------------------------------------------------------------------
-void()	zombiek_painb1	=[	$painb1,		zombiek_painb2	] {ai_painforward(8);};
+void()	zombiek_painb1	=[	$painb1,		zombiek_painb2	] {zombiek_sound(4);ai_painforward(8);};
 void()	zombiek_painb2	=[	$painb2,		zombiek_painb3	] {ai_pain(1);};
 void()	zombiek_painb3	=[	$painb3,		zombiek_painb4	] {ai_pain(1);};
 void()	zombiek_painb4	=[	$painb4,		zombiek_painb5	] {ai_pain(1);};
@@ -396,7 +396,7 @@ void()	zombiek_painb24	=[	$painb24,		zombiek_painb25	] {ai_painforward(3);};
 void()	zombiek_painb25	=[	$painb25,		zombiek_run1	] {ai_painforward(3);};
 
 //----------------------------------------------------------------------
-void()	zombiek_painc1	=[	$painc1,		zombiek_painc2	] {ai_painforward(8);};
+void()	zombiek_painc1	=[	$painc1,		zombiek_painc2	] {zombiek_sound(4);ai_painforward(8);};
 void()	zombiek_painc2	=[	$painc2,		zombiek_painc3	] {ai_painforward(6);};
 void()	zombiek_painc3	=[	$painc3,		zombiek_painc4	] {ai_painforward(5);};
 void()	zombiek_painc4	=[	$painc4,		zombiek_painc5	] {ai_painforward(7);zombiek_sound(5);};
@@ -421,7 +421,11 @@ void()	zombiek_painc20	=[	$painc20,		zombiek_painc21	] {};
 void()	zombiek_painc21	=[	$painc21,		zombiek_run1	] {};
 
 //----------------------------------------------------------------------
-void()	zombiek_paind1	=[	$paind1,		zombiek_paind2	] {self.inpain = 2; ai_painforward(8);};
+void()	zombiek_paind1	=[	$paind1,		zombiek_paind2	] {
+	self.inpain = 2;
+	zombiek_sound(4);
+	ai_painforward(8);
+};
 void()	zombiek_paind2	=[	$paind2,		zombiek_paind3	] {ai_painforward(4);};
 void()	zombiek_paind3	=[	$paind3,		zombiek_paind4	] {ai_painforward(4);};
 void()	zombiek_paind4	=[	$paind4,		zombiek_paind5	] {ai_painforward(4);};
@@ -468,7 +472,11 @@ void()	zombiek_painw21	=[	$painc21,		zombiek_run1	] {
 };
 
 //----------------------------------------------------------------------
-void()	zombiek_paine1	=[	$paine1,		zombiek_paine2	] {self.inpain = 2; ai_pain(8);};
+void()	zombiek_paine1	=[	$paine1,		zombiek_paine2	] {
+	self.inpain = 2;
+	zombiek_sound(4);
+	ai_pain(8);
+};
 void()	zombiek_paine2	=[	$paine2,		zombiek_paine3	] {ai_pain(4);};
 void()	zombiek_paine3	=[	$paine3,		zombiek_paine4	] {ai_pain(3);};
 void()	zombiek_paine4	=[	$paine4,		zombiek_paine5	] {ai_pain(3);};
@@ -522,29 +530,60 @@ void()	zombiek_paine31	=[	$paine31,		zombiek_run1	] {ai_painforward(3);
 ======================================================================*/
 void(entity inflictor, entity attacker, float take) zombiek_pain =
 {
-	self.health = self.max_health;				// always reset health	
-	if (take < MONAI_ZOMBIELOW_DAM) return;		// totally ignore
-	if (self.inpain > 0) return;				// in pain animation, do nothing
-
-	zombiek_sound(4);			// Moan about the pain
-	self.inpain = 1;			// In pain, don't interrupt animation
+	// Is the zombie in the process of dying?
+	if (self.deadflag > DEAD_NO) return;
+	// Always reset health
+	self.health = self.max_health;
 	self.attack_elev = targzone(self, attacker);
+
+	// Check for invulnerability frames and shadow axe
+	if (self.inpain > 0 && self.axhitme == 2) {
+		self.axhitme = 0;				// Reset axe
+		self.health = self.gibhealth;	// Reset Health
+		Killed (self, attacker);		// Gib time
+		return;
+	}
+	else self.axhitme = 0;	// Reset axe
+
+	//----------------------------------------------------------------------
+	// Pain/damage too low OR down on ground, totally ignore
+	//----------------------------------------------------------------------
+	if (take < MONAI_ZOMBIELOW_DAM || self.inpain == 2) return;
 	
 	//----------------------------------------------------------------------
-	// Damage 25-60, wobble or drop to ground (SSG, Quad NG)
+	// Damage 29-60, drop straight away to ground (SSG, Quad NG)
+	// This has to be a single large hit over 0.1 frame
 	//----------------------------------------------------------------------
-	if (take > MONAI_ZOMBIEHGH_DAM)	zombiek_knockdown();// ON THE GROUND
+	if (take > MONAI_ZOMBIEHGH_DAM) {
+		zombiek_knockdown();
+		return;
+	}
+
+	//----------------------------------------------------------------------
+	// Projectile shotguns pellets don't all hit at same time
+	// they accumulate over time and can distort damage values
+	// Need to block damage over time to detect second hit
+	// Cannot use pain_finished because it blocks the pain function
+	// and the health needs to be reset all the time
+	// Using 'lefty' because zombiek only use it for idle animations
+	if (self.lefty < time && self.inpain == 1) {
+		// Second hit, drop to ground
+		zombiek_knockdown();
+		return;
+	}
+
 	//----------------------------------------------------------------------
 	// Damage 9-25 random pain animation (random chance of knockdown)
 	//----------------------------------------------------------------------
-	else {
-		self.lip = random();
-		if (self.lip < 0.25) zombiek_paina1 ();			// 12 frames (drag foot)
-		else if (self.lip < 0.5) zombiek_knockdown();	// ON THE GROUND
-		else if (self.lip <  0.75 && self.attack_elev == TARGET_FRONT) 
-			zombiek_painb1 ();					// 25 frames (flail arms backwards)
-		else zombiek_painc1 ();					// 21 frames (fall to knees)
-	}
+	if (self.inpain) return;	// Already in minor pain
+	self.inpain = 1;			// Minor pain active
+	self.lefty = time + 0.5;	// Wait for second hit
+	self.lip = random();
+	if (self.lip < 0.25) zombiek_paina1 ();			// 12 frames (drag foot)
+	else if (self.lip < 0.5) zombiek_knockdown();	// ON THE GROUND
+	else if (self.lip <  0.75 && self.attack_elev == TARGET_FRONT) 
+		zombiek_painb1 ();					// 25 frames (flail arms backwards)
+	else zombiek_painc1 ();					// 21 frames (fall to knees)
 };
 
 /*=============================================================================
@@ -578,7 +617,7 @@ void() zombiek_wakeup	= {
 	}
 	else {
 		self.bodyonflr = string_null;	// Body is chop proof!
-		self.inpain = 1;				// Animation not finished
+		self.inpain = 2;				// Animation not finished
 		zombiek_sound(6);				// Wake up sound
 		self.nextthink = time + 0.1;
 		self.use = monster_use;			// Just in case interruption
@@ -650,51 +689,51 @@ void() zombiek_knockdown =
 	enemy_ang = targangle(self, self.enemy, 0, FALSE);
 	comp_ang = anglemod(enemy_ang + 45);	// Shift clockwise (front cone)
 	
-	if (self.debuglvl) {
-		dprint("Self ("); dprint(ftos(self.angles_y));
-		dprint(") Targ ("); dprint(ftos(enemy_ang));
-		dprint(") Comp ("); dprint(ftos(comp_ang));
-		dprint(")\n");
-	}
+	//if (self.debuglvl) {
+	//	dprint("Self ("); dprint(ftos(self.angles_y));
+	//	dprint(") Targ ("); dprint(ftos(enemy_ang));
+	//	dprint(") Comp ("); dprint(ftos(comp_ang));
+	//	dprint(")\n");
+	//}
 	
 	// NORTH WEST : 270-315 (fall BACKWARD, reverse force)
 	if (comp_ang > 315) {
-		if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the UPPER LEFT\n");
+		//if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the UPPER LEFT\n");
 		self.ideal_yaw = anglemod(enemy_ang + 180);
 		ChangeYaw ();
 		zombiek_paine1();
 	}
 	// SOUTH WEST : 225-270 (fall FORWARD, side force +45)
 	else if (comp_ang > 270) {
-		if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the LOWER LEFT\n");
+		//if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the LOWER LEFT\n");
 		self.ideal_yaw = comp_ang;
 		ChangeYaw ();
 		zombiek_paind1();
 	}
 	// SOUTH : 135-225 (fall FORWARD)
 	else if (comp_ang > 180) {
-		if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the BACK\n");
+		//if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the BACK\n");
 		self.ideal_yaw = self.angles_y;	// Fix for ai_painforward
 		ChangeYaw ();
 		zombiek_paind1();
 	}
 	// SOUTH EAST : 90-135 (fall FORWARD, side force -45)
 	else if (comp_ang > 135) {
-		if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the LOWER RIGHT\n");
+		//if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the LOWER RIGHT\n");
 		self.ideal_yaw = anglemod(enemy_ang+315);
 		ChangeYaw ();	
 		zombiek_paind1();
 	}
 	// NORTH EAST : 45-90 (fall BACKWARD, reverse force)
 	else if (comp_ang > 90) {
-		if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the UPPER RIGHT\n");
+		//if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the UPPER RIGHT\n");
 		self.ideal_yaw = anglemod(enemy_ang + 180);
 		ChangeYaw ();
 		zombiek_paine1();
 	}
 	// NORTH : 315-45	(fall BACKWARD)
 	else {
-		if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the FRONT\n");
+		//if (self.debuglvl) dprint("\b[KNOCKDOWN]\b HIT from the FRONT\n");
 		zombiek_paine1();
 	}
 };
@@ -808,6 +847,7 @@ void() monster_zombiek =
 	self.pain_timeout = -5;				// Always go into pain (health reset)
 	self.inpain = 0;					// Zombie starts with no pain lock
 	self.count = 0;						// Reset get up timer
+	self.deathstring = " was cornered by a Zombie Knight\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

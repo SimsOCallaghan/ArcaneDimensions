@@ -468,6 +468,7 @@ void() monster_shub =
 	self.idlemoreoften = TRUE;		// More frequent idle sounds
 	self.gibbed = FALSE;			// Still in one piece
 	self.poisonous = FALSE;			// Cannot be poisonous
+	self.deathstring = " became one with Shub-Niggurath\n";
 
 	self.deadflag = DEAD_NO;					// used to stop death re-triggering
 	self.liquidbase = self.liquidcheck = 0;		// Used for liquid content damage

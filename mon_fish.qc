@@ -240,6 +240,7 @@ void() monster_fish =
 	self.meleeoffset = '24 0 -8';		// Bite attack offset
 	self.height = 0;					// reset enemytarget tracking
 	if (!self.exactskin) self.randomskin = 4;
+	self.deathstring = " was fed to the Rotfish\n";
 
 	// Check for water sightline wakeup
 	if (self.spawnflags & MON_LIQUIDBLOCK) self.liquidblock = TRUE;

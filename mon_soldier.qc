@@ -421,6 +421,8 @@ void() monster_army =
 	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.steptype = FS_TYPEMEDIUM;		// Average feet
 	self.attack_offset = '12 8 12';		// End of Gun
+	if (self.deathstring == "")
+		self.deathstring = " was shot by a Grunt\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -469,6 +471,7 @@ void() monster_army_rocket =
 	self.th_missile = army_rocket_atk1;
 	self.th_updmissile = army_rocket_think;	// Update flying rocket
 	self.th_melee = army_runback1;
+	self.deathstring = " was blown up by a Rocketeer\n";
 	
 	monster_army();
 };
@@ -492,6 +495,7 @@ void() monster_army_grenade =
 	self.th_melee = army_runback1;
 	// Grenade bounce off body
 	self.bouncegrenade = TRUE;
+	self.deathstring = " was pineappled by a Grenader\n";
 	
 	monster_army();
 };
@@ -517,6 +521,7 @@ void() monster_army_plasma =
 	precache_sound (SOUND_PLASMA_HIT);
 	
 	self.th_missile = army_plasma_atk1;
+	self.deathstring = " was fried by an Electrocutioner\n";
 	
 	monster_army();
 };

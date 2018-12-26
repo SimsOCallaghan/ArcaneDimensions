@@ -409,6 +409,7 @@ void() monster_xmas_elf =
 	self.meleeoffset = '20 0 20';		// Cane attack offset
 	self.attack_offset = '10 0 4';		// Magic attack offset
 	self.poisonous = FALSE;				// Not Supported
+	self.deathstring = " was torn to pieces by a Elf\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

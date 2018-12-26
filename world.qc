@@ -199,8 +199,8 @@ _dirtdepth  : Maximum depth of occlusion checking, def=128
 
 gravity     : gravity of map (default = 800)
 fog         : console command (Den/R/G/B - '0.05 0.3 0.3 0.3')
-fog_density : Global fog density (works with trigger_fog)
-fog_colour  : Global fog colour (XYZ = RGB)
+fog_density : Trigger fog starting density (default = 0.1)
+fog_colour  : Trigger fog starting colour (default = 0.1 0.1 0.1)
 fog_dpextra : extra DP fog parameters, default - '1 0 8192 1024 32'
 water_alpha : Water Alpha, default - 1.00
 particlemax : Amount of ACTIVE particles per map

@@ -432,7 +432,7 @@ void() sham_die =
 	/*
 	else {
 		//Explosion for gib death!
-		T_RadiusDamage (self, self, self.dmg, world, DAMAGEALL);
+		T_RadiusDamage (self, self, 20, world, DAMAGEALL);
 		// Sprite/Particle based explosion
 		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 		WriteByte (MSG_BROADCAST, TE_EXPLOSION);
@@ -533,7 +533,7 @@ void() monster_shambler =
 	self.steptype = FS_TYPELARGE;		// Large stomping feet
 	self.blockudeath = TRUE;			// No player gib sound
 	self.attack_offset = '0 0 40';		// Between hands
-	self.dmg = 20;						// Radius dmg for gibondeath
+	self.deathstring = " was smashed by a Shambler\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

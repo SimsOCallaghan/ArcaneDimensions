@@ -1089,6 +1089,7 @@ void() monster_nour =
 	if (self.death_dmg < 1) self.death_dmg = DAMAGE_NOUR;
 	self.poisonous = FALSE;			// Cannot be poisonous
 	self.style = NOUR_PHASE0;		// No waves setup
+	self.deathstring = " was picked apart by the Scragmother\n";
 
 	// Setup Ammo Resistance
 	self.resist_shells = self.resist_nails = 0;

@@ -395,6 +395,7 @@ void() monster_death_guard =
 	self.steptype = FS_TYPEMEDIUM;			// Lighter than Hell Knight
 	self.attack_offset = '20 0 24';			// End of sword
 	self.poisonous = FALSE;					// No support for this
+	self.deathstring = " was slaughtered by a Death Guard\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

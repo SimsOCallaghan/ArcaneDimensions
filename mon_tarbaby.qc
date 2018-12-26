@@ -244,6 +244,7 @@ void() monster_tarbaby =
 	self.gibhealth = MON_NEVERGIB;		// Cannot be gibbed by weapons
 	self.gibbed = FALSE;
 	self.pain_flinch = 20;
+	self.deathstring = " was slimed by a Spawn\n";
 	
 	// Allow for extra functionality (death damage and poison)
 	if (self.death_dmg < 1) self.death_dmg = DAMAGE_TARBABY;

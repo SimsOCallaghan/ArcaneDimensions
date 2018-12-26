@@ -1,5 +1,16 @@
 /*==============================================================================
 DROLE (Heavily inspired by Drole from Quoth - Kell/Necros/Preach)
+
+  Interesting QC traits
+  * Two state monster which switches when HP percentage (70%) changes
+  * Will keep distance by moving sideways when in first state (passive)
+  * Has large amount of idle animations with long frame sets
+  * Runs fast enough in second state to catch most players
+  * Has two different run animation blocks for each state (diff speed)
+  * The range projectile attack starts slow and speeds up over time
+  * Melee claw attacks can be chained together into frenzy mode
+  * Has a really long death animation, can be misleading for players
+
 ==============================================================================*/
 // Stand idle - Tentacle eye looks left
 $frame standA1 standA2 standA3 standA4 standA5 standA6 standA7 standA8
@@ -476,6 +487,7 @@ void() monster_drole =
 	self.steptype = FS_TYPEHEAVY;		// heavy feet
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.attack_offset = '0 0 34';		// Middle of chest
+	self.deathstring = " was decimated by a Drole\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

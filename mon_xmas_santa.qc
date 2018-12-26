@@ -406,6 +406,7 @@ void() monster_xmas_santa =
 	self.poisonous = FALSE;			// Not Supported
 	self.attack_offset = '28 22 26';// End of gun
 	self.attack_rage = TRUE;		// Not in combat yet
+	self.deathstring = " was wrapped up by Santa\n";
 	
 	// Setup Ammo Resistance
 	self.resist_shells = self.resist_nails = 0;

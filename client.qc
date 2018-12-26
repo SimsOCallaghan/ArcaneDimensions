@@ -23,6 +23,8 @@ void() player_stand1;
 
 // triggers.qc
 void() trigger_changelevel_finish;
+void() trigger_cdtrack_change;
+void(entity targ) trigger_skybox_change;
 
 /*======================================================================
  USED : Load (map command) NEW MAP or NEW GAME
@@ -715,8 +717,14 @@ void() PlayerPreThink =
 			ext_dppart = ext_dpfog = ext_dpsurf = FALSE;
 			ext_dprain = ext_dpsnow = FALSE;
 		}
+		
+		// Check for trigger CD track/Skybox change
+		// Load/Quickload does not keep track of these changes
+		// Use a new global variable instead
+		if (trig_cdtrack > 0) trigger_cdtrack_change();
+		if (trig_skybox != "") trigger_skybox_change(self);
 	}
-			
+	
 	// If Intermission system active check for button0-2 keys
 	if (intermission_running > 0) { CycleIntermissionCamera(); return; }
 
@@ -821,7 +829,7 @@ void() PlayerPostThink =
 				if (fog_active) change_fog(self);
 				else setup_fog_controller();
 			}
-
+			
 			// Update console with MOD settings
 			display_configflag();
 			display_version();	
@@ -1092,7 +1100,7 @@ void() ClientDisconnect =
 void(entity targ, entity attacker) ClientObituary =
 {
 	local	float rnum;
-	local	string deathstring, deathstring2;
+	local	string clientstring, clientstring2;
 	rnum = random();
 
 	if (targ.flags & FL_CLIENT) {
@@ -1132,12 +1140,12 @@ void(entity targ, entity attacker) ClientObituary =
 				return;
 			}
 			else if ( (teamplay == 2) && (targ.team > 0)&&(targ.team == attacker.team) ) {
-				if (rnum < 0.25) deathstring = " mows down a teammate\n";
-				else if (rnum < 0.50) deathstring = " checks his glasses\n";
-				else if (rnum < 0.75) deathstring = " gets a frag for the other team\n";
-				else deathstring = " loses another friend\n";
+				if (rnum < 0.25) clientstring = " mows down a teammate\n";
+				else if (rnum < 0.50) clientstring = " checks his glasses\n";
+				else if (rnum < 0.75) clientstring = " gets a frag for the other team\n";
+				else clientstring = " loses another friend\n";
 				bprint (attacker.netname);
-				bprint (deathstring);
+				bprint (clientstring);
 				attacker.frags = attacker.frags - 1;
 				return;
 			}
@@ -1146,50 +1154,50 @@ void(entity targ, entity attacker) ClientObituary =
 
 				rnum = attacker.weapon;
 				if (rnum == IT_AXE) {
-					deathstring = " was ax-murdered by ";
-					deathstring2 = "\n";
+					clientstring = " was ax-murdered by ";
+					clientstring2 = "\n";
 				}
 				if (rnum == IT_SHOTGUN) {
-					deathstring = " chewed on ";
-					deathstring2 = "'s boomstick\n";
+					clientstring = " chewed on ";
+					clientstring2 = "'s boomstick\n";
 				}
 				if (rnum == IT_SUPER_SHOTGUN) {
-					deathstring = " ate 2 loads of ";
-					deathstring2 = "'s buckshot\n";
+					clientstring = " ate 2 loads of ";
+					clientstring2 = "'s buckshot\n";
 				}
 				if (rnum == IT_NAILGUN) {
-					deathstring = " was nailed by ";
-					deathstring2 = "\n";
+					clientstring = " was nailed by ";
+					clientstring2 = "\n";
 				}
 				if (rnum == IT_SUPER_NAILGUN) {
-					deathstring = " was punctured by ";
-					deathstring2 = "\n";
+					clientstring = " was punctured by ";
+					clientstring2 = "\n";
 				}
 				if (rnum == IT_GRENADE_LAUNCHER) {
-					deathstring = " eats ";
-					deathstring2 = "'s pineapple\n";
+					clientstring = " eats ";
+					clientstring2 = "'s pineapple\n";
 					if (targ.health < -40) {
-						deathstring = " was gibbed by ";
-						deathstring2 = "'s grenade\n";
+						clientstring = " was gibbed by ";
+						clientstring2 = "'s grenade\n";
 					}
 				}
 				if (rnum == IT_ROCKET_LAUNCHER) {
-					deathstring = " rides ";
-					deathstring2 = "'s rocket\n";
+					clientstring = " rides ";
+					clientstring2 = "'s rocket\n";
 					if (targ.health < -40) {
-						deathstring = " was gibbed by ";
-						deathstring2 = "'s rocket\n" ;
+						clientstring = " was gibbed by ";
+						clientstring2 = "'s rocket\n" ;
 					}
 				}
 				if (rnum == IT_LIGHTNING) {
-					deathstring = " accepts ";
-					if (attacker.waterlevel > 1) deathstring2 = "'s discharge\n";
-					else deathstring2 = "'s shaft\n";
+					clientstring = " accepts ";
+					if (attacker.waterlevel > 1) clientstring2 = "'s discharge\n";
+					else clientstring2 = "'s shaft\n";
 				}
 				bprint (targ.netname);
-				bprint (deathstring);
+				bprint (clientstring);
 				bprint (attacker.netname);
-				bprint (deathstring2);
+				bprint (clientstring2);
 			}
 			return;
 		}
@@ -1197,122 +1205,16 @@ void(entity targ, entity attacker) ClientObituary =
 			targ.frags = targ.frags - 1;
 			bprint (targ.netname);
 
-			// Boss monsters don't always use FL_MONSTER flag
-			if (attacker.bossflag > 0) {
-				// Original ID bosses
-				if (attacker.classtype == CT_MONIDCHTHON) bprint (" was blown apart by Chthon\n");
-				else if (attacker.classtype == CT_MONIDSHUB) bprint (" became one with Shub-Niggurath\n");
-				// New bosses
-				else if (attacker.classtype == CT_MONBOGLORD) {
-					if (attacker.spawnflags & MON_BOGL_STRONG)
-						bprint (" was toasted by a Fire Shambler\n");
-					else bprint (" was obliterated by The Bog Lord\n");
-				}
-				else if (attacker.classtype == CT_MONFIRETOP) bprint (" was destroyed by the Firetop Guardian\n");
-				else if (attacker.classtype == CT_MONEIDOLON) bprint (" was pulverized by the Sculptor\n");
-				else if (attacker.classtype == CT_MONICEGOLEM) bprint (" was shattered by the Ice Golem\n");
-				else if (attacker.classtype == CT_MONNOUR) bprint (" was picked apart by the Scragmother\n");
-				// Custom chthon and shub can have unique client death messages
-				else if (attacker.classtype == CT_MONXXCHTHON) {
-					if (attacker.deathtype !="") bprint(attacker.deathtype);
-					else bprint (" was blown apart by Chthon\n");
-				}
-				else if (attacker.classtype == CT_MONXXSHUB) {
-					if (attacker.deathtype !="") bprint(attacker.deathtype);
-					else bprint (" became one with Shub-Niggurath\n");
-				}
-				return;
-			}
-			
-			// killed by a monster?
-			if (attacker.flags & FL_MONSTER) {
-				// Original enemies
-				if (attacker.classtype == CT_MONARMY) bprint (" was shot by a Grunt\n");
-				else if (attacker.classtype == CT_MONDEMON) bprint (" was eviscerated by a Fiend\n");
-				else if (attacker.classtype == CT_MONDOG) bprint (" was mauled by a Rottweiler\n");
-				else if (attacker.classtype == CT_MONENFORCER) bprint (" was blasted by an Enforcer\n");
-				else if (attacker.classtype == CT_MONFISH) bprint (" was fed to the Rotfish\n");
-				else if (attacker.classtype == CT_MONHELLK) bprint (" was slain by a Hell Knight\n");
-				else if (attacker.classtype == CT_MONKNIGHT) bprint (" was slashed by a Knight\n");
-				else if (attacker.classtype == CT_MONOGRE) bprint (" was destroyed by an Ogre\n");
-				else if (attacker.classtype == CT_MONSHAL) bprint (" was exploded by a Vore\n");
-				else if (attacker.classtype == CT_MONSHAM) bprint (" was smashed by a Shambler\n");
-				else if (attacker.classtype == CT_MONSPAWN) bprint (" was slimed by a Spawn\n");
-				else if (attacker.classtype == CT_MONWIZARD) bprint (" was scragged by a Scrag\n");
-				else if (attacker.classtype == CT_MINIONWIZARD) bprint (" was wrecked by a Wizard\n");
-				else if (attacker.classtype == CT_MONZOMBIE) bprint (" joins the Zombies\n");
-
-				// Lunaran enemies
-				else if (attacker.classtype == CT_MONZOMBIEK) bprint (" was cornered by a Zombie Knight\n");
-
-				// The Death knight Brigade
-				else if (attacker.classtype == CT_MONDGUARD) bprint (" was chopped up by a Death Guard\n");
-				else if (attacker.classtype == CT_MONDCROSS) bprint (" was skewered by a Crossbow Knight\n");
-				else if (attacker.classtype == CT_MONDFURY) bprint (" was sliced by a Fury Knight\n");
-				else if (attacker.classtype == CT_MONDKNIGHT) bprint (" was cleaved by a Death Knight\n");
-				else if (attacker.classtype == CT_MONDSERG) bprint (" was crushed by a Blue Flail Knight\n");
-
-				// New Hunter ogres
-				else if (attacker.classtype == CT_MONHOGRE) bprint (" was blown up by an Ogre Hunter\n");
-				else if (attacker.classtype == CT_MONHOGREMAC) bprint (" was smashed by a Mace Ogre\n");
-				else if (attacker.classtype == CT_MONHOGREHAM) bprint (" was pulverized by a Hammer Ogre\n");
-				else if (attacker.classtype == CT_MONOGREFISH) bprint (" was reeled in by a Fishing Ogre\n");
-
-				// Hexen 2 enemies
-				else if (attacker.classtype == CT_MONSPIDER) bprint (" was bitten by a Spider\n");
-				else if (attacker.classtype == CT_MINIONSPIDER) bprint (" was bitten by a Spider\n");
-				else if (attacker.classtype == CT_MONSCORPION) bprint (" was stung by a Scorpion\n");
-				else if (attacker.classtype == CT_MINIONSCORPION) bprint (" was stung by a Scorpion\n");
-				else if (attacker.classtype == CT_MONGARGOYLE) bprint (" was burned by a Gargoyle\n");
-				else if (attacker.classtype == CT_MONSKULLW) bprint (" was blown apart by a Skull Wizard\n");
-				else if (attacker.classtype == CT_MONLOSTSOUL) bprint (" was found by a Lost Soul\n");
-				else if (attacker.classtype == CT_MINIONLOSTSOUL) bprint (" was found by a Lost Soul\n");
-				else if (attacker.classtype == CT_MONGOLEM) bprint (" was crushed by a Golem\n");
-				else if (attacker.classtype == CT_MONMINOTAUR) bprint (" was gored by a Minotaur\n");
-
-				// Rogue Software enemies
-				else if (attacker.classtype == CT_MONMUMMY) bprint (" was Mummified\n");
-				else if (attacker.classtype == CT_MONWRAITH) bprint (" was shattered by a Wraith\n");
-				else if (attacker.classtype == CT_MONEEL) bprint (" was electrified by an Eel\n");
-
-				// Quoth MOD enemies
-				else if (attacker.classtype == CT_MONVORELING) bprint (" was nibbled by a Voreling\n");
-				else if (attacker.classtype == CT_MINIONVORELING) bprint (" was nibbled by a Voreling\n");
-				else if (attacker.classtype == CT_MONSWAMPLING) bprint (" was bitten by a Swampling\n");
-				else if (attacker.classtype == CT_MONDROLE) bprint (" was decimated by a Drole\n");
-				else if (attacker.classtype == CT_MONFREDDIE) bprint (" was exterminated by Freddie\n");
-				else if (attacker.classtype == CT_MONGAUNT) bprint (" was blasted by a Gaunt\n");
-				else if (attacker.classtype == CT_MONSENTINEL) bprint (" was scorched by a Sentinel\n");
-				else if (attacker.classtype == CT_MONDGUARDQ) bprint (" was slaughtered by a Death Guard\n");
-				else if (attacker.classtype == CT_MONDLORD) bprint (" was executed by a Death Lord\n");
-				else if (attacker.classtype == CT_MONGUG) bprint (" was obliterated by a Gug\n");
-
-				// New base enemies
-				else if (attacker.classtype == CT_MONARMYROCKET) bprint (" was blown up by a Rocketeer\n");
-				else if (attacker.classtype == CT_MONARMYGRENADE) bprint (" was pineappled by a Grenader\n");
-				else if (attacker.classtype == CT_MONARMYPLASMA) bprint (" was fried by an Electrocutioner\n");
-				else if (attacker.classtype == CT_MONDEFENDER) bprint (" was destroyed by a Defender\n");
-				else if (attacker.classtype == CT_MONELIMATOR) bprint (" was assasinated by a Eliminator\n");
-				else if (attacker.classtype == CT_MONPYRO) bprint (" was toasted by a Pyro\n");
-				else if (attacker.classtype == CT_MONFUMIGATOR) bprint (" was choked by a Fumigator\n");
-				else if (attacker.classtype == CT_MONCENTURION) bprint (" was vaporized by a Centurion\n");
-				else if (attacker.classtype == CT_MONJIM) bprint (" was cauterized by Jim\n");
-				else if (attacker.classtype == CT_MONJIMROCKET) bprint (" was blown away by Jim\n");
-
-				// ijed/rrp enemies
-				else if (attacker.classtype == CT_MONBOIL) bprint (" was blown away by a Boil\n");
-				else if (attacker.classtype == CT_MONSEEKER) bprint (" was destroyed by a Seeker\n");
-
-				// Twisted xmas mod enemies
-				else if (attacker.classtype == CT_MONELF) bprint (" was torn to pieces by a Elf\n");
-				else if (attacker.classtype == CT_MONRAINDEER) bprint (" was trampled by a Raindeer\n");
-				else if (attacker.classtype == CT_MONSNOWMAN) bprint (" was smashed on a Snowman\n");
-				else if (attacker.classtype == CT_MONSANTA) bprint (" was wrapped up by Santa\n");
-								
-				// Not present in original ID levels
-				//if (attacker.classname == "monster_dragon") bprint (" was fried by a Dragon\n");
-				//if (attacker.classname == "monster_vomit") bprint (" was vomited on by a Vomitus\n");
-
+			//-----------------------------------------------------------------
+			// All the monster death messages are now defined in the monster QC
+			// It is much easier to remember to add these with creating the
+			// QC for each new monster than find/edit them here!
+			//-----------------------------------------------------------------
+				
+			// Check for boss or monster flags
+			if (attacker.bossflag > 0 || attacker.flags & FL_MONSTER) {
+				if (attacker.deathstring != "") bprint (attacker.deathstring);
+				else bprint(" was killed by Quake!\n");
 				return;
 			}
 

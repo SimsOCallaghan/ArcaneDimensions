@@ -9,7 +9,7 @@ float MONAI_ZOMBIEUPE = 8;		// knight + zombie paine - 30 frames (12 = on ground
 float MONAI_ZOMBGRDTIMER = 2;	// Zombie onground timer (between checking)
 float MONAI_ZOMBGRDBLOCK = 300;	// 0.1 * 300 = 30s
 float MONAI_ZOMBIELOW_DAM = 9;	// Pain threshold for animations	
-float MONAI_ZOMBIEHGH_DAM = 24;
+float MONAI_ZOMBIEHGH_DAM = 28;	// Has to be higher than SG (7x4)
 
 void(float frameno) zombie_onground;
 void(float frameno) zombiek_onground;
@@ -362,6 +362,8 @@ void() monster_death_precheck =
 //----------------------------------------------------------------------
 void() monster_fade =
 {
+	// Make sure model/entity is removed
+	self.height = 0;
 	self.think = model_fade;
 	self.nextthink = time + 0.1;
 	self.ltime = self.nextthink;
@@ -467,7 +469,7 @@ void(entity attacker, float damage) monster_pain_check =
 	// already dying, don't go into pain frame
 	if (self.health < 1) self.pain_check = 0;
 	// The new axe forces monsters into long pain animations (if they exist)
-	else if (attacker.moditems & IT_UPGRADE_AXE && self.axhitme && self.pain_longanim) self.pain_check = 2;
+	else if (attacker.moditems & IT_UPGRADE_AXE && self.axhitme > 0 && self.pain_longanim) self.pain_check = 2;
 	// always go into pain frame if it has been a while (first hit = pain)
 	else if (time - self.pain_finstate > PAIN_ALWAY) self.pain_check = 1;
 	// Dangerous liquids should kill the monster and keeping them in

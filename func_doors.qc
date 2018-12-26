@@ -43,7 +43,7 @@ SPAWNTRIG : Will spawn trigger around door even if targetname SETUP
 DONTLINK  : Touching doors will not link into a single entity
 GOLD      : Requires gold key to open
 SILVER    : Requires silver key to open
-TOGGLE    : Door waits in start and end states for a trigger
+TOGGLE    : Door waits for trigger between states (if wait=-1 cannot be blocked)
 STARTOFF  : Starts off and waits for trigger
 -------- NOTES --------
 Door (bmodel) with 2 states
@@ -279,12 +279,24 @@ void() func_door_fire =
 	if (self.estate == ESTATE_BLOCK) return;
 	if (self.owner != self) dprint ("\b[door_fire]\b self.owner != self\n");
 
+	// Check for exact state requests
+	if (other.classtype == CT_TRIGDOORSTATE) {
+		if (other.state == 0) {
+			// Is the door closing (DOWN) or closed (BOTTOM)?
+			if (self.state == STATE_DOWN || self.state == STATE_BOTTOM) return;
+		}
+		else {
+			// Is the door opening (UP) or open (TOP)?
+			if (self.state == STATE_UP || self.state == STATE_TOP) return;
+		}
+	}
+
 	// play use key sound
 	if (self.items) sound (self, CHAN_VOICE, self.noise4, 1, ATTN_NORM);
 
 	self.message = string_null;		// no more message
 	oself = self;
-	
+
 	if (self.spawnflags & DOOR_TOGGLE) {
 		if (self.state == STATE_UP || self.state == STATE_TOP) {
 			starte = self;
@@ -692,3 +704,115 @@ void() func_door =
 	} 
 };
 
+/*======================================================================
+/*QUAKED trigger_doorstate (0.5 0 0.5) (-8 -8 -16) (8 8 16) x x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard
+Trigger func_door(s) to exact state (open/close)
+-------- KEYS --------
+targetname : trigger this entity
+target  : ALL target(s) must be func_door entities with toggle spawnflag!
+state   : 0 or 1 func_door state (0=closed, 1=open)
+wait    : -1 = will only fire targets once
+-------- SPAWNFLAGS --------
+STARTOFF : Requires trigger to activate
+-------- NOTES --------
+Trigger func_door(s) to exact state (open/close)
+
+======================================================================*/
+void() trigger_doorstate_use =
+{
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+
+	// Fire target(s)
+	trigger_strs(self.target, self);
+	
+	// Setup to trigger once?
+	if (self.wait < 0) self.attack_finished = LARGE_TIMER;	
+};
+
+//----------------------------------------------------------------------
+void() trigger_doorstate_delay =
+{
+	if (self.estate & ESTATE_BLOCK) return;
+
+	// Remove the trigger delay function
+	if (self.spawnflags & ENT_STARTOFF)
+		self.spawnflags = self.spawnflags - ENT_STARTOFF;
+	
+	// Re-route use function to actual counter
+	self.estate_use = trigger_counter_use;
+};
+
+//----------------------------------------------------------------------
+void() trigger_doorstate_setup =
+{
+	// entity check condition
+	self.lefty = FALSE;
+	
+	// Search for func_door targets
+	self.enemy = find(world, targetname, self.target);
+	// Found any yet?
+	while (self.enemy) {
+		// Found a func_door?
+		if (self.enemy.classtype == CT_FUNCDOOR) {
+			// All func_door(s) require toggle spawnflag enabled
+			if (self.enemy.spawnflags & DOOR_TOGGLE) self.lefty = TRUE;
+			else {
+				dprint("\b[TRIG_DOORSTATE]\b ");
+				dprint(self.enemy.targetname);
+				dprint(" missing toggle spawnflag!\n");
+			}
+		}
+		// The whole list needs to be door entities
+		else {
+			dprint("\b[TRIG_DOORSTATE]\b Target ("); dprint(self.target);
+			dprint(") ("); dprint(self.enemy.classname);
+			dprint(") Wrong!\n");
+			self.lefty = FALSE;
+		}
+		
+		// Keep looping through the find list
+		self.enemy = find(self.enemy, targetname, self.target);
+	}
+	
+	// Found any errors with setup?
+	if (self.lefty == FALSE) {
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
+	
+	// Finally setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	// The delay function is not switched off, its activate to use
+	if (self.spawnflags & ENT_STARTOFF) self.estate_use = trigger_doorstate_delay;
+	else self.estate_use = trigger_doorstate_use;
+};
+
+//----------------------------------------------------------------------
+void() trigger_doorstate =
+{
+	self.classtype = CT_TRIGDOORSTATE;
+	if (self.state < 0 || self.state > 1) self.state = 0;
+	self.delay = self.sounds = 0;
+	self.message = self.noise = "";
+	self.nodebuginfo = TRUE;
+	
+	// This entity is called a lot from pressure plate entities
+	// so it really needs to be setup right before use!
+	// No target = hard error and warning message
+	if (self.target == "") {
+		dprint("\b[TRIG_DOORSTATE]\b Missing target!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
+	
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+	
+	// Double check targets are right type
+	self.think = trigger_doorstate_setup;
+	self.nextthink = time + 0.2;
+};

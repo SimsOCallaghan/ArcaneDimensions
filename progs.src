@@ -50,6 +50,8 @@ func.qc
 func_doors.qc
 func_doorsecret.qc
 func_buttons.qc
+func_pswitch.qc
+func_insvolume.qc
 func_plats.qc
 func_trains.qc
 misc.qc

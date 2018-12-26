@@ -525,6 +525,7 @@ void() monster_freddie =
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.attack_offset = '0 0 0';		// Run + Gun vector
 	self.poisonous = FALSE;				// Robots are not poisonous
+	self.deathstring = " was exterminated by Freddie\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

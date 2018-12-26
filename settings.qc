@@ -21,6 +21,7 @@ void() togglecooppowerups;	// Toggle COOP powerups to respawn
 
 void() toggleweather;		// Toggle weather systems
 void() toggledevhelpers;	// Toggle dev helpers (mark/arrows)
+void() togglebodyremoval;	// Toggle monster body fade/removal
 
 void() display_configflag;	// Display config flag
 void() display_playinfo;	// Display Player information
@@ -52,7 +53,7 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.70\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions v1.70 Patch 1\n");
 };
 
 /*======================================================================
@@ -155,6 +156,7 @@ void() ImpulseCommands =
 	else if (self.impulse == 158) togglecooppowerups();	// Toggle COOP powerups to respawn
 
 	else if (self.impulse == 160) toggleweather();		// Toggle Weather Systems
+	else if (self.impulse == 170) togglebodyremoval();	// Toggle monster body fade/removal
 	else if (self.impulse == 175) display_customkeys();	// Display Custom Key inventory
 	
 	// Only works developer only)
@@ -766,6 +768,24 @@ void() toggleweather =
 	if (query_configflag(SVR_WEATHER)) sprint(self, "OFF)\n");
 	else sprint(self, "ON)\n");
 	update_weather();
+};
+
+//----------------------------------------------------------------------
+void() togglebodyremoval =
+{
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+
+	self.impulse = 0;
+
+	// Toggle body removal/fade system timer
+	// default = time + 10 + random() * 5
+	if (map_bodyfadeaway > 0) map_bodyfadeaway = 0;
+	else map_bodyfadeaway = 5;
+	
+	sprint(self, "\b[Impulse]\b Monster body removal ("); 
+	if (map_bodyfadeaway > 0) sprint(self, "ON)\n");
+	else sprint(self, "OFF)\n");
 };
 
 

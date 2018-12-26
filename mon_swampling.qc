@@ -561,6 +561,7 @@ void() monster_swampling =
 	self.attack_offset = '14 0 8';		// Used by large swampling, at jaws
 	self.movespeed = 1;					// Can never be a turret
 	self.poisonous = TRUE;				// Always poisonous
+	self.deathstring = " was bitten by a Swampling\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

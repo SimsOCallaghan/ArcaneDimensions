@@ -478,6 +478,7 @@ void() monster_hogremac =
 	self.steptype = FS_TYPEMEDIUM;
 	self.meleecontact = FALSE;				// Smash contact
 	self.meleerange = MONAI_MELEEBLUNTOGRE;	// Blunt mace attack
+	self.deathstring = " was smashed by a Mace Ogre\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

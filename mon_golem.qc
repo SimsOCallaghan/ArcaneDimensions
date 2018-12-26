@@ -665,6 +665,7 @@ void() monster_golem =
 	self.meleerange = MONAI_MELEEGOLEM;
 	self.attack_offset = '10 0 30';		// Rock storm
 	self.poisonous = FALSE;				// Stone is not poisonous
+	self.deathstring = " was crushed by a Golem\n";
 	
 	self.th_checkattack = GolemCheckAttack;
 	self.th_die = golem_die;

@@ -219,7 +219,7 @@ void() zombie_missile =
 //======================================================================
 // PAIN
 //======================================================================
-void() zombie_paina1	=[	$paina1,	zombie_paina2	] {};
+void() zombie_paina1	=[	$paina1,	zombie_paina2	] {zombie_sound(4);};
 void() zombie_paina2	=[	$paina2,	zombie_paina3	] {ai_painforward(3);};
 void() zombie_paina3	=[	$paina3,	zombie_paina4	] {ai_painforward(1);};
 void() zombie_paina4	=[	$paina4,	zombie_paina5	] {ai_pain(1);};
@@ -230,10 +230,10 @@ void() zombie_paina8	=[	$paina8,	zombie_paina9	] {};
 void() zombie_paina9	=[	$paina9,	zombie_paina10	] {};
 void() zombie_paina10	=[	$paina10,	zombie_paina11	] {};
 void() zombie_paina11	=[	$paina11,	zombie_paina12	] {};
-void() zombie_paina12	=[	$paina12,	zombie_run1		] {self.inpain = 0;};
+void() zombie_paina12	=[	$paina12,	zombie_run1		] {};
 
 //----------------------------------------------------------------------
-void() zombie_painc1	=[	$painc1,	zombie_painc2	] {};
+void() zombie_painc1	=[	$painc1,	zombie_painc2	] {zombie_sound(4);};
 void() zombie_painc2	=[	$painc2,	zombie_painc3	] {};
 void() zombie_painc3	=[	$painc3,	zombie_painc4	] {ai_pain(3);};
 void() zombie_painc4	=[	$painc4,	zombie_painc5	] {ai_pain(1);};
@@ -253,7 +253,7 @@ void() zombie_painc17	=[	$painc17,	zombie_painc18	] {};
 void() zombie_painc18	=[	$painc18,	zombie_run1	] {};
 
 //----------------------------------------------------------------------
-void() zombie_paind1	=[	$paind1,	zombie_paind2	] {};
+void() zombie_paind1	=[	$paind1,	zombie_paind2	] {zombie_sound(4);};
 void() zombie_paind2	=[	$paind2,	zombie_paind3	] {};
 void() zombie_paind3	=[	$paind3,	zombie_paind4	] {};
 void() zombie_paind4	=[	$paind4,	zombie_paind5	] {};
@@ -357,27 +357,58 @@ void() zombie_paine30	=[	$paine30,	zombie_run1		] {
 ======================================================================*/
 void(entity inflictor, entity attacker, float take) zombie_pain =
 {
-	self.health = self.max_health;				// reset health	
-	if (take < MONAI_ZOMBIELOW_DAM) return;		// totally ignore
-	if (self.inpain > 0) return;				// in pain animation, do nothing
+	// Is the zombie in the process of dying?
+	if (self.deadflag > DEAD_NO) return;
+	// Always reset health
+	self.health = self.max_health;
 
-	zombie_sound(4);			// Moan about the pain
-	self.inpain = 1;			// In pain, don't interrupt animation
+	// Check for invulnerability frames and shadow axe
+	if (self.inpain > 0 && self.axhitme == 2) {
+		self.axhitme = 0;				// Reset axe
+		self.health = self.gibhealth;	// Reset Health
+		Killed (self, attacker);		// Gib time
+		return;
+	}
+	else self.axhitme = 0;	// Reset axe
 
 	//----------------------------------------------------------------------
-	// Damage 25-60, drop straight away to ground (SSG, Quad NG)
+	// Pain/damage too low OR down on ground, totally ignore
 	//----------------------------------------------------------------------
-	if (take > MONAI_ZOMBIEHGH_DAM)	zombie_paine1();	// 30 frames (12 = on ground)
+	if (take < MONAI_ZOMBIELOW_DAM || self.inpain == 2) return;
+
+	//----------------------------------------------------------------------
+	// Damage 29-60, drop straight away to ground (SSG, Quad NG)
+	// This has to be a single large hit over 0.1 frame
+	//----------------------------------------------------------------------
+	if (take > MONAI_ZOMBIEHGH_DAM) {
+		zombie_paine1();
+		return;
+	}
+
+	//----------------------------------------------------------------------
+	// Projectile shotguns pellets don't all hit at same time
+	// they accumulate over time and can distort damage values
+	// Need to block damage over time to detect second hit
+	// Cannot use pain_finished because it blocks the pain function
+	// and the health needs to be reset all the time
+	// Using 'lefty' because zombies don't use it for anything
+	if (self.lefty < time && self.inpain == 1) {
+		// Second hit, drop to ground
+		zombie_paine1 ();
+		return;
+	}
+
 	//----------------------------------------------------------------------
 	// Damage 9-25 random pain animation (random chance of knockdown painb)
 	//----------------------------------------------------------------------
-	else {
-		self.lip = random();
-		if (self.lip < 0.25) zombie_paina1 ();			// 12 frames (bent over, short)
-		else if (self.lip <  0.5) zombie_painb1 ();		// 28 frames (9 = on ground)
-		else if (self.lip <  0.75) zombie_painc1 ();	// 18 frames (bent over, long)
-		else zombie_paind1 ();							// 13 frames (slight hit)
-	}
+	if (self.inpain) return;	// Already in minor pain
+	self.inpain = 1;			// Minor pain active
+	self.lefty = time + 0.5;	// Wait for second hit
+	self.lip = random();
+	if (self.lip < 0.25) zombie_paina1 ();		// 12 frames (bent over, short)
+	else if (self.lip < 0.5) zombie_painb1 ();	// 28 frames (9 = on ground)
+	else if (self.lip < 0.75) zombie_painc1 ();	// 18 frames (bent over, long)
+	else zombie_paind1 ();						// 13 frames (slight hit)
 };
 
 /*=============================================================================
@@ -411,7 +442,7 @@ void() zombie_wakeup	= {
 	}
 	else {
 		self.bodyonflr = "";			// Body is chop proof!
-		self.inpain = 1;				// Animation not finished
+		self.inpain = 2;				// Animation not finished
 		zombie_sound(6);				// Wake up sound
 		self.nextthink = time + 0.1;
 		self.use = monster_use;			// Just in case interruption
@@ -659,6 +690,8 @@ void() monster_zombie =
 	self.classgroup = CG_ZOMBIE;			// One big happy zombie family!
 	self.classmove = MON_MOVEWALK;
 	if (!self.exactskin) self.randomskin = 4;
+	if (self.deathstring == "")
+		self.deathstring = " joins the Zombies\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -701,6 +734,7 @@ void() monster_mummy =
 	self.exactskin = 6;						// Mouldly bandages
 	self.no_liquiddmg = TRUE;				// Immune to slime/lava
 	self.spawnflags  = self.spawnflags - (self.spawnflags & MON_CRUCIFIED);
+	self.deathstring = " was Mummified\n";
 	
 	// The mummy is just poisonous, it is still a zombie
 	monster_zombie();

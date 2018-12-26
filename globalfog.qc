@@ -1,39 +1,14 @@
 /*======================================================================
-/*QUAKED info_stuffcmd (0 0.5 0) (-8 -8 -8) (8 8 8)
-puts the specified message into the console when the client spawns.
-Original idea from Honey codebase
--------- KEYS --------
-message : Stuff command (r_wateralpha 0.3)
--------- SPAWNFLAGS --------
--------- NOTES --------
-puts the specified message into the console when the client spawns.
+ GLOBAL FADING FOG SYSTEM
+
+ * Original idea from Honey mod by CZG
+ * Written from scratch as Honey implementation is weird
+ * Created special long float function for better accuracy
+ * Fog functionality has to be active before controller can be setup
+ * Creates a special entity (controller) to work in background
+ * Controller is setup from client.qc / PlayerPostThink function
+ 
 ======================================================================*/
-void() stuffcmd_think =
-{
-	// wait key used for commands that are development mode only
-	if (!self.wait || (self.wait && developer > 0)) {
-		if (client_ent && client_ent.flags & FL_CLIENT) {
-			stuffcmd(client_ent, self.message);
-			stuffcmd(client_ent, "\n");
-		}
-		// No client in game, check again later
-		else self.nextthink = time + 0.2;
-	}
-}
-
-void() info_stuffcmd =
-{	
-	// No message key, remove dead entity
-	if(!self.message) {
-		dprint("[info_stuffcmd] no message found, removing\n");
-		SUB_Remove();
-	}
-	if(!self.wait) self.wait = 0; 
-
-	// Wait for client to start game
-	self.nextthink = time + 2;
-	self.think = stuffcmd_think;
-}
 
 //----------------------------------------------------------------------
 // Returns power of 10 for string format function below
@@ -152,10 +127,7 @@ void(entity str_player, float str_num, float topbit, float botbit, float buffer)
 	}
 };
 
-/*======================================================================
- GLOBAL FOG
- Changes fog colour and density to a certain value
-======================================================================*/
+//----------------------------------------------------------------------
 void(entity client) change_fog  =
 {
 	if (!fog_control) return;
@@ -305,27 +277,34 @@ void() setup_fog_controller =
 		setorigin(fog_control, '0 0 0');
 		setsize(fog_control, VEC_ORIGIN, VEC_ORIGIN);
 		
-		if (world.fog_density != 0) {
+		if (world.fog_density == 0) {
+			fog_active = FALSE;						// out of sync
+			fog_control.fog_currden = DEF_FOGDEN;	// Bad default
+			fog_control.fog_targden = DEF_FOGDEN;	// Target
+		}
+		else {
 			fog_active = TRUE;					// engine and QC insync
 			fog_control.fog_currden = world.fog_density;
+			fog_control.fog_targden = world.fog_density;
 		}
-		else fog_control.fog_currden = 0.1;		// Bad default
-		fog_control.fog_targden = 0;			// Target
 		fog_control.fog_diffden = 0;			// Difference
 
-		if (CheckZeroVector(world.fog_colour))
-			fog_control.fog_currcol = '0.1 0.1 0.1';	// Bad Default
+		if (CheckZeroVector(world.fog_colour)) {
+			fog_active = FALSE;						// out of sync
+			fog_control.fog_currcol = DEF_FOGCOL;	// Bad Default
+			fog_control.fog_targcol = DEF_FOGCOL;	// Target
+		}
 		else {
 			fog_active = TRUE;					// engine and QC insync
 			fog_control.fog_currcol = world.fog_colour;
+			fog_control.fog_targcol = world.fog_colour;
 		}
-		fog_control.fog_targcol = '0 0 0';		// Target
 		fog_control.fog_diffcol = '0 0 0';		// Difference
 
 		// Bat shit crazy DP extra fog parameters that no other engine uses
 		// dpextra = alpha mindist maxdist top fadedepth (def=1 0 8192 1024 32)
-		if (world.fog_dpextra != "") fog_control.fog_dpextra = world.fog_dpextra;
-		else fog_control.fog_dpextra = DEF_FOGEXT;
+		if (world.fog_dpextra == "") fog_control.fog_dpextra = DEF_FOGEXT;
+		else fog_control.fog_dpextra = world.fog_dpextra;
 
 		// This is a horrible hack, it should not be here
 		// This parameter should be in the map file worldspawn

@@ -447,9 +447,15 @@ void() FoundTarget =
 	if (self.sighttarget != "") {
 		if (self.enemy.targetname == self.sighttarget) {
 			// Make sure the sight target is alive before chasing it
-			sight_entity = self.enemy;		// Highlight target for others
-			sight_entity_time = time;		// reset wakeup timer
-			monster_sightsound();			// Always make wakeup noise!
+			self.oldenemy = find(world, targetname, self.sighttarget);
+			if (self.oldenemy.health > 0) {
+				if (self.oldenemy.takedamage > DAMAGE_NO) {
+					sight_entity = self.enemy;		// Highlight target for others
+					sight_entity_time = time;		// reset wakeup timer
+					monster_sightsound();			// Always make wakeup noise!
+				}
+			}
+			self.oldenemy = world;
 		}
 	}
 	

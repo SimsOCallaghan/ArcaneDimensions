@@ -785,6 +785,7 @@ void() monster_skullwiz =
 	self.steptype = FS_TYPEMEDIUM;	// Humanoid footsteps
 	self.pain_longanim = FALSE;		// No long pain animation
 	self.poisonous = FALSE;			// Only Guardians can be poisonous
+	self.deathstring = " was blown apart by a Skull Wizard\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

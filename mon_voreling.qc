@@ -573,6 +573,7 @@ void() setup_voreling =
 	self.attack_offset = '14 0 8';		// Used by purple voreling, at jaws
 	self.movespeed = 1;					// Can never be a turret
 	self.poisonous = FALSE;				// Use swamplings if wanting poison
+	self.deathstring = " was nibbled by a Voreling\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

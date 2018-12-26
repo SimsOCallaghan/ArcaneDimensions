@@ -201,6 +201,7 @@ void() monster_eel =
 	self.steptype = FS_FLYING;		// It has no sea legs!
 	self.blockudeath = TRUE;		// No humanoid death sound
 	self.attack_offset = '20 0 -2';	// Plasma start location
+	self.deathstring = " was electrified by an Eel\n";
 
 	// Check for water sightline wakeup
 	if (self.spawnflags & MON_LIQUIDBLOCK) self.liquidblock = TRUE;

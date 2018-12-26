@@ -750,7 +750,8 @@ void() monster_minotaur =
 	self.blockudeath = TRUE;		// No humanoid death
 	self.part_style = PARTICLE_BURST_BLUE;
 	self.poisonous = FALSE;			// blue ver = Always poison free
-
+	self.deathstring = " was gored by a Minotaur\n";
+	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = 0; self.resist_cells = 0.5;

@@ -698,6 +698,7 @@ void() monster_hell_knight =
 	self.steptype = FS_TYPEHEAVY;			// Heavy player
 	self.meleeattack = rint(random()*3);	// randomize last melee attack
 	self.th_die = hknight_die;				// Face meets floor
+	self.deathstring = " was slain by a Hell Knight\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -746,6 +747,7 @@ void() monster_hell_knight =
 		self.pain_longanim = FALSE;		// resistant to shadow axe
 		self.pain_timeout = 2;			// high pain threshold
 		self.no_liquiddmg = TRUE;		// Immune to slime/lava
+		self.deathstring = " was smashed by a Stone Hell Knight\n";
 
 		// Allow knights to start with a stone skin, but not be frozen!
 		if (self.spawnflags & MON_NOTFROZEN) {

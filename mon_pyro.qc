@@ -383,6 +383,7 @@ void() monster_pyro =
 	self.ammo_shells = 4;				// drops armor shards instead
 	if (!self.exactskin) self.randomskin = 4;
 	self.poisonous = FALSE;				// Use Fumigator instead
+	self.deathstring = " was toasted by a Pyro\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;
@@ -459,6 +460,7 @@ void() monster_fumigator =
 	self.ammo_shells = 4;				// drops armor shards instead
 	self.no_liquiddmg = TRUE;			// Immune to slime/lava
 	if (!self.exactskin) self.randomskin = 4;
+	self.deathstring = " was choked by a Fumigator\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;

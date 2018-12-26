@@ -1163,13 +1163,13 @@ void() misc_shake =
 };
 
 /*======================================================================
-QUAKED misc_model (1 .5 .25) (-16 -16 -16) (16 16 16) x COLLISION x x x STATIC STARTOFF x
+/*QUAKED misc_model (1 .5 .25) (-16 -16 -16) (16 16 16) x COLLISION MOVEMENT x x STATIC STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 MDL files that can be setup with specific frame/skin and animate groups
 -------- KEYS --------
-mdl : specify model to load, full path (progs/misc_candle1.mdl)
+mdl : specify model to load, full path (progs/candle.mdl)
 targetname : toggle state (use trigger ent for exact state)
 angle  : facing angle (-1 = random position)
-angles : 'pitch roll yaw' up/down, angle, tilt left/right 
+angles : 'pitch yaw roll' up/down, angle, tilt left/right 
 ideal_yaw : = 1 Setup model with random Y axis rotation
 pos1 : used for selection of frame(s) has several setups
   X=0, Y=0, Z=exact frame number
@@ -1179,9 +1179,10 @@ pos2 : used for the selection of skin(s) has several setups
   X=0, Y=0, Z=exact skin number
   X->Y, Z=0 Randomly pick a skin from the X,Y range
 -------- SPAWNFLAGS --------
-COLLISION : Model bbox collision enabled
-STATIC    : Turn entity into static upon spawn (frame 0)
-STARTOFF  : Always Starts off and waits for trigger
+COLLISION : model bbox collision enabled
+MOVEMENT : model can be moved around like an item
+STATIC : Turn entity into static upon spawn (frame 0)
+STARTOFF : Always Starts off and waits for trigger
 -------- NOTES --------
 MDL files that can be setup with specific frame/skin and animate groups
 
@@ -1291,8 +1292,9 @@ void() misc_model =
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	self.oldorigin = self.origin;		// Store for later
 		
-	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0) self.angles_y = rint(random()*360);
+	// Random Rotation : UP/DOWN angle or use the ideal_yaw key
+	if (self.angles_y < 0 || self.ideal_yaw > 0) 
+		self.angles_y = rint(random()*360);
 	self.mangle = self.angles;			// Save for later
 	if (!self.speed) self.speed = 0.1;	// Manual animation tick speed
 		
@@ -1333,9 +1335,6 @@ void() misc_model =
 		// If no exact frame bas specified, reset frame to default = 0
 		if (self.pos2_z < 1) self.pos2 = '0 0 0';
 	}
-
-	// Setup random rotation
-	if (self.ideal_yaw > 0) self.angles_y = rint(random()*359);
 
 	// Cannot have static and movement at the same time!
 	if (self.spawnflags & MISC_MOVEMENT) {
@@ -1399,8 +1398,9 @@ void() misc_deadbody_setup =
 	self.blockudeath = TRUE;			// Body is dead, no human death noise
 	self.gibbed = FALSE;				// Still in one piece!
 	
-	// Check for random rotation
-	if (self.angles_y < 0) self.angles_y = rint(random()*360);
+	// Random Rotation : UP/DOWN angle or use the ideal_yaw key
+	if (self.angles_y < 0 || self.ideal_yaw > 0) 
+		self.angles_y = rint(random()*360);
 	
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
@@ -1416,6 +1416,7 @@ Dead Player MDL for poses
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
 angle  : facing angle (-1 = random position)
+ideal_yaw : = 1 Setup model with random Y axis rotation
 fixangle : 1 = Use misc_player.mdl instead (less hassle)
 frame  : body pose (49=on back, 67-69=against wall, 60/84/93=face down, 102=on side)
 exactskin : -1= Random, 0-1 Original, 2-3 Green, 4-5 Yellow, 6-7 Red
@@ -1436,6 +1437,7 @@ Dead demon/fiend for poses
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
 angle  : facing angle (-1 = random position)
+ideal_yaw : = 1 Setup model with random Y axis rotation
 frame : body pose (53=on back - def)
 exactskin : -1= Random, 0= Original, 1= Green
 -------- SPAWNFLAGS --------
@@ -1449,6 +1451,7 @@ Dead Death Knight for poses
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
 angle  : facing angle (-1 = random position)
+ideal_yaw : = 1 Setup model with random Y axis rotation
 frame : body pose (223=on front, 237-243=on back - def)
 -------- SPAWNFLAGS --------
 STARTOFF : Always Starts off and waits for trigger
@@ -1532,6 +1535,7 @@ void() misc_demon =
 	// Randomly swap in demon claws instead of legs
 	if (random() < 0.5) self.gib1mdl = self.gib4mdl;
 	if (random() < 0.5) self.gib2mdl = self.gib5mdl;
+	self.gib4mdl = ""; self.gib5mdl = "";
 
 	// Setup bounding box based on presets
 	if (self.bboxtype < 1) self.bboxtype = BBOX_WIDE;
@@ -1549,7 +1553,7 @@ void() misc_demon =
 	if (self.exactskin > 1) self.exactskin = 1;
 	self.skin = self.exactskin;
 	// Sync gib model skin to demon skin
-	self.gib1skin = self.gib2skin = self.gib3skin = self.skin;
+	self.gib1skin = self.gib2skin = self.gib3skin = self.exactskin;
 
 	misc_deadbody_setup();	
 };

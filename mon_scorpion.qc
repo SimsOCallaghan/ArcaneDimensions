@@ -449,6 +449,7 @@ void() setup_scorpion =
 	self.meleeoffset = '32 0 10';		// Claw attack offset
 	self.attack_offset = '32 8 14';		// Nail attack offset
 	self.poisonous = FALSE;				// Scorpions have bleeding debuff
+	self.deathstring = " was stung by a Scorpion\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

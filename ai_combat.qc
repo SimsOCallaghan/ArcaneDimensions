@@ -13,7 +13,9 @@ float(entity targ, entity inflictor) CanDamage =
 	if (targ.takedamage == DAMAGE_NO) return FALSE;
 	
 	// bmodels need special checking because their origin is 0,0,0
-	if (targ.movetype == MOVETYPE_PUSH) {
+	// Not all bmodels use push movetype, use bsporigin instead
+	//	if (targ.movetype == MOVETYPE_PUSH) {
+	if (targ.bsporigin == TRUE) {
 		traceline(inflictor.origin, 0.5 * (targ.absmin + targ.absmax), TRUE, inflictor);
 		if (trace_fraction == 1) return TRUE;
 		if (trace_ent == targ) return TRUE;
@@ -171,6 +173,14 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 			particle_explode(targ.origin-'0 0 16', 50+random()*50, 2, PARTICLE_BURST_BLUE, PARTICLE_BURST_UPWARD);
 			SpawnExplosion(EXPLODE_PLASMA_BIG, inflictor.origin+'0 0 8', SOUND_REXP3);
 		}
+	}
+	
+	//----------------------------------------------------------------------
+	// Check for monster/breakable extra damage key condition
+	// The key is usually checked with ai_damagebreakable function
+	// Needs to be checked with projectiles as well
+	if (targ.classgroup == CG_BREAKABLE && attacker.flags & FL_MONSTER) {
+		if (targ.brkmondmg > 0) damage = damage + targ.brkmondmg;
 	}
 	
 	//----------------------------------------------------------------------

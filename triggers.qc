@@ -11,6 +11,9 @@ float TRIG_HURTFALLING = 32;	// Only hurt if player falling
 float TRIG_PUSHONCE = 1;		// Switch off after one use
 float TRIG_PUSHSILENT = 2;		// No wind sound for player
 float TRIG_PUSHNOMONSTER = 4;	// Monsters cannot use this push trigger
+float TRIG_CONVMONSTER = 2;		// Conveyor moving monsters
+float TRIG_CONVITEM = 4;		// Conveyor moving items
+float TRIG_CONVPUSHABLE = 8;	// Conveyor moving pushables
 float TRIG_CMAPNOPAUSE = 1;		// No info screen, next map
 float TRIG_CMAPRESETINV = 2;	// Reset inventory (shotgun+25shells)
 float TRIG_CMAPSECSPAWN = 4;	// Spawn at the second spawn point
@@ -906,6 +909,11 @@ void() trigger_push =
 	}
 };
 
+//----------------------------------------------------------------------
+// Removed - No map used the feature
+//----------------------------------------------------------------------
+void() trigger_conveyor = { remove(self); };
+
 /*======================================================================
  Player ladder (originally from Rubicon2 codebase by JohnFitz)
  - This is a very simple system, jump to attach to the ladder brush
@@ -1078,8 +1086,8 @@ void() trigger_giveitem_fire =
 		self.enemy = find (self.enemy, targetname, self.target);
 	}
 	
-	// check for TRIGGER_ONCE functionality
-	if (self.wait < 0) self.attack_finished = LARGE_TIMER;
+	// always TRIGGER_ONCE functionality
+	self.attack_finished = LARGE_TIMER;
 };
 
 //----------------------------------------------------------------------
@@ -1092,7 +1100,8 @@ void() trigger_giveitems =
 	self.classtype = CT_TRIGGIVEITEM;
 	InitTrigger ();
 	
-	if (self.wait == 0) self.wait = -1;		// Default = trigger once
+	// Always trigger once functionality
+	self.wait = -1;
 	
 	// Cannot have trigger give items touched by monsters
 	self.spawnflags = self.spawnflags - (self.spawnflags & TRIG_MONSTERS);
@@ -1996,6 +2005,7 @@ void() trigger_void_touch =
 		else if (other.classgroup == CG_RUNE) entity_hide(other);
 		else if (other.classgroup == CG_ARTIFACT) entity_hide(other);
 		else if (other.classgroup == CG_MISCENT) entity_hide(other);
+		else if (other.classgroup == CG_BREAKABLE) entity_hide(other);
 	}
 };
 

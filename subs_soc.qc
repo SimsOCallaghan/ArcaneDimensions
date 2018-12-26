@@ -6,11 +6,15 @@
 void(string target_strs, entity activator_ent) trigger_strs =
 {
 	local entity tself, tother, tactivator, ent_list;
-	
-	dprint("\b[STR_TRIG]\b Str ("); dprint(target_strs);
-	dprint(") Activator ("); dprint(activator_ent.classname);
-	if (target_strs == "") dprint(") - ERROR!!\n");
-	else dprint(")\n");
+
+	// Some entities constantly use this function (<0.1s trigger)
+	// This is just an entity key to block the debug info
+	if (activator_ent.nodebuginfo == FALSE) {
+		dprint("\b[STR_TRIG]\b Str ("); dprint(target_strs);
+		dprint(") Activator ("); dprint(activator_ent.classname);
+		if (target_strs == "") dprint(") - ERROR!!\n");
+		else dprint(")\n");
+	}
 
 	// Prevent this function from triggering everything by
 	// checking if the target_str is empty (empty = world)
@@ -51,10 +55,14 @@ void(entity target_ent, entity activator_ent) trigger_ent =
 {
 	local entity tself, tother, tactivator;
 
-	dprint("\b[ENT_TRIG]\b Ent ("); dprint(ftos(target_ent.classtype));
-	dprint(") Activator ("); dprint(activator_ent.classname);
-	if (!target_ent) dprint(") - ERROR!!\n");
-	else dprint(")\n");
+	// Some entities constantly use this function (<0.1s trigger)
+	// This is just an entity key to block the debug info
+	if (activator_ent.nodebuginfo == FALSE) {
+		dprint("\b[ENT_TRIG]\b Ent ("); dprint(ftos(target_ent.classtype));
+		dprint(") Activator ("); dprint(activator_ent.classname);
+		if (!target_ent) dprint(") - ERROR!!\n");
+		else dprint(")\n");
+	}
 
 	if (target_ent && target_ent.use) {
 		// Save self/other for later

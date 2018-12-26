@@ -315,6 +315,7 @@ void() monster_demon1 =
 	self.steptype = FS_TYPESLOW;		// Tiny feet/nails
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.meleeoffset = '32 0 10';		// Claw attack offset
+	self.deathstring = " was eviscerated by a Fiend\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

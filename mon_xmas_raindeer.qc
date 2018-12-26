@@ -293,6 +293,7 @@ void() monster_xmas_raindeer =
 	self.poisonous = FALSE;				// Not Supported
 	self.meleeoffset = '24 0 20';		// Antler attack offset
 	self.lefty = 0;						// Cycle attack sounds
+	self.deathstring = " was trampled by a Raindeer\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

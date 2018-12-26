@@ -515,6 +515,7 @@ void() monster_dguard =
 	self.gibbed = FALSE;
 	self.pain_flinch = 20;
 	self.steptype = FS_TYPEMEDIUM;
+	self.deathstring = " was chopped up by a Death Guard\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

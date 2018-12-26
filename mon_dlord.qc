@@ -511,6 +511,7 @@ void() monster_death_lord =
 	self.attack_offset = '20 0 24';			// End of sword
 	self.exactskin = 1;						// Rotting Lord skin
 	self.poisonous = FALSE;					// No support for this
+	self.deathstring = " was executed by a Death Lord\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

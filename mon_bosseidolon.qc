@@ -1046,6 +1046,7 @@ void() monster_eidolon =
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
+	self.deathstring = " was pulverized by the Sculptor\n";
 
 	self.health = self.max_health = MEGADEATH;
 	self.pain_finished = time + LARGE_TIMER;

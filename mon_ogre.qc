@@ -697,6 +697,7 @@ void() monster_ogre =
 	self.no_zaware = TRUE;				// Always NOT zware
 	self.attack_offset = '24 0 20';		// Run + Gun vector
 	if (!self.ammo_rockets) self.ammo_rockets = 2;	// Default ammo drop
+	self.deathstring = " was destroyed by an Ogre\n";
 
 	// Standard ogre health 200 with green+ option
 	if (self.health < 1) self.health = 200;
@@ -765,6 +766,7 @@ void() monster_ogre_fishing =
 	self.pain_ignore = TRUE;		// Will not wake up from monsters
 	self.movespeed = 0;				// This is not a turret
 	self.frame = OGREFISH_FISHING;	// Start in fishing frame
+	self.deathstring = " was reeled in by a Fishing Ogre\n";
 
 	// Remove spawnflag options not needed for this monster
 	self.lip = 0;

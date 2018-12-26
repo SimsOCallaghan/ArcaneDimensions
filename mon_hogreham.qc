@@ -453,6 +453,7 @@ void() monster_hogreham =
 	self.meleecontact = FALSE;				// Smash contact
 	self.meleerange = MONAI_MELEEBLUNTOGRE;	// Hammer range
 	self.movespeed = 0;						// Cannot be turret
+	self.deathstring = " was pulverized by a Hammer Ogre\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

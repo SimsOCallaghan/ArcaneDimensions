@@ -123,12 +123,13 @@ A counter which triggers target(s) when complete
 -------- KEYS --------
 targetname : trigger entity (works with entity state system)
 target  : trigger target(s) when complete
-message2: message to display when complete (ignores NOMESSAGE spawnflag)
+
+message  : message to display when complete (ignores NOMESSAGE spawnflag)
+startmsg : message to display before counting begins (use wait for pause time)
 count   : number of triggers needed to fire own target, (def=2)
 delay   : time delay to fire final trigger event
 sounds  : 0=silent,1=Secret,2=talk,3=switch,5=custom,6=secret2
 noise   : custom sound to play when complete
-message : message to display before counting begins (use wait for pause time)
 wait    : time to pause before starting to count (def=2s)
 -------- SPAWNFLAGS --------
 NOMESSAGE : disables count display
@@ -151,9 +152,9 @@ void() trigger_counter_use =
 	if (self.estate & ESTATE_BLOCK) return;
 	
 	// Check for any pre-count messages
-	if (self.message != "") {
-		centerprint (activator, self.message);
-		self.message = "";
+	if (self.startmsg != "") {
+		centerprint (activator, self.startmsg);
+		self.startmsg = "";
 		self.nextthink = time + self.wait;
 		self.think = self.estate_use;
 		return;
@@ -360,6 +361,110 @@ void() trigger_clientmsg =
 	self.estate = ESTATE_ON;
 };
 
+/*======================================================================
+/*QUAKED trigger_cdtrack (0.8 0.5 0) (-8 -8 -16) (8 8 16) x
+Change CD track for all clients
+-------- KEYS --------
+targetname : trigger entity
+count      : CD track number (eg. 0-x)
+-------- SPAWNFLAGS --------
+-------- NOTES --------
+Change CD track for all clients
+
+======================================================================*/
+void() trigger_cdtrack_change =
+{
+	// Write CD track to all clients
+	msg_entity = self;
+	WriteByte (MSG_ALL, SVC_CDTRACK);
+	WriteByte (MSG_ALL, trig_cdtrack);
+	WriteByte (MSG_ALL, trig_cdtrack);
+};
+
+//----------------------------------------------------------------------
+void() trigger_cdtrack_use =
+{
+	// Check for entity state system block
+	if (self.estate & ESTATE_BLOCK) return;
+	
+	// Make sure CD track change in savefile
+	trig_cdtrack = self.count;
+
+	// Write message to all clients
+	trigger_cdtrack_change();
+};
+
+//----------------------------------------------------------------------
+void() trigger_cdtrack =
+{
+	self.classtype = CT_TRIGCDTRACK;
+	// Make sure specified cd track is integer number
+	self.count = fabs(rint(self.count));
+
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_use = trigger_cdtrack_use;
+	self.estate = ESTATE_ON;
+};
+
+/*======================================================================
+/*QUAKED trigger_skybox (0.9 0.9 0.9) (-8 -8 -16) (8 8 16) x
+Load/Change Skybox for all clients
+-------- KEYS --------
+targetname : trigger entity
+message : Skybox name (eg moonrise_)
+-------- SPAWNFLAGS --------
+-------- NOTES --------
+Load/Change Skybox for all clients
+
+======================================================================*/
+void(entity targ) trigger_skybox_change =
+{
+	// Write skybox change to all clients
+	stuffcmd(targ, "SKY ");
+	stuffcmd(targ, trig_skybox);
+	stuffcmd(targ, "\n");
+};
+
+//----------------------------------------------------------------------
+void() trigger_skybox_use =
+{
+	// Check for entity state system block
+	if (self.estate & ESTATE_BLOCK) return;
+	
+	// Check for client trigger first
+	if (activator.classtype == CT_PLAYER) self.enemy = activator;
+	
+	// Find a player for the stuff command
+	if (!self.enemy) {
+		self.enemy = find(world,targetname,"player");
+		if (self.enemy.classtype != CT_PLAYER) return;
+	}
+	
+	// Write skybox name to all clients
+	trig_skybox = self.message;
+	trigger_skybox_change(self.enemy);	
+};
+
+//----------------------------------------------------------------------
+void() trigger_skybox =
+{
+	self.classtype = CT_TRIGSKYBOX;
+	if (self.message == "") self.message = "Sky";
+
+	// Check for firing conditions (nightmare, coop)
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_use = trigger_skybox_use;
+	self.estate = ESTATE_ON;
+};
 /*======================================================================
 /*QUAKED trigger_itemrespawnupd (0.5 0 0.5) (-8 -8 -16) (8 8 16) x x x x RESPAWN x x x
 Change the state of respawn flag on items

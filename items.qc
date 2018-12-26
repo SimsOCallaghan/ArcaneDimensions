@@ -210,8 +210,8 @@ void() start_item_respawn =
 {
 	// Is the item being respawned at the moment?
 	if (self.waitmin > time) return;
-	// Is the item setup to instantly respawn? (time = -1)
-	if (self.respawn_time < 1 && self.spawnflags & ITEM_RESPAWN) {
+	// Is the item setup to instantly respawn?
+	if (self.respawn_trig == TRUE && self.spawnflags & ITEM_RESPAWN) {
 		// Check for any respawn quantity counts
 		if (self.respawn_count > 0) {
 			self.respawn_count = self.respawn_count - 1;
@@ -518,6 +518,9 @@ void() item_start =
 
 	// If respawn timer negative then wait for a trigger
 	if (self.respawn_time < 0) self.respawn_trig = TRUE;
+	// Respawn times < 1 break sound and particle spawners
+	if (self.respawn_time > 0 && self.respawn_time < 1) self.respawn_time = 1;
+	// Cannot start with a negative number for counting down
 	if (self.respawn_count < 0) self.respawn_count = 1;
 
 	// Override default item pickup sound with silence?
@@ -635,7 +638,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -653,7 +656,7 @@ void() item_health =
 {
 	if (self.spawnflags & H_ROTTEN) {
 		// worldtype 0 = medieval, 1 = metal, 2 = base
-		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 2) {
+		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 1) {
 			// New Medieval style red flask
 			self.mdl = "progs/health_15.mdl";
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
@@ -671,7 +674,7 @@ void() item_health =
 	}
 	else if (self.spawnflags & H_MEGA) {
 		// worldtype 0 = medieval, 1 = metal, 2 = base
-		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 2) {
+		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 1) {
 			// New Medieval style red flask
 			self.mdl = "progs/health_100.mdl";
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
@@ -691,7 +694,7 @@ void() item_health =
 	}
 	else {
 		// worldtype 0 = medieval, 1 = metal, 2 = base
-		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 2)
+		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 1)
 		{
 			// New Medieval style red flask
 			self.mdl = "progs/health_25.mdl";
@@ -786,7 +789,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -823,7 +826,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -870,7 +873,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1147,7 +1150,7 @@ Shadow Axe, extra dmg and gib zombies
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1178,7 +1181,7 @@ The Widowmaker Shotgun, extra dmg, triple shot
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1208,7 +1211,7 @@ The Plasma Gun, direct & splashdamage
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1241,7 +1244,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1273,7 +1276,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1310,7 +1313,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1342,7 +1345,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1374,7 +1377,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1406,7 +1409,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1438,7 +1441,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig  : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1583,7 +1586,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1636,7 +1639,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1689,7 +1692,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1738,7 +1741,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1788,7 +1791,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1919,7 +1922,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -1969,7 +1972,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -2021,7 +2024,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -2111,7 +2114,7 @@ bodyfadeaway : Model will fade away on pickup
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 part_active   : = 1 Enable particle burst on pickup
@@ -2208,7 +2211,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------
@@ -2470,7 +2473,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 30s)
@@ -2513,7 +2516,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 300s)
@@ -2562,7 +2565,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 30s)
@@ -2606,7 +2609,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 30s)
@@ -2649,7 +2652,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 30s)
@@ -2692,7 +2695,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 30s)
@@ -2735,7 +2738,7 @@ upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (=-1 instant)
+respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 cnt          : Duration override of artifact (default = 30s)
@@ -3238,9 +3241,8 @@ exactskin    : 0=Original, 1=green, 2=blue, 3=red, 4=yellow, 5=swamp, 6=white, 7
 upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
 upgrade_axe  : = 1 will only spawn if axe upgrade active on server
 upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message       : centerprint message when item is picked up
 noise         : pickup sound (def=items/backpack_ammo.wav)
-respawn_time  : time to wait before respawning (=-1 instant)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
 -------- SPAWNFLAGS --------

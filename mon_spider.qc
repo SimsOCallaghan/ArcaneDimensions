@@ -625,6 +625,7 @@ void() setup_spider =
 	self.meleeoffset = '24 0 20';		// Bite attack offset
 	self.attack_offset = '14 0 8';		// Used by green spider, at jaws
 	self.movespeed = 1;					// Can never be a turret
+	self.deathstring = " was bitten by a Spider\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

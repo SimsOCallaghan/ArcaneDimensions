@@ -399,6 +399,7 @@ void() monster_dog =
 	self.steptype = FS_TYPESLOW;		// Tiny feet
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '24 0 10';		// Bite attack offset
+	self.deathstring = " was mauled by a Rottweiler\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

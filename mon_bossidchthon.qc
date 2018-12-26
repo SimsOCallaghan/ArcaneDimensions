@@ -383,6 +383,7 @@ void() monster_boss =
 	self.bouncegrenade = TRUE;		// Grenades bounce off!
 	self.dpp_name = "TR_BOSSCHTHON";// Lava smoke and sparks
 	self.yaw_speed = 20;			// Fast turner
+	self.deathstring = " was blown apart by Chthon\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 1;

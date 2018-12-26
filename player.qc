@@ -49,6 +49,11 @@ $frame axattd1 axattd2 axattd3 axattd4 axattd5 axattd6
 
 void() player_run;
 
+// Updated player idle/fire weapon frame logic to be consistent
+// Bug highlighted by Stas "dwere" Kuznetsov
+float IDLE_WEAPON_FRAME = 0;	// Default idle state
+float FIRE_WEAPON_FRAME = 1;	// Start of firing frames
+
 /*==============================================================================
 PLAYER AXE
 
@@ -89,9 +94,9 @@ void()	player_axee4 =	[$axattd4, player_run	] {self.weaponframe=20;};
 
 //============================================================================
 void()	player_stand1 =[	$axstnd1,	player_stand1	] {
-	self.weaponframe=0;
+	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (self.velocity_x || self.velocity_y) {
-		self.walkframe=0;
+		self.walkframe = 0;
 		player_run();
 		return;
 	}
@@ -111,7 +116,7 @@ void()	player_stand1 =[	$axstnd1,	player_stand1	] {
 void()	player_run =[ $rockrun1, player_run ] {
 	
 	// Get out of any weapon animation
-	self.weaponframe = 0;
+	self.weaponframe = IDLE_WEAPON_FRAME;
 	// Standing around has different animation sets
 	if (!self.velocity_x && !self.velocity_y) {
 		self.walkframe = 0;
@@ -143,7 +148,7 @@ void()	player_run =[ $rockrun1, player_run ] {
 void()	player_run_nofeet =[ $rockrun1, player_run ] {
 	
 	// Get out of any weapon animation
-	self.weaponframe = 0;
+	self.weaponframe = IDLE_WEAPON_FRAME;
 	// Standing around has different animation sets
 	if (!self.velocity_x && !self.velocity_y) {
 		self.walkframe = 0;
@@ -178,9 +183,12 @@ void(entity targ) remoteplayer_run =
 };
 
 //============================================================================
-void()	player_sgreset =	[$shotatt1, player_sg2	] {self.weaponframe=1;};
+void()	player_sgreset =	[$shotatt1, player_sg2	] {
+	self.weaponframe=FIRE_WEAPON_FRAME;
+};
 
-void()	player_sg1 =	[$shotatt1, player_sg2	] { self.weaponframe=1;
+void()	player_sg1 =	[$shotatt1, player_sg1	] { 
+	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireShotgun ();
 };
@@ -190,9 +198,12 @@ void()	player_sg4 =	[$shotatt4, player_sg5	] { self.weaponframe=4; };
 void()	player_sg5 =	[$shotatt5, player_sg1	] { self.weaponframe=5; };
 
 //============================================================================
-void()	player_ssgreset =	[$shotatt1, player_supersg2	] {self.weaponframe=1;};
+void()	player_ssgreset =	[$shotatt1, player_supersg2	] {
+	self.weaponframe=FIRE_WEAPON_FRAME;
+};
 
-void()	player_supersg1 =	[$shotatt1, player_supersg2	] { self.weaponframe=1;
+void()	player_supersg1 =	[$shotatt1, player_supersg1	] { 
+	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireSuperShotgun ();
 };
@@ -249,13 +260,13 @@ void() player_snail8 = [$nailatt2, player_snail1 ] {snail_upd(8,2,0);};
 void() player_plasma1   =[$light1, player_plasma2  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe >= 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
 	W_FirePlasma();
 };
 void() player_plasma2   =[$light2, player_plasma1  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe >= 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
 	W_FirePlasma();
 };
 
@@ -263,21 +274,23 @@ void() player_plasma2   =[$light2, player_plasma1  ] {
 void() player_light1   =[$light1, player_light2  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe >= 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
 	W_FireLightning();
 };
 void() player_light2   =[$light2, player_light1  ] {
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
-	if (self.weaponframe >= 5) self.weaponframe = 1;
+	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
 	W_FireLightning();
 };
 
 //============================================================================
-void() player_rockreset   =[$rockatt1, player_rocket2  ] {self.weaponframe=1;};
+void() player_rockreset   =[$rockatt1, player_rocket2  ] {
+	self.weaponframe=FIRE_WEAPON_FRAME;
+};
 
-void() player_rocket1   =[$rockatt1, player_rocket2  ] { 
-	self.weaponframe=1;
+void() player_rocket1   =[$rockatt1, player_rocket1  ] { 
+	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireRocket();
 };
@@ -288,10 +301,12 @@ void() player_rocket5   =[$rockatt5, player_rocket6  ] { self.weaponframe=5;};
 void() player_rocket6   =[$rockatt6, player_rocket1  ] { self.weaponframe=6;};
 
 //============================================================================
-void() player_grenreset   =[$rockatt1, player_grenade2  ] {self.weaponframe=1;};
+void() player_grenreset   =[$rockatt1, player_grenade2  ] {
+	self.weaponframe=FIRE_WEAPON_FRAME;
+};
 
-void() player_grenade1   =[$rockatt1, player_grenade2  ] {
-	self.weaponframe=1;
+void() player_grenade1   =[$rockatt1, player_grenade1  ] {
+	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireGrenade();
 };
@@ -373,7 +388,7 @@ void() PainSound =
 	}
 	else {
 		// ax pain sound
-		if (self.axhitme == 1) {
+		if (self.axhitme > 0) {
 			self.axhitme = 0;
 			// Player been hit by an axe (MP thing)
 			sound (self, CHAN_VOICE, SOUND_AXE_PLAYER, 1, ATTN_NORM);
@@ -393,14 +408,20 @@ void() PainSound =
 };
 
 //============================================================================
-void()	player_pain1 =	[	$pain1,	player_pain2	] {PainSound();self.weaponframe=0;};
+void()	player_pain1 =	[	$pain1,	player_pain2	] {
+	PainSound();
+	self.weaponframe=IDLE_WEAPON_FRAME;
+};
 void()	player_pain2 =	[	$pain2,	player_pain3	] {};
 void()	player_pain3 =	[	$pain3,	player_pain4	] {};
 void()	player_pain4 =	[	$pain4,	player_pain5	] {};
 void()	player_pain5 =	[	$pain5,	player_pain6	] {};
 void()	player_pain6 =	[	$pain6,	player_run	] {};
 
-void()	player_axpain1 =	[	$axpain1,	player_axpain2	] {PainSound();self.weaponframe=0;};
+void()	player_axpain1 =	[	$axpain1,	player_axpain2	] {
+	PainSound();
+	self.weaponframe=IDLE_WEAPON_FRAME;
+};
 void()	player_axpain2 =	[	$axpain2,	player_axpain3	] {};
 void()	player_axpain3 =	[	$axpain3,	player_axpain4	] {};
 void()	player_axpain4 =	[	$axpain4,	player_axpain5	] {};

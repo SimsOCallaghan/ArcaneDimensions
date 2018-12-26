@@ -229,11 +229,6 @@ void() gaunt_wakeup6 = [ $launch6, gaunt_wakeup7 ] {gauntwings();ai_forward(4);}
 void() gaunt_wakeup7 = [ $launch7, gaunt_wakeup8 ] {ai_forward(4);};
 void() gaunt_wakeup8 = [ $launch8, gaunt_run1 ] {
 	FoundHuntTarget(TRUE);			// Setup goals and warn other monsters
-	self.spawnstatue = FALSE;		// No longer stationary
-	self.th_stand = gaunt_idle1;	// Restore all think state functions
-	self.th_walk = gaunt_walk1;
-	self.th_run = gaunt_run1;
-	self.th_missile = gaunt_fire1;
 };
 
 //----------------------------------------------------------------------
@@ -242,21 +237,24 @@ void() gaunt_wakeup =
 	// Dead already?
 	if (self.health < 1) return;
 
+	// No longer need perch spawnflag, remove it
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_GAUNT_PERCH);
+	self.spawnstatue = FALSE;		// No longer stationary
+
 	self.takedamage = DAMAGE_AIM;		// Can receive damage
 	self.use = SUB_Null;				// no re-trigger
 	
-	// Only call wakeup function once
-	self.th_walk = self.th_run = SUB_Null;
-
-	// No longer need perch spawnflag, remove it
-	if (self.spawnflags & MON_GAUNT_PERCH) 
-		self.spawnflags = self.spawnflags - MON_GAUNT_PERCH;
+	// Restore all think state functions
+	self.th_stand = gaunt_idle1;
+	self.th_walk = gaunt_walk1;
+	self.th_run = gaunt_run1;
+	self.th_missile = gaunt_fire1;
 
 	// Allow gaunt to fly up, no more ground checks
-	if (!(self.flags & FL_FLY)) self.flags = self.flags | FL_FLY;
+	self.flags = self.flags | FL_FLY;
 	self.movetype = MOVETYPE_STEP;
 	self.pain_finished = time + 1.5;		// No pain
-	SUB_AttackFinished(2 + random());		// No attacking
+	self.attack_finished = 1.5 + random();	// No skill adjustment
 	gaunt_wakeup1();
 };
 
@@ -283,18 +281,20 @@ void(entity inflictor, entity attacker, float damage) gaunt_pain =
 {
 	// Check for perching gaunt, need special wakeup
 	if (self.spawnflags & MON_GARGOYLE_PERCH) gaunt_wakeup();
-	// Check all pain conditions and set up what to do next
-	monster_pain_check(attacker, damage);
+	else {
+		// Check all pain conditions and set up what to do next
+		monster_pain_check(attacker, damage);
 
-	// make sure any electricity is hidden
-	if (self.attachment) gaunt_elecfinish();
+		// make sure any electricity is hidden
+		if (self.attachment) gaunt_elecfinish();
 
-	// Any pain animation/sound required?
-	if (self.pain_check > 0) {
-		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		if (self.pain_check == 1 || self.pain_check == 2) {
-			if (self.lip < 0.4) gaunt_painB1();	// Long
-			else gaunt_painA1();				// Short
+		// Any pain animation/sound required?
+		if (self.pain_check > 0) {
+			sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
+			if (self.pain_check == 1 || self.pain_check == 2) {
+				if (self.lip < 0.4) gaunt_painB1();	// Long
+				else gaunt_painA1();				// Short
+			}
 		}
 	}
 };
@@ -417,6 +417,7 @@ void() monster_gaunt =
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.height = MONAI_ABOVEDIST;		// Enemytarget distance above
 	self.attack_offset = '8 0 -4';		// Plasma start location
+	self.deathstring = " was blasted by a Gaunt\n";
 
 	self.th_checkattack = GauntCheckAttack;
 	self.th_pain = gaunt_pain; 

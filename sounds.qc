@@ -329,7 +329,7 @@ void() ambient_custom_rain =
 	self.check_weather = TRUE;	// Keep checking weather system
 	
 	// Always start off, must be triggered
-	self.spawnflags = ENT_STARTOFF;
+	self.spawnflags = self.spawnflags | ENT_STARTOFF;
 	
 	// Back into main function
 	ambient_custom_sound();

@@ -109,9 +109,11 @@ void() W_FireAxe =
 
 	// Only stuff that can be damaged has unique impact sounds
 	if (trace_ent.takedamage) {
-		trace_ent.axhitme = 1;			// special DM/Coop axe hit sound
-		if (self.moditems & IT_UPGRADE_AXE) axedmg = DAMAGE_PLAYAXE2;
-		else axedmg = DAMAGE_PLAYAXE1;
+		// Mark the monster with type of axe used and change damage
+		if (self.moditems & IT_UPGRADE_AXE) {
+			axedmg = DAMAGE_PLAYAXE2; trace_ent.axhitme = 2; }
+		else {
+			axedmg = DAMAGE_PLAYAXE1; trace_ent.axhitme = 1; }
 		
 		// Spamn blood always up so player can see it
 		SpawnBlood (trace_ent, org, '0 0 1', axedmg);
@@ -326,7 +328,7 @@ void() W_FireShotgun =
 		Launch_ShellCasing(1);	// Shell casings
 	}
 	else {
-		Launch_Shells(QUANTITY_SGP, spread_pat, CT_PROJ_SG);
+		Launch_Shells(QUANTITY_SG, spread_pat, CT_PROJ_SG);
 		Launch_ShellCasing(1);	// Shell casings
 	}
 };
@@ -367,19 +369,19 @@ void() W_FireSuperShotgun =
 		// Only got 2 shells in the gun (reduced damage)
 		if (self.ammo_shells < 3) {
 			self.ammo_shells = 0;
-			ssg_qty = QUANTITY_SSG * 1;
+			ssg_qty = QUANTITY_SSG;
 		}
 		else {
 			// 150% damage
 			shell_qty = 3;
 			self.ammo_shells = self.ammo_shells - 3;
-			ssg_qty = QUANTITY_SSG * 1.5;
+			ssg_qty = QUANTITY_WM;
 		}
 	}
 	else {
 		// Default ID SSG damage
 		self.ammo_shells = self.ammo_shells - 2;
-		ssg_qty = QUANTITY_SSG * 1;
+		ssg_qty = QUANTITY_SSG;
 	}
 
 	self.currentammo = self.ammo_shells;
@@ -694,6 +696,27 @@ void(vector p1, vector p2, entity from, float damage) PlayerLightningDamage =
 	if (trace_ent.takedamage) {
 		lighthit = TRUE;
 		// Some weird MP velocity hack!
+		// The story about this code (from quakeworld.nu)
+		//
+		// This code appears to have been there for a long, long time.
+		// It was there in Quake 1.06 Shareware release, and it may have
+		// been there before that. Someone must have been experimenting
+		// with something and forgot it there, but no one noticed because
+		// in that function, the 'other' entity is not usually set to
+		// anything in particular, and the code never worked.
+		//
+		// But then QW came along, and in the QW engine it turns out
+		// that 'other' will be set to 'self' if the player is touching
+		// a platform. And so the dormant code stared working! It was
+		// discovered by players, and players started using it to their
+		// advantage. Now it's an integral part of dm6 gameplay.
+		//
+		// The code was apparently discovered and removed when Quake QC 
+		// code was cleaned up before being released to public, so you
+		// won't normally see it in NQ mods. But it is there in the
+		// progs.dat in pak0.pak; and it will work in QuakeWorld engines
+		// supporting progs.dat (currently FTE and ZQuake).
+		//
 		if (self.classtype == CT_PLAYER) {
 			if (other.classtype == CT_PLAYER)
 				trace_ent.velocity_z = trace_ent.velocity_z + 400;

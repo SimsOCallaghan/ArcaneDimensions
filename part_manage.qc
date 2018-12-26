@@ -125,7 +125,7 @@ entity() fetch_particle =
 		if (part_message < time) {
 			dprint("\b[PARTICLE]\b current limit ("); dprint(ftos(part_max));
 			dprint(") too low!\n");
-			part_message = time + 3;	// interval console spam
+			part_message = time + 5;	// interval console spam
 		}
 	}
 	else {

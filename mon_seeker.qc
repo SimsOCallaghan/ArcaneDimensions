@@ -762,6 +762,7 @@ void() monster_seeker =
 	self.bouncegrenade = TRUE;			// Grenades bounce
 	self.bleedcolour = MON_BCOLOR_WHITE;	// Grey dust
 	self.poisonous = FALSE;				// Robots are not poisonous
+	self.deathstring = " was destroyed by a Seeker\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

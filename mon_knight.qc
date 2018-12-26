@@ -441,6 +441,7 @@ void() monster_knight =
 	self.steptype = FS_TYPEMEDIUM;		// Light soldier feet
 	self.skin = 0;						// Always reset (use exactskin)
 	self.th_die = knight_die;			// Face meets floor
+	self.deathstring = " was slashed by a Knight\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -461,6 +462,7 @@ void() monster_knight =
 		self.pain_timeout = 2;			// HK pain threshold
 		self.steptype = FS_TYPEHEAVY;	// heavy stone feet!
 		self.no_liquiddmg = TRUE;		// Immune to slime/lava
+		self.deathstring = " was smashed by a Stone Knight\n";
 		
 		// Allow knights to start with a stone skin, but not be frozen!
 		if (self.spawnflags & MON_NOTFROZEN) {

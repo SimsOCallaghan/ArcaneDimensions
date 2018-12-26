@@ -348,6 +348,8 @@ void() monster_base_enforcer =
 	self.pain_longanim = TRUE;			// Long pain animation for axe
 	self.steptype = FS_TYPEHEAVY;		// heavy player
 	self.attack_offset = '28 8.5 16';	// End of Gun
+	if (self.deathstring == "")
+		self.deathstring = " was blasted by an Enforcer\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -443,6 +445,7 @@ void() monster_defender =
 	self.th_checkattack = DefenderCheckAttack;
 	// Grenade bounce off body
 	self.bouncegrenade = TRUE;
+	self.deathstring = " was destroyed by a Defender\n";
 
 	monster_base_enforcer();
 };
@@ -481,6 +484,7 @@ void() monster_eliminator =
 	
 	self.th_missile = elim_atk1;
 	self.th_checkattack = EliminatorCheckAttack;
+	self.deathstring = " was assasinated by a Eliminator\n";
 
 	monster_base_enforcer();
 };

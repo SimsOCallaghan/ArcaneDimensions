@@ -509,7 +509,13 @@ void(float normal) SUB_AttackFinished =
 	local float nightadj;	// Easier to work out percentage
 	self.cnt = 0;			// reset checkfire counter
 	
-	if (skill == SKILL_NIGHTMARE) {
+	// Nightmare skill attacks are faster (turret like) and with
+	// hitscan enemies this can easily overwhelm targets locking
+	// them into damage/pain function loops. This can especially be
+	// be bad if a large enough enemy group is involved!
+	// Changed - NM behaviour for boss fights is default
+	//
+	if (skill == SKILL_NIGHTMARE && self.enemy.bossflag == FALSE) {
 		// Nightmare mode is just endless range attacks!
 		// I never thought this was a good way to end skill levels
 		// Changed nightmare mode to 50-75% decrease in time

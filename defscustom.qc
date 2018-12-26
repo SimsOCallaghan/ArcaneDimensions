@@ -20,6 +20,8 @@ float		coop_ammoboxes;		// Toggle ammo boxes respawning in coop
 float		coop_weapons;		// Toggle weapons respawning in coop
 float		coop_health;		// Toggle health packs respawning in coop
 float		coop_powerups;		// Toggle powerups respawning in coop
+float		trig_cdtrack;		// Trigger changed CD track
+string		trig_skybox;		// Trigger changed Skybox
 float		engine;				// Type of engine active 0=Fitz, 1=DP/FTE/QSS
 float		ext_active;			// PR extenstions active (DP/FTE)
 float		ext_dpfog;			// Extra DP fog parameters
@@ -98,6 +100,8 @@ entity		fog_control;		// Global fog controller (unique to map)
 .vector		bbmaxs;				// Saved bounding box size (maximum)
 .vector		idmins;				// Original ID bounding box (min)
 .vector		idmaxs;				// Used for stuck issues in original id maps
+.entity		touching;			// The trigger entity that is touching
+.string		startmsg;			// Start message for trigger_counter entity
 .string		message2;			// Additional messages for all entities
 .string		message3;			// Used by misc_books for addtional text
 .string		message4;			// Used by misc_books for addtional text
@@ -125,6 +129,7 @@ entity		fog_control;		// Global fog controller (unique to map)
 .float		item_skincycle;		// Skin animations are usually 0.3s (health packs)
 .float		item_skinanim_no;	// Skin no for animation groups
 .float		noradiusdmg;		// Block all T_RadiusDamage, stops grenade spam
+.float		nodebuginfo;		// Blocks certain debug info for entities
 .float		onladder;			// Update state from ladder entity to client
 .entity		entladder;			// Ladder entity for reference (time, sounds etc)
 .float		timeladder;			// Amount of time before playing climb sound
@@ -137,6 +142,11 @@ entity		fog_control;		// Global fog controller (unique to map)
 .string		str_unique;			// Unique string name for testing
 .string		ckeyname1, ckeyname2, ckeyname3, ckeyname4;	// Custom key netnames
 .float		ckeyhint;			// Hint to the player about inventory key
+
+// Pressure switch/ volume trigger parameters
+.float		presstype;			// 0/1 if touching entity type is valid
+.float		presstimersound;	// Timer for sound FX (stops repeating)
+.float		no_deadbody;		// Monster dead bodies don't work with trigger
 
 // Item respawning parameter
 .float		respawn_time;		// Amount of time to spend respawning item
@@ -275,6 +285,7 @@ entity		fog_control;		// Global fog controller (unique to map)
 .string		death_sound;		// Death sound wav file
 .string		death_sound2;		// Alternative death sound wav file
 .float		death_dmg;			// Used by tarbaby for explosive damage on death
+.string		deathstring;		// Used by client for player death messages
 
 .float		idlebusy;			// Busy with an alternative idle animation
 .float		idlereverse;		// Reverse direction for idle animation
@@ -519,6 +530,7 @@ float MONAI_TURRETMODE = 0.3;		// Percentage change of attack in turret mode
 float MON_IDLE_SOUND = 0.2;			// random chance of idle sound
 float MON_IDLE_ANIMATION = 0.2;		// random chance of idle animation
 
+//----------------------------------------------------------------------
 // Generic options
 float MON_AMBUSH = 1;				// Ambush (will only wakeup if see the player)
 float MON_SPAWN_NOSIGHT = 8;		// No wakeup sight sound
@@ -529,6 +541,7 @@ float MON_SPAWN_ANGRY = 128;		// Trigger spawn ANGRY
 float MON_GHOST_ONLY = 4096;		// Design for any ghost like monster
 float MON_POINT_KNIGHT = 8192;		// Pointy Electricity Knight
 
+//----------------------------------------------------------------------
 // Unique options
 float MON_HOGRE_METAL = 4;			// Metal Skin version +HP
 float MON_HOGRE_METUPG = 50;		// Extra health for metal upgrade
@@ -603,9 +616,9 @@ float SPEED_PLAYERSG = 2000;		// Player speed for SG
 float SPEED_PLAYERSSG = 1500;		// Player speed for SSG/Upgrade
 float SPEED_MONSG = 800;			// Monster speed for SG
 float SPEED_MONSGMULT = 150;		// 800=easy, 950=normal, 1100=hard, 1250=nm
-float QUANTITY_SG = 6;				// Shotgun
-float QUANTITY_SGP = 7;				// Projectile SG ONLY
-float QUANTITY_SSG = 14;			// Super Shotgun
+float QUANTITY_SG = 6;				// SG - Shotgun
+float QUANTITY_SSG = 14;			// SSG - Super Shotgun
+float QUANTITY_WM = 21;				// WM - Widow Maker
 float QUANTITY_GRUNT = 4;			// Soldier
 float QUANTITY_DEFENDER = 10;		// Defender
 vector SPREAD_SG = '0.04 0.04 0';	// Narrow and square spread
@@ -1297,6 +1310,8 @@ float CT_FUNCDOOR = 800;		// Func door
 float CT_FUNCDOORTRIG = 801;	// Generated touch trigger around door
 float CT_FUNCSECDOOR = 805;		// Func SECRET door
 float CT_FUNCBUTTON = 810;		// Func button
+float CT_FUNCPSWITCH = 812;		// Func Pressure Switch
+float CT_FUNCINSVOLUME = 813;	// Func to detect inside volume
 float CT_FUNCBOB = 815;			// Func bobbing bmodels
 float CT_FUNCTRAIN = 820;		// Func train
 float CT_FUNCWALL = 830;		// Func wall
@@ -1320,7 +1335,8 @@ float CT_FUNCLIFT = 895;		// New platform system
 float CT_TRIGONCE = 900;		// Once, volume
 float CT_TRIGMULTI = 905;		// Multiple, volume
 float CT_TRIGRELAY = 910;		// Relay, point entity no touch
-float CT_TRIGRELAYDELAY = 915;	// Relay, point entity no touch
+float CT_TRIGRELAYDELAY = 912;	// Relay, used in SUBS for delays
+float CT_TRIGDOORSTATE = 914;	// Set func_door to specific state
 float CT_TRIGCOUNT = 920;		// Count, point entity no touch
 float CR_TRIGENG = 922;			// Engine, point entity no touch
 float CT_TRIGRUNES = 925;		// Rune, volume
@@ -1337,9 +1353,12 @@ float CT_TRIGHEAL = 962;		// Heal, volume
 float CT_TRIGGIVEITEM = 964;	// Give items, volume
 float CT_TRIGTSOUND = 968;		// Touch sounds, volume
 float CT_TRIGPUSH = 970;		// Push, volume
+float CT_TRIGCONVEYOR = 972;	// Conveyor, volume
 float CT_TRIGLEVEL = 975;		// Change level
+float CT_TRIGSKYBOX = 976;		// Change/Load Skybox console command
 float CT_TRIGITEMFLAG = 977;	// Change item spawnflags
 float CT_TRIGCLMSG = 978;		// Message to all clients
+float CT_TRIGCDTRACK = 979;		// Change CD track
 
 float CT_TRIGMONJUMP = 980;		// Triger monster to jump forward
 float CT_TRIGNOJUMP = 981;		// Trigger monster to NOT jump!

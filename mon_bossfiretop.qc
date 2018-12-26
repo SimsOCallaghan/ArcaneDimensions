@@ -24,8 +24,12 @@ $frame shockb1 shockb2 shockb3 shockb4 shockb5 shockb6
 $frame shockc1 shockc2 shockc3 shockc4 shockc5 shockc6 shockc7 shockc8 
 $frame shockc9 shockc10
 
+float FTOP_IDLE = 1;
+float FTOP_ATTACK = 2;
+
+void(vector orgofs) ftop_fire;
 //===========================================================================
-void(float ftop_mode) ftop_track =
+void() ftop_track =
 {
 	// Find a player
 	if (self.enemy == world) {
@@ -39,50 +43,74 @@ void(float ftop_mode) ftop_track =
 	else if (intermission_running > 0) self.enemy = world;
 	else if (self.enemy.health < 1) self.enemy = world;
 		
-	// Got an enemy?
-	// Either attack or turn towards
-	if (self.enemy) {
-		if (ftop_mode == TRUE) self.th_missile();
-		else ai_face();
-	}
-	
 	// Update particle effect around base of Chthon
 	makevectors(self.angles);
 	particle_debuff(self.origin+v_forward*32, 96, rint(10+random()*40), PARTICLE_BURST_FIRE);
+
+	// Make sure function keeps going
+	self.nextthink = time + 0.1;
+	// Check for enemy
+	if (self.enemy == world) {
+		// Check for animation frame reset
+		if (self.state == FTOP_ATTACK) self.walkframe = 0;
+		self.think = self.th_stand;
+	}
+	else {
+		// Check for animation frame reset
+		if (self.state == FTOP_IDLE) self.walkframe = 0;
+		self.think = self.th_run;
+	}
 };
 
 //----------------------------------------------------------------------
-void() ftop_idle1	=[	$walk1, ftop_idle2 ] {ftop_track(TRUE);};
-void() ftop_idle2	=[	$walk2, ftop_idle3 ] {ftop_track(TRUE);};
-void() ftop_idle3	=[	$walk3, ftop_idle4 ] {ftop_track(TRUE);};
-void() ftop_idle4	=[	$walk4, ftop_idle5 ] {ftop_track(TRUE);};
-void() ftop_idle5	=[	$walk5, ftop_idle6 ] {ftop_track(TRUE);};
-void() ftop_idle6	=[	$walk6, ftop_idle7 ] {ftop_track(TRUE);};
-void() ftop_idle7	=[	$walk7, ftop_idle8 ] {ftop_track(TRUE);};
-void() ftop_idle8	=[	$walk8, ftop_idle9 ] {ftop_track(TRUE);};
-void() ftop_idle9	=[	$walk9, ftop_idle10 ] {ftop_track(TRUE);};
-void() ftop_idle10	=[	$walk10, ftop_idle11 ] {ftop_track(TRUE);};
-void() ftop_idle11	=[	$walk11, ftop_idle12 ] {ftop_track(TRUE);};
-void() ftop_idle12	=[	$walk12, ftop_idle13 ] {ftop_track(TRUE);};
-void() ftop_idle13	=[	$walk13, ftop_idle14 ] {ftop_track(TRUE);};
-void() ftop_idle14	=[	$walk14, ftop_idle15 ] {ftop_track(TRUE);};
-void() ftop_idle15	=[	$walk15, ftop_idle16 ] {ftop_track(TRUE);};
-void() ftop_idle16	=[	$walk16, ftop_idle17 ] {ftop_track(TRUE);};
-void() ftop_idle17	=[	$walk17, ftop_idle18 ] {ftop_track(TRUE);};
-void() ftop_idle18	=[	$walk18, ftop_idle19 ] {ftop_track(TRUE);};
-void() ftop_idle19	=[	$walk19, ftop_idle20 ] {ftop_track(TRUE);};
-void() ftop_idle20	=[	$walk20, ftop_idle21 ] {ftop_track(TRUE);};
-void() ftop_idle21	=[	$walk21, ftop_idle22 ] {ftop_track(TRUE);};
-void() ftop_idle22	=[	$walk22, ftop_idle23 ] {ftop_track(TRUE);};
-void() ftop_idle23	=[	$walk23, ftop_idle24 ] {ftop_track(TRUE);};
-void() ftop_idle24	=[	$walk24, ftop_idle25 ] {ftop_track(TRUE);};
-void() ftop_idle25	=[	$walk25, ftop_idle26 ] {ftop_track(TRUE);};
-void() ftop_idle26	=[	$walk26, ftop_idle27 ] {ftop_track(TRUE);};
-void() ftop_idle27	=[	$walk27, ftop_idle28 ] {ftop_track(TRUE);};
-void() ftop_idle28	=[	$walk28, ftop_idle29 ] {ftop_track(TRUE);};
-void() ftop_idle29	=[	$walk29, ftop_idle30 ] {ftop_track(TRUE);};
-void() ftop_idle30	=[	$walk30, ftop_idle31 ] {ftop_track(TRUE);};
-void() ftop_idle31	=[	$walk31, ftop_idle1 ] {ftop_track(TRUE);};
+void() ftop_idleframe =
+{
+	// If dead, no more updates
+	if (self.deadflag > DEAD_NO) return;
+	
+	// Always reset HP (super high)
+	self.health = self.max_health;
+	self.takedamage = DAMAGE_YES;
+	self.state = FTOP_IDLE;
+	
+	// Update frame
+	self.frame = $walk1 + self.walkframe;
+	
+	// Move frame forward, check for conditions
+	self.walkframe = self.walkframe + 1;
+	if (self.walkframe > 30) self.walkframe = 0;
+	
+	// Check for enemies
+	ftop_track();
+};
+
+//----------------------------------------------------------------------
+void() ftop_attackframe =
+{
+	// If dead, no more updates
+	if (self.deadflag > DEAD_NO) return;
+	
+	// Always reset HP (super high)
+	self.health = self.max_health;
+	// Slow down damage/pain functionality
+	if (self.pain_finished < time) self.takedamage = DAMAGE_YES;
+	self.state = FTOP_ATTACK;
+	
+	// Update frame
+	self.frame = $attack1 + self.walkframe;
+	
+	// Move frame forward, check for conditions
+	self.walkframe = self.walkframe + 1;
+	if (self.walkframe > 22) self.walkframe = 0;
+	
+	// Check for any frame conditions
+	if (self.walkframe == 8) ftop_fire('100 50 250');
+	else if (self.walkframe == 19) ftop_fire('100 -50 250');
+	
+	// Check for enemies
+	ftop_track();
+	if (self.enemy) ai_face();
+};
 
 //===========================================================================
 void(vector orgofs) ftop_fire =
@@ -92,7 +120,7 @@ void(vector orgofs) ftop_fire =
 
 	// No enemy or dead?
 	if (!self.enemy) return;
-	if (self.enemy.health < 1) return;
+	if (self.deadflag > DEAD_NO) return;
 	
 	sound (self, CHAN_WEAPON, "chthon/attack1.wav", 1, ATTN_NORM);
 	offang = vectoangles (self.enemy.origin - self.origin);	
@@ -119,34 +147,6 @@ void(vector orgofs) ftop_fire =
 };
 
 //----------------------------------------------------------------------
-void() ftop_attack1	=[	$attack1, ftop_attack2 ] {ftop_track(FALSE);};
-void() ftop_attack2	=[	$attack2, ftop_attack3 ] {ftop_track(FALSE);};
-void() ftop_attack3	=[	$attack3, ftop_attack4 ] {ftop_track(FALSE);};
-void() ftop_attack4	=[	$attack4, ftop_attack5 ] {ftop_track(FALSE);};
-void() ftop_attack5	=[	$attack5, ftop_attack6 ] {ftop_track(FALSE);};
-void() ftop_attack6	=[	$attack6, ftop_attack7 ] {ftop_track(FALSE);};
-void() ftop_attack7	=[	$attack7, ftop_attack8 ] {ftop_track(FALSE);};
-void() ftop_attack8	=[	$attack8, ftop_attack9 ] {ftop_fire('100 50 250');};
-void() ftop_attack9	=[	$attack9, ftop_attack10 ] {ftop_track(FALSE);};
-void() ftop_attack10=[	$attack10, ftop_attack11 ] {ftop_track(FALSE);};
-void() ftop_attack11=[	$attack11, ftop_attack12 ] {ftop_track(FALSE);};
-void() ftop_attack12=[	$attack12, ftop_attack13 ] {ftop_track(FALSE);};
-void() ftop_attack13=[	$attack13, ftop_attack14 ] {ftop_track(FALSE);};
-void() ftop_attack14=[	$attack14, ftop_attack15 ] {ftop_track(FALSE);};
-void() ftop_attack15=[	$attack15, ftop_attack16 ] {ftop_track(FALSE);};
-void() ftop_attack16=[	$attack16, ftop_attack17 ] {ftop_track(FALSE);};
-void() ftop_attack17=[	$attack17, ftop_attack18 ] {ftop_track(FALSE);};
-void() ftop_attack18=[	$attack18, ftop_attack19 ] {ftop_track(FALSE);};
-void() ftop_attack19=[	$attack19, ftop_attack20 ] {ftop_fire('100 -50 250');};
-void() ftop_attack20=[	$attack20, ftop_attack21 ] {ftop_track(FALSE);};
-void() ftop_attack21=[	$attack21, ftop_attack22 ] {ftop_track(FALSE);};
-void() ftop_attack22=[	$attack22, ftop_attack23 ] {ftop_track(FALSE);};
-void() ftop_attack23=[	$attack23, ftop_attack1 ] {ftop_track(FALSE);
-	// If no enemy go back to idling in a pool of lava!
-	if (self.enemy == world) self.think = self.th_stand;
-};
-
-//----------------------------------------------------------------------
 void() ftop_lightning =
 {
 	if (!self.movetarget2) return;
@@ -170,9 +170,11 @@ void() ftop_lightning =
 	WriteCoord (MSG_BROADCAST, self.pos2_z);
 };
 
-//----------------------------------------------------------------------
+//===========================================================================
 void(entity inflictor, entity attacker, float damage) ftop_pain = {
-	self.health = self.max_health;
+	// Stop pain reaction and prevent damage
+	self.pain_finished = time + 3;
+	self.takedamage = DAMAGE_NO;
 };
 
 //----------------------------------------------------------------------
@@ -199,11 +201,12 @@ void() ftop_death9 = [$death9, ftop_death10] {
 void() ftop_death10 = [$death9, ftop_death11] {
 	killed_monsters = killed_monsters + 1;
 	WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
+	self.health = -1;
 	entity_hide(self);
 };
 void() ftop_death11 = { remove(self); };
 
-//----------------------------------------------------------------------
+//===========================================================================
 void() ftop_shocka1 =[	$shocka1, ftop_shocka2 ] {ftop_lightning();};
 void() ftop_shocka2 =[	$shocka2, ftop_shocka3 ] {ftop_lightning();};
 void() ftop_shocka3 =[	$shocka3, ftop_shocka4 ] {ftop_lightning();};
@@ -248,6 +251,7 @@ void() ftop_deathsequence =
 	self.use = SUB_Null;
 	self.enemy = world;
 	self.takedamage = DAMAGE_NO;
+	self.deadflag = DEAD_DEAD;
 
 	// Find electrode start/end points
 	if (self.noise1 != "") 
@@ -284,11 +288,11 @@ void() ftop_rise13	=[	$rise13, ftop_rise14 ] {};
 void() ftop_rise14	=[	$rise14, ftop_rise15 ] {};
 void() ftop_rise15	=[	$rise15, ftop_rise16 ] {};
 void() ftop_rise16	=[	$rise16, ftop_rise17 ] {};
-void() ftop_rise17	=[	$rise17, ftop_attack1 ] {
+void() ftop_rise17	=[	$rise17, ftop_idleframe ] {
+	self.state = FTOP_IDLE;
 	self.takedamage = DAMAGE_YES;
-	self.th_stand = ftop_idle1;
-	self.th_run = ftop_attack1;
-	self.th_missile = ftop_attack1;
+	self.th_stand = ftop_idleframe;
+	self.th_run = ftop_attackframe;
 	self.th_pain = ftop_pain;
 	self.th_die = ftop_deathsequence;
 };
@@ -350,6 +354,7 @@ void() monster_firetopboss =
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
+	self.deathstring = " was destroyed by the Firetop Guardian\n";
 
 	self.health = self.max_health = MEGADEATH;
 	self.takedamage = DAMAGE_NO;
@@ -358,6 +363,7 @@ void() monster_firetopboss =
 	self.infightextra = 8;
 	self.pain_ignore = 1;
 	self.yaw_speed = 20;			// Fast turner
+	self.deadflag = DEAD_NO;
 
 	// Always reset Ammo Resistance to be consistent
 	// The shamblers infront of the boss are suppose to be killed
@@ -366,6 +372,7 @@ void() monster_firetopboss =
 	// The health is reset everytime pain is received
 	self.resist_shells = self.resist_nails = 1;
 	self.resist_rockets = self.resist_cells = 0.9;
+	self.reflectnails = self.bouncegrenade = TRUE;
 	
 	total_monsters = total_monsters + 1;
 	self.use = ftop_wakeup;

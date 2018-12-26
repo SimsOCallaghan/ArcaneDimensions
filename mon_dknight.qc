@@ -695,6 +695,7 @@ void() monster_dknight =
 	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 1.5;			// Higher than a knight
 	self.steptype = FS_TYPEHEAVY;
+	self.deathstring = " was cleaved by a Death Knight\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

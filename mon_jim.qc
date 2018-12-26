@@ -548,6 +548,7 @@ void() monster_jim =
 	if (self.spawnflags & MON_JIM_ROCKET) {
 		self.classtype = CT_MONJIMROCKET;
 		if (self.health < 1) self.health = 50;
+		self.deathstring = " was blown away by Jim\n";
 
 		// Classic idle sound + new variant
 		self.idle_sound = "jim/idle1.wav";
@@ -563,6 +564,7 @@ void() monster_jim =
 	else {
 		self.classtype = CT_MONJIM;
 		if (self.health < 1) self.health = 100;
+		self.deathstring = " was cauterized by Jim\n";
 		
 		// Classic idle sound + new variant
 		self.idle_sound = "jim/idle1.wav";

@@ -699,6 +699,7 @@ void() monster_dcrossbow =
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
 	self.attack_offset = '20 12 28';	// Where to fire bolt from
+	self.deathstring = " was skewered by a Crossbow Knight\n";
 	
 	// check for sniper mode, no distance checks for attacks
 	if (self.spawnflags & MON_DCROSSSNIPER)

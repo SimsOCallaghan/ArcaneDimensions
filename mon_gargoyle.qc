@@ -188,17 +188,12 @@ void()	garg_perch12=[	$perch24,	garg_perch1	] {ai_stand();};
 
 //----------------------------------------------------------------------
 // Sightsound and very quick animation while moving forward
-void()	garg_wakeup1	=[	$flyup2,	garg_wakeup2	] {};
+void()	garg_wakeup1	=[	$flyup2,	garg_wakeup2	] {ai_forward(1);};
 void()	garg_wakeup2	=[	$flyup4,	garg_wakeup3	] {ai_forward(4);};
 void()	garg_wakeup3	=[	$flyup6,	garg_wakeup4	] {ai_forward(8);};
 void()	garg_wakeup4	=[	$flyup14,	garg_wakeup5	] {ai_forward(8);gargoylewings();};
 void()	garg_wakeup5	=[	$flyup16,	garg_wakeup6	] {ai_forward(4);};
 void()	garg_wakeup6	=[	$flyup20,	garg_run1	] {
-	self.spawnstatue = FALSE;	// No longer stationary
-	self.th_stand = garg_idle1;	// Restore all think state functions
-	self.th_walk = garg_walk1;
-	self.th_run = garg_run1;
-	self.th_missile = garg_fire1;
 	monster_targets();			// Find target (angry/path_corner)
 	self.nextthink = time + 0.1;// Next frame
 };
@@ -209,22 +204,25 @@ void() gargoyle_wakeup =
 	// Dead already?
 	if (self.health < 1) return;
 
+	// No longer perched on the ground
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_GARGOYLE_PERCH);
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_STATUE);
+	self.spawnstatue = FALSE;	// No longer stationary
+	
 	self.takedamage = DAMAGE_AIM;		// Can receive damage
 	self.use = SUB_Null;				// no re-trigger
 	
-	// Only call wakeup function once
-	self.th_walk = self.th_run = SUB_Null;
+	// Restore all think state functions
+	self.th_stand = garg_idle1;
+	self.th_walk = garg_walk1;
+	self.th_run = garg_run1;
+	self.th_missile = garg_fire1;
 
-	// No longer need statue spawnflags, remove them
-	self.spawnflags = self.spawnflags - (self.spawnflags & MON_STATUE);
-	self.spawnflags = self.spawnflags - (self.spawnflags & MON_GARGOYLE_PERCH);
-	
 	// Allow gargoyle to fly up, no more ground checks
-	if (!(self.flags & FL_FLY)) self.flags = self.flags | FL_FLY;
+	self.flags = self.flags | FL_FLY;
 	self.movetype = MOVETYPE_STEP;
-	// self.movetype = MOVETYPE_FLY;		// Original setup
 	self.pain_finished = time + 1.5;		// No pain
-	SUB_AttackFinished(2 + random());		// No attacking
+	self.attack_finished = 1.5 + random();	// No skill adjustment
 	garg_wakeup1();
 };
 
@@ -458,6 +456,7 @@ void() setup_gargoyle =
 	self.blockudeath = TRUE;			// no humanoid death sound
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.attack_offset = '16 28 22';	// fireball start location
+	self.deathstring = " was burned by a Gargoyle\n";
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

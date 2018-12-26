@@ -306,6 +306,7 @@ void() setup_wizard =
 	self.blockudeath = TRUE;			// no humanoid death sound
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.attack_offset = '0 0 30';		// Acid spit start location
+	self.deathstring = " was wrecked by a Wizard\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

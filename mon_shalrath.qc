@@ -375,6 +375,7 @@ void() monster_shalrath =
 	self.pain_timeout = 3;			// Really high pain tolerance
 	self.steptype = FS_TYPELIGHT;	// Light tap feet
 	self.blockudeath = TRUE;		// no humanoid death sound
+	self.deathstring = " was exploded by a Vore\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

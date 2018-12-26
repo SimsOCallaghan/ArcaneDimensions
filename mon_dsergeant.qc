@@ -602,6 +602,7 @@ void() monster_dsergeant =
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
 	self.attack_offset = '0 0 10';
+	self.deathstring = " was crushed by a Blue Flail Knight\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

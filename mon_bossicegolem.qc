@@ -948,7 +948,7 @@ void() iceg_tranB9 = [ $tranB9, iceg_tranB10 ] {iceg_birth();ai_forward(5);};
 void() iceg_tranB10 = [ $tranB10, iceg_tranB11 ] {iceg_birth();ai_forward(5);};
 void() iceg_tranB11 = [ $tranB11, iceg_tranB12 ] {iceg_birth();ai_forward(5);};
 void() iceg_tranB12 = [ $tranB12, iceg_tranB13 ] {iceg_birth();ai_forward(5);};
-void() iceg_tranB13 = [ $tranB13, iceg_tranB13 ] {
+void() iceg_tranB13 = [ $tranB13, iceg_run1 ] {
 	monster_footstep(FALSE);
 	self.takedamage = DAMAGE_YES;	// Can take damage
 	self.style = ICEG_PHASE2;		// Time to fight!
@@ -1128,6 +1128,7 @@ void() monster_icegolem =
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
+	self.deathstring = " was shattered by the Ice Golem\n";
 
 	self.steptype = FS_TYPEGIANT;	// Giant sound
 	self.health = self.max_health = MEGADEATH;

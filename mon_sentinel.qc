@@ -270,6 +270,7 @@ void() monster_sentinel =
 	self.walkframe = 0;					// Reset frame counter
 	self.attack_offset = '0 0 14';		// front/middle of body
 	self.sight_nofront = TRUE;			// Has no front facing
+	self.deathstring = " was scorched by a Sentinel\n";
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

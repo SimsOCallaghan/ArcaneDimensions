@@ -859,6 +859,7 @@ void() monster_wraith =
 	self.blockudeath = TRUE;			// no humanoid death sound
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.frame = 1;						// First frame is never used!
+	self.deathstring = " was shattered by a Wraith\n";
 	
 	// Hitscan = 52 4 6; Nails = 60 4 14; Egg = 20 2 12;
 	self.attack_offset = '30 2 8';		// Half way point 

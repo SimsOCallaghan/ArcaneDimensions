@@ -453,6 +453,7 @@ void() monster_hogre =
 	self.pain_longanim = TRUE;
 	self.steptype = FS_TYPESLOW;
 	self.meleerange = MONAI_MELEEOGRE;	// Chainsaw range
+	self.deathstring = " was blown up by an Ogre Hunter\n";
 	
 	// Standard ogre health 200 with metal+ option
 	if (self.health < 1) self.health = 200;

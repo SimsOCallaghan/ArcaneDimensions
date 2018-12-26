@@ -288,10 +288,11 @@ float SVR_HIGHFLAG = 8323072;	// Bits 17-23 - these options carry over
 float SVR_ITEMOFFSET = 256;		// Toggle item offset (corner/center)
 float SVR_ITEMROTATE = 512;		// Always randomly rotate ammo items
 float SVR_PARTICLES = 1024;		// Turn ON particle system (default OFF)
-float SVR_UPDAXE = 2048;		// Upgrade Axe, +75% dmg, gib zombies
-float SVR_UPDSSG = 4096;		// Upgrade Super Shotgun, +50% dmg, uses 3 shells
-float SVR_UPDLG = 8192;			// Upgrade Lightning Gun, Direct+Splashdamage
-// 16384, 32768
+float SVR_NOFOGCMDS = 2048;		// Disables all fog commands (winquake)
+// 4096 Empty
+float SVR_UPDAXE = 8192;		// Upgrade Axe, +75% dmg, gib zombies
+float SVR_UPDSSG = 16384;		// Upgrade Super Shotgun, +50% dmg, uses 3 shells
+float SVR_UPDLG = 32768;		// Upgrade Lightning Gun, Direct+Splashdamage
 
 // MOD Options that can be changed via impulse commands (need a map loaded)
 // These options will override the temp1 console variable
@@ -549,7 +550,7 @@ vector ELEV_VIEW_OFS = '0 0 12';	// Zaware target adjustment
 vector ELEV_SPID_OFS = '0 0 -16';	// Hit low
 
 vector DAMAGE_RLPLAYER = '100 20 120';	// Base + Random, Splash
-vector DAMAGE_RLFURY = '0 0 40';		// Fury rockets - Radius damage
+vector DAMAGE_RLFURY = '20 0 20';		// Fury rockets - Equal Direct/Radius
 vector DAMAGE_RLGARG = '20 10 30';		// Gargoyle rocket, very weak dmg
 vector DAMAGE_RLSKULLW = '30 10 20';	// Skull wizard, high direct, low splash
 vector DAMAGE_RLWRAITH = '100 20 0';	// Wraith hitscan bolt against monsters
@@ -637,10 +638,10 @@ float MONAI_JUMPDOGNEAR = 80;		// DOG Jump attack distance ranges
 float MONAI_JUMPDOGFAR = 150;
 
 // Spider / Voreling / Scorpion / Lost Soul
-float MONAI_MELEESPIDER = 50;		// Distance for spider bite
+float MONAI_MELEESPIDER = 60;		// Distance for spider bite
 float MONAI_JUMPSPIDERNEAR = 80;	// SPIDER Jump attack ranges
 float MONAI_JUMPSPIDERFAR = 200;
-float MONAI_MELEEVORELING = 50;		// Distance for voreling bite
+float MONAI_MELEEVORELING = 60;		// Distance for voreling bite
 float MONAI_JUMPVORELINGNEAR = 80;	// VORELING Jump attack ranges
 float MONAI_JUMPVORELINGFAR = 200;
 float MONAI_MELEELOSTSOUL = 80;		// Distance for Lost Soul bite

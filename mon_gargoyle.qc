@@ -225,7 +225,8 @@ void() gargoyle_wakeup =
 
 	// Allow gargoyle to fly up, no more ground checks
 	if (!(self.flags & FL_FLY)) self.flags = self.flags | FL_FLY;
-	self.movetype = MOVETYPE_FLY;
+	self.movetype = MOVETYPE_STEP;
+	// self.movetype = MOVETYPE_FLY;		// Original setup
 	self.pain_finished = time + 1.5;		// No pain
 	SUB_AttackFinished(2 + random());		// No attacking
 	garg_wakeup1();

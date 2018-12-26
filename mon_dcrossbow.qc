@@ -298,6 +298,9 @@ void() dcrossbow_shot =
 {
 	local	vector org, dir;
 
+	if (!self.enemy) return;
+	if (self.health < 1) return;
+
 	// Flash effect to show where bolt is coming from	
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "weapons/crossbow_fire.wav", 1, ATTN_NORM);
@@ -351,6 +354,9 @@ void()	dcrossbow_fire30 =[	$tfire30,	dcrossbow_hold1] {ai_face();
 void() dcrossbow_checkattack =
 {
 	local float boltspeed;
+
+	// Always return if monster is dead!
+	if (self.health < 1) return;
 
 	// Check to see if enemy is dead? back to run/hunt cycle
 	if (self.enemy.health < 1) dcrossbow_stop1();
@@ -505,6 +511,9 @@ void() dcrossbow_melee =
 //----------------------------------------------------------------------
 void() dcrossbow_checkmelee =
 {
+	// Always return if monster is dead!
+	if (self.health < 1) return;
+
 	// Check to see if enemy is dead? back to run/hunt cycle
 	if (self.enemy.health < 1) ai_run(0);
 	else {

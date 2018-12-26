@@ -4,6 +4,7 @@
 // Particle management
 float PARTICLE_MAXENTS = 1024;	// Maximum amount of particles active (default)
 float PARTICLE_BANK = 64;		// How many particle in each setup bank
+float PARTICLE_BUFFER = 128;	// How many particle to create before unlock
 float		part_message;		// Timer for particle message (every 3s)
 entity		part_control;		// Particle setup entity (drives nextthink)
 entity		part_start;			// Pointers to start/end particle chain
@@ -108,6 +109,9 @@ entity() fetch_particle =
 	local entity tpart_ret;
 	tpart_ret = world;		// Default - no particle returned
 
+	// Make sure the system has 2 banks of particles setup first!
+	if (part_control.count < PARTICLE_BUFFER) return tpart_ret;
+
 	// Display particle limits if skill set to a debug number
 	if (part_debug == 1) {
 		sprint(client_ent, "CREATE Particle ("); sprint(client_ent, ftos(part_total));
@@ -116,7 +120,7 @@ entity() fetch_particle =
 	}
 	
 	// Are there any free particles?
-	if (part_total > part_max) {
+	if (part_total >= part_max - 1) {
 		if (part_message < time) {
 			dprint("\b[PARTICLE]\b current limit ("); dprint(ftos(part_max));
 			dprint(") too low!\n");

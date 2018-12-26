@@ -57,8 +57,10 @@ void(entity targ, entity attacker) Killed =
 		
 			// bump the monster counter
 			if (self.flags & FL_MONSTER) {
-				if (!self.nomonstercount) killed_monsters = killed_monsters + 1;
-				WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
+				if (!self.nomonstercount) {
+					killed_monsters = killed_monsters + 1;
+					WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
+				}
 			}
 		
 			ClientObituary(self, attacker);

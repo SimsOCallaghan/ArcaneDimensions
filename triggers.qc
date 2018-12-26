@@ -160,7 +160,7 @@ Variabled sized bmodel that uses multiple times
 ======================================================================*/
 void() trigger_multiple =
 {
-	if (self.spawnflags & TRIG_MODCHECK) remove(self);
+	if (self.spawnflags & TRIG_MODCHECK) { remove(self); return; }
 	trigger_bmodel_sounds();			// Precache any sounds
 	self.classtype = CT_TRIGMULTI;
 	InitTrigger ();
@@ -199,7 +199,7 @@ Variabled sized bmodel that uses once
 ======================================================================*/
 void() trigger_once =
 {
-	if (self.spawnflags & TRIG_MODCHECK) remove(self);
+	if (self.spawnflags & TRIG_MODCHECK) { remove(self); return; }
 	trigger_bmodel_sounds();			// Precache any sounds
 	self.classtype = CT_TRIGONCE;
 	InitTrigger ();
@@ -978,6 +978,18 @@ Trigger change global fog to new value over time
 ======================================================================*/
 void() trigger_fog_fire =
 {
+	// This is after bmodel _use, _killed and _touch, so any reference
+	// to the trigger activator has to go through 'bmodel_act'
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+	
+	if (query_configflag(SVR_NOFOGCMDS)) {
+		dprint("\b[FOG]\b quake.rc disabled, removing!\n");
+		self.attack_finished = LARGE_TIMER;
+		entity_remove(self, 0.1);
+		return;
+	}
+	
 	// Print dev message if worldspawn not setup correctly
 	// First fog blend will be weird otherwise
 	if (!fog_active) {
@@ -987,11 +999,6 @@ void() trigger_fog_fire =
 		}
 		self.pain_finished = time + 1;
 	}	
-	
-	// This is after bmodel _use, _killed and _touch, so any reference
-	// to the trigger activator has to go through 'bmodel_act'
-	if (self.estate & ESTATE_BLOCK) return;
-	if (self.attack_finished > time) return;
 	
 	// Crazy test option, random fog!
 	if (self.lefty) {
@@ -1024,11 +1031,12 @@ void() trigger_fog =
 {
 	self.classtype = CT_TRIGFOG;
 	InitTrigger ();
-	
+
 	// A fade time < minimum fade time = instant change
 	if (self.speed < FADEFOG_TIME) self.speed = FADEFOG_TIME;
 	if (!self.speed) self.speed = 2;
 	if (!self.wait) self.wait = 2;
+	self.attack_finished = 0;
 	
 	// Cannot have fog triggers touched by monsters
 	self.spawnflags = self.spawnflags - (self.spawnflags & TRIG_MONSTERS);
@@ -1263,7 +1271,7 @@ void() trigger_hurt_on =
 //----------------------------------------------------------------------
 void() trigger_hurt =
 {
-	if (self.spawnflags & TRIG_MODCHECK) remove(self);
+	if (self.spawnflags & TRIG_MODCHECK) { remove(self); return; }
 	self.classtype = CT_TRIGHURT;
 	InitTrigger ();
 	// No trigger damage functionality and always touchable!

@@ -193,13 +193,13 @@ void() item_use =
 
 		// Was item setup to be floating?
 		if(self.spawnflags & ITEM_FLOATING){
-			if (!checkbottom(self)) {
-				// A quick toss of the item
-				self.movetype = MOVETYPE_TOSS;	
-				self.origin_z = self.origin_z + 4;
-				if (self.flags & FL_ONGROUND) 
-					self.flags = self.flags - FL_ONGROUND;
-			}
+			// Removed checkbottom check, it often fails and leaves
+			// items floating in midair when they should fall
+			// if (!checkbottom(self)) - left for comment only
+			// A quick toss of the item
+			self.movetype = MOVETYPE_TOSS;	
+			self.origin_z = self.origin_z + 4;
+			self.flags = self.flags - (self.flags & FL_ONGROUND);
 		}
 	}
 };
@@ -907,7 +907,18 @@ void() weapon_touch =
 	}
 
 	// If co-op active, exit
-	if (leave == TRUE) return;
+	if (leave == TRUE) {
+		// Make sure any targets on the weapon are fired for co-op
+		// This is basically a run once check using state as a flag
+		// Ideally no weapon should use important target triggers!
+		// Code idea from Bengt Jardrup
+		if (self.state == FALSE) {
+			self.state = TRUE;
+			activator = other;
+			SUB_UseTargets ();
+		}
+		return;
+	}
 
 	// hide item and check for respawn
 	item_finished();
@@ -2080,30 +2091,30 @@ void() artifact_touch =
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_ARTSUIT) {
 		other.rad_time = TRUE;
-		other.radsuit_finished = time + POWERUP_TIMER;
+		other.radsuit_finished = time + self.cnt;
 		ResetDebuffBurning(other);
 		ResetDebuffPoisoned(other);
 	}
 	else if (self.classtype == CT_ARTPENT) {
 		other.invincible_time = TRUE;
-		other.invincible_finished = time + POWERUP_TIMER;
+		other.invincible_finished = time + self.cnt;
 		ResetDebuffSystem(other);
 	}
 	else if (self.classtype == CT_ARTINVS) {
 		other.invisible_time = TRUE;
-		other.invisible_finished = time + POWERUP_TIMER;
+		other.invisible_finished = time + self.cnt;
 	}
 	else if (self.classtype == CT_ARTQUAD) {
 		other.super_time = TRUE;
-		other.super_damage_finished = time + POWERUP_TIMER;
+		other.super_damage_finished = time + self.cnt;
 	}
 	else if (self.classtype == CT_ARTSHARP) {
 		other.sharpshoot_time = TRUE;
-		other.sharpshoot_finished = time + POWERUP_TIMER;
+		other.sharpshoot_finished = time + self.cnt;
 	}
 	else if (self.classtype == CT_ARTPIERCE) {
 		other.nailpiercer_time = TRUE;
-		other.nailpiercer_finished = time + POWERUP_TIMER;
+		other.nailpiercer_finished = time + self.cnt;
 	}
 	else return;
 
@@ -2137,6 +2148,9 @@ void() artifact_setup =
 	self.classgroup = CG_ARTIFACT;
 	self.bbmins = VEC_POWR_MIN;
 	self.bbmaxs = VEC_POWR_MAX;
+	
+	// Allow for custom artifact timer
+	if (self.cnt < 1) self.cnt = POWERUP_TIMER;
 
 	// Setup artifact default respawn timers
 	if (self.respawn_time == 0) {

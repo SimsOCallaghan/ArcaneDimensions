@@ -167,8 +167,9 @@ void(entity inflictor, entity attacker, float damage)	tbaby_pain =
 };
 
 //=============================================================================
-void()	tbaby_die1	=[	$exp,		tbaby_die2	] {};
-void()	tbaby_die2	=[	$exp,		tbaby_run1	] {
+void() tbaby_die1 =[ $exp, tbaby_die2 ] {};
+void() tbaby_die2 =[ $exp, tbaby_run1 ] {
+	// Tarbabies explode when they die
 	T_RadiusDamage (self, self, DAMAGE_TARBABY, world, DAMAGEALL);
 
 	sound (self, CHAN_BODY, "blob/death1.wav", 1, ATTN_NORM);

@@ -488,6 +488,16 @@ void(entity inflictor, entity attacker, float damage) lost_pain =
 };
 
 //============================================================================
+void() lost_die1 = [ $pain1, lost_die2 ] {};
+void() lost_die2 = [ $pain2, lost_die2 ] {
+	// Lost souls explode when they die
+	T_RadiusDamage (self, self, DAMAGE_LOSTSOUL, world, DAMAGEALL);
+	SpawnExplosion(EXPLODE_BIG, self.origin, "lostsoul/death.wav");
+	// Goto final resting place
+	entity_remove(self, 0.1);
+};
+
+//----------------------------------------------------------------------
 void() lost_die =
 {
 	// Pre-check routine to tidy up extra entities
@@ -495,13 +505,8 @@ void() lost_die =
 
 	// Make sure body does not drop to the ground
 	self.flags = self.flags | FL_FLY;
-	
-	// Lost souls explode when they die
-	T_RadiusDamage (self, self, DAMAGE_LOSTSOUL, world, DAMAGEALL);
-	SpawnExplosion(EXPLODE_BIG, self.origin, "lostsoul/death.wav");
-
-	// Goto final resting place
-	entity_hide(self);
+	self.takedamage = DAMAGE_NO;
+	lost_die1();
 };
 
 /*======================================================================

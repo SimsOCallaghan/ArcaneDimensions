@@ -352,6 +352,11 @@ void(vector ring_org, vector ring_dir, vector ring_rdir, float ring_rad, float r
 		else if (ring_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_RINGPARTP;
 		else dpp_string = DPP_RINGPARTW;
 	}
+	else {
+		// Are there any free particles?
+		// Check for maximim amount of particles available
+		if ( (part_total+ring_qty) >= part_max - 1) return;
+	}
 
 	ring_loop = 0;
 	ring_angle = 360 / ring_qty;
@@ -537,6 +542,9 @@ void(vector e_org, float e_qty, float e_time, float p_style, float e_style) part
 		}
 	}
 	else {
+		// Are there any free particles?
+		// Check for maximim amount of particles available
+		if ( (part_total+e_qty) >= part_max - 1) return;
 		e_loop = 0;
 		while (e_loop < e_qty) {
 			e_loop = e_loop + 1;	// Keep on loopin!
@@ -575,6 +583,11 @@ void(vector debuff_center, float debuff_qty, float debuff_style) particle_debuff
 		else if (debuff_style & PARTICLE_BURST_BLUE) dpp_string = DPP_RINGPARTB;
 		else if (debuff_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_RINGPARTP;
 		else dpp_string = DPP_RINGPARTW;
+	}
+	else {
+		// Are there any free particles?
+		// Check for maximim amount of particles available
+		if ( (part_total+debuff_qty) >= part_max - 1) return;
 	}
 
 	debuff_loop = 0;
@@ -635,6 +648,11 @@ void(vector dust_center, float dust_qty, float dust_style) particle_dust =
 		else if (dust_style & PARTICLE_BURST_BLUE) dpp_string = DPP_RINGPARTB;
 		else if (dust_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_RINGPARTP;
 		else dpp_string = DPP_RINGPARTW;
+	}
+	else {
+		// Are there any free particles?
+		// Check for maximim amount of particles available
+		if ( (part_total+dust_qty) >= part_max - 1) return;
 	}
 
 	dust_loop = 0;

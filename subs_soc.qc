@@ -191,7 +191,9 @@ void (entity targ) clear_trigstrs =
 //----------------------------------------------------------------------
 void(entity targ) entity_hide =
 {
-	targ.use = targ.touch = SUB_Null;	// no more touchy
+	targ.use = targ.touch = SUB_Null;	// No more touchy
+	targ.think = SUB_Null;				// No more thinking/animation
+	targ.nextthink = -1;				// Never fire think
 	targ.estate = ESTATE_OFF;			// Entity state off
 	setmodel (targ, "");				// invisible
 	targ.takedamage = DAMAGE_NO;		// No pain/death triggers

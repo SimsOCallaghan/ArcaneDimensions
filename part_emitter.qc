@@ -931,7 +931,7 @@ void() misc_particle =
 //----------------------------------------------------------------------
 void() misc_particle_burst_use =
 {
-	particle_explode(self.origin+self.part_ofs, self.pemit_tcount, self.part_life, self.part_style, self.part_movetype);
+	particle_explode(self.origin+self.part_ofs, self.count, self.part_life, self.part_style, self.part_movetype);
 };
 
 //----------------------------------------------------------------------
@@ -939,7 +939,10 @@ void() misc_particle_burst_use =
 //----------------------------------------------------------------------
 void() misc_particle_burst_setup =
 {
-	if (!self.pemit_tcount) self.pemit_tcount = 20;
+	// Read tcount from entity, but it cannot be used for constant emitters
+	// The finish particle system will decrease the tcount directly!
+	if (!self.pemit_tcount) self.count = 20;
+	
 	if (!self.part_life) self.part_life = 2;
 	if (self.part_ofs == '0 0 0') self.part_ofs = '0 0 0';
 

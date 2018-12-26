@@ -691,9 +691,12 @@ void() PlayerPostThink =
 			}
 			else liquid_alpha = cvar("r_wateralpha");	
 
-			// Create fog controller and/or update engine fog
-			if (fog_active) change_fog(self);
-			else setup_fog_controller();
+			// Setup/change global fog if enabled (default)
+			if (!(query_configflag(SVR_NOFOGCMDS))) {
+				// Create fog controller and/or update engine fog
+				if (fog_active) change_fog(self);
+				else setup_fog_controller();
+			}
 
 			// Update console with MOD settings
 			display_configflag();

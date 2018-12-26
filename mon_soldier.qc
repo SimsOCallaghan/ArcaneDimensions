@@ -409,7 +409,7 @@ void() monster_army =
 
 	if (!self.classtype) {
 		self.classtype = CT_MONARMY;
-		self.ammo_shells = rint(2 + random()*4);
+		if (self.ammo_shells < 1) self.ammo_shells = rint(2 + random()*4);
 		precache_sound ("soldier/sattck1.wav");
 		// If no skin override is defined, pick a random one instead
 		if (!self.exactskin) self.randomskin = 4;
@@ -430,7 +430,7 @@ void() monster_army_rocket =
 	// There are two red jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 4;
 	else self.exactskin = 5;
-	if (random() < 0.35) self.ammo_rockets = 1;
+	if (random() < 0.35 && self.ammo_rockets < 1) self.ammo_rockets = 1;
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("soldier/rocket_load.wav");
@@ -456,7 +456,7 @@ void() monster_army_grenade =
 	// There are two green jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 6;
 	else self.exactskin = 7;
-	if (random() < 0.35) self.ammo_rockets = 1;
+	if (random() < 0.35 && self.ammo_rockets < 1) self.ammo_rockets = 1;
 
 	self.th_missile = army_grenade_atk1;
 	self.th_melee = army_runback1;
@@ -476,7 +476,7 @@ void() monster_army_plasma =
 	// There are two blue jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 8;
 	else self.exactskin = 9;
-	if (random() < 0.35) self.ammo_cells = 1;
+	if (random() < 0.35 && self.ammo_cells < 1) self.ammo_cells = 1;
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("enforcer/elim_pg_load.wav");

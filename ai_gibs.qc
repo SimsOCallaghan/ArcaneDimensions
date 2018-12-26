@@ -477,6 +477,6 @@ void() monster_check_gib =
 
 	// Can only gib a monster once!
 	if (self.gibbed) return;
-	if ( self.health < (self.gibhealth + 1) || self.gibondeath) 
+	if ( self.health < (self.gibhealth + 1) || self.gibondeath)
 		monster_ThrowGib();
 };

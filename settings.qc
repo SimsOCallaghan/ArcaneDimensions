@@ -39,7 +39,7 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions (Arcadim) MOD v1.42P1\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions (Arcadim) MOD v1.42P2\n");
 };
 
 /*======================================================================
@@ -277,14 +277,15 @@ void() display_configflag =
 	else dprint("+ Path Corner Arrows enabled\n");
 
 	// Mod fog / wateralpha settings
-	if (fog_active && fog_control) {
+	if (query_configflag(SVR_NOFOGCMDS)) dprint("- Global fog system disabled\n");
+	else if (fog_active && fog_control) {
 		dprint("+ Gfog ("); 
 		lftos(self, fog_control.fog_currden, 1,3, BUFFER_DPRINT); dprint(")(");
 		lftos(self, fog_control.fog_currcol_x, 1,3, BUFFER_DPRINT); dprint(" ");
 		lftos(self, fog_control.fog_currcol_y, 1,3, BUFFER_DPRINT); dprint(" ");
 		lftos(self, fog_control.fog_currcol_z, 1,3, BUFFER_DPRINT); dprint(")\n");
 	}
-	else dprint("- Global fog system disabled\n");
+	else dprint("* Global fog default not defined\n");
 	if (liquid_alpha != 1) { 
 		dprint("+ Water Alpha has changed ("); 
 		lftos(self, liquid_alpha, 0,3, BUFFER_DPRINT); dprint(")\n");

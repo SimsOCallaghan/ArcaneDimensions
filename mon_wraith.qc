@@ -668,7 +668,7 @@ void() wraith_magic =
 			}
 		}
 		// First ever attack is the fire debuff
-		else if (self.attack_speed < time ) wraith_debuff1();
+		else if (self.attack_speed < time) wraith_debuff1();
 		// Does the player have the debuff already?
 		else if (truetarg.burning) wraith_nails1();
 		else {

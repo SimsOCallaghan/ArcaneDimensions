@@ -88,7 +88,10 @@ void() pyroflame_touch =
 	if (self.attack_finished > time) return;
 	if (other.classtype == self.owner.classtype) return; // Pyro proof!
 
-	self.velocity = '0 0 0';
+	// Stop still if hit world, carry on if burning something
+	if (other != world) self.velocity = self.movedir;
+	else self.velocity = '0 0 0';
+	
 	self.attack_finished = time + 1;
 	ApplyFireDmg(other, DAMAGE_PYROFLAME, DAMAGE_MONFLAME);
 };
@@ -115,11 +118,14 @@ void(vector org, vector dir) pyroflame_spawn =
 	
 	newmis = spawn();
 	newmis.classtype = CT_TEMPSTREAM;
+	newmis.classname = "PFlame";
 	newmis.owner = self;
 	newmis.frame = newmis.cnt = 0;
 
-	newmis.movetype = MOVETYPE_FLY;		// Fly, no gravity, but contact
-	newmis.solid = SOLID_TRIGGER;		// collision, touch required
+	// Extra wide flame contact if fighting a monster
+	if (self.enemy.flags & FL_MONSTER) newmis.movetype = MOVETYPE_FLYMISSILE;
+	else newmis.movetype = MOVETYPE_FLY;	// Standard flame size
+	newmis.solid = SOLID_TRIGGER;			// collision, touch required
 
 	// Switch particles between fire and smoke based on contents
 	pointc = pointcontents(self.origin);
@@ -149,7 +155,7 @@ void(vector org, vector dir) pyroflame_spawn =
 	newmis.movedir = (dir * newmis.attack_speed) + '0 0 -50' + variance;
 	newmis.velocity = newmis.movedir;
 	
-	// Roll the flames from side to side towards the player
+	// Roll the flames from side to side towards the target
 	roll = 350 + random() * 20;
 	newmis.angles_z = anglemod(roll);
 
@@ -164,11 +170,16 @@ void(vector org, vector dir) pyroflame_spawn =
 //----------------------------------------------------------------------
 void() pyro_fire =
 {
-	local vector org, dir;
+	local vector org, dir, targ_org;
+
+	if (self.health < 1) return;
+	
 	makevectors (self.angles);
 	org = self.origin + v_forward * 24 + v_right * 8.5 + '0 0 16';
 	// point the flames at the feet of the player
-	dir = normalize((self.enemy.origin - '0 0 20') - self.origin);
+	if (self.enemy.flags & FL_CLIENT) targ_org = self.enemy.origin - '0 0 20';
+	else targ_org = self.enemy.origin - self.enemy.view_ofs;
+	dir = normalize(targ_org - self.origin);
 	pyroflame_spawn(org, dir);
 };
 

@@ -7,6 +7,7 @@ float MONAI_ZOMBIEUPB = 2;		// zombie painb - 28 frames (9 = on ground)
 float MONAI_ZOMBIEUPD = 4;		// knight paind - 35 frames (12 = on ground)
 float MONAI_ZOMBIEUPE = 8;		// knight + zombie paine - 30 frames (12 = on ground)
 float MONAI_ZOMBGRDTIMER = 2;	// Zombie onground timer (between checking)
+float MONAI_ZOMBGRDBLOCK = 300;	// 0.1 * 300 = 30s
 float MONAI_ZOMBIELOW_DAM = 9;	// Pain threshold for animations	
 float MONAI_ZOMBIEHGH_DAM = 24;
 
@@ -310,6 +311,8 @@ void() monster_death_precheck =
 
 		self.deadflag = DEAD_DEAD;	// Its dead jim!
 		self.effects = 0;			// Remove effects on death
+		self.think = SUB_Null;		// No more thinking/animation
+		self.nextthink = -1;		// Never fire think
 		
 		monster_check_gib();		// Check for gib state
 	}
@@ -820,7 +823,7 @@ void() orgmonster_start_go = {
 		self.pausetime = 99999999;
 		self.th_stand ();
 	}
-	self.nextthink = self.nextthink + random()*0.5;
+	self.nextthink = self.nextthink + 0.01 + random()*0.5;
 };
 //----------------------------------------------------------------------
 void() walkmonster_start_go = {

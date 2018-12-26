@@ -987,8 +987,9 @@ W_WeaponFrame
 ======================================================================*/
 void() W_WeaponFrame =
 {
-	if (time < self.attack_finished) return;
 	ImpulseCommands ();
+	// Allow for impulse commands before weapon lockout
+	if (time < self.attack_finished) return;
 
 	// check for attack
 	if (self.button0) {

@@ -383,6 +383,8 @@ float(entity source, entity targ) targzone =
 ======================================================================*/
 void() HuntTarget =
 {
+	if (self.health < 1) return;	// Dead monsters don't hunt!
+	
 	self.oldorigin = self.origin;	// Save origin
 	self.goalentity = self.enemy;	// Focus on enemy
 	self.ideal_yaw = vectoyaw(self.enemy.origin - self.origin);
@@ -401,6 +403,8 @@ void() HuntTarget =
 ======================================================================*/
 void() FoundTarget =
 {
+	if (self.health < 1) return FALSE;	// Dead monsters don't hunt!
+
 	if (self.enemy.flags & FL_CLIENT) {
 		sight_entity = self;			// Highlight an angry monster for others
 		sight_entity_time = time;		// reset wakeup timer
@@ -436,8 +440,8 @@ void() FoundTarget =
 ======================================================================*/
 void(float wakeupothers) FoundHuntTarget =
 {
+	if (self.health < 1) return;	// Dead monsters don't hunt!
 	if (!self.enemy) return;
-	if (self.health < 1) return;
 
 	if (self.enemy.flags & FL_CLIENT && wakeupothers == TRUE) {
 		sight_entity = self;			// Highlight an angry monster for others
@@ -459,6 +463,8 @@ void(float wakeupothers) FoundHuntTarget =
 float() FindTarget =
 {
 	local entity client, playtarg;
+
+	if (self.health < 1) return FALSE;	// Dead monsters don't hunt!
 
 	//----------------------------------------------------------------------
 	// Does the global sight entity match the enemy sight group?
@@ -928,7 +934,7 @@ float(float attackdist) ai_checkmelee =
 	zdiff = fabs(spot1_z - spot2_z);
 	spot1_z = spot2_z = 0;				// Flatten Z axis before vector length
 	delta = vlen(spot1 - spot2);		// Calculate vector distance
-	
+
 	// Is the enemy too far away and the zaxis is wrong (too low/high)
 	if (delta < attackdist && zdiff < MONAI_MELEEZAXIS) return TRUE;
 	else return FALSE;

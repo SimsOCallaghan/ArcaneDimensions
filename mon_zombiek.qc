@@ -175,6 +175,7 @@ void() zombiek_stand13	=[	$stand13,		zombiek_stand14	] {ai_stand();};
 void() zombiek_stand14	=[	$stand14,		zombiek_stand15	] {ai_stand();};
 void() zombiek_stand15	=[	$stand15,		zombiek_stand1	] {
 	self.idlebusy = FALSE;
+	self.solid = SOLID_SLIDEBOX;
 	if (random() < MON_IDLE_ANIMATION) {
 		self.idlebusy = TRUE;
 		// Make sure the idle animations don't repeat in a row
@@ -190,7 +191,8 @@ void() zombiek_stand15	=[	$stand15,		zombiek_stand1	] {
 };
 
 //============================================================================
-void() zombiek_walk1	=[	$walk1,		zombiek_walk2	] {self.inpain = 0; ai_walk(1);};
+void() zombiek_walk1	=[	$walk1,		zombiek_walk2	] {
+	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_walk(1);};
 void() zombiek_walk2	=[	$walk2,		zombiek_walk3	] {ai_walk(1);};
 void() zombiek_walk3	=[	$walk3,		zombiek_walk4	] {ai_walk(4);};
 void() zombiek_walk4	=[	$walk4,		zombiek_walk5	] {ai_walk(4);};
@@ -206,7 +208,8 @@ void() zombiek_walk13	=[	$walk13,	zombiek_walk14] {ai_walk(1);};
 void() zombiek_walk14	=[	$walk14,	zombiek_walk1	] {zombiek_sound(2);ai_walk(1);};
 
 //============================================================================
-void() zombiek_run1		=[	$run1,		zombiek_run2	] {self.inpain = 0; ai_run(12);};
+void() zombiek_run1		=[	$run1,		zombiek_run2	] {
+	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_run(12);};
 void() zombiek_run2		=[	$run2,		zombiek_run3	] {ai_run(12);};
 void() zombiek_run3		=[	$run3,		zombiek_run4	] {ai_run(13);};
 void() zombiek_run4		=[	$run4,		zombiek_run5	] {ai_run(12);};
@@ -558,6 +561,15 @@ void() zombiek_wakeup	= {
 		self.nextthink = time + 0.1;	// Keep checking
 		self.think = self.th_wakeup;	// Same function
 		self.solid = SOLID_NOT;			// No world interaction yet
+		// Check if something has been blocking the zombie from getting up
+		// This is a check for weird world/bmodel geo or monster/players
+		// standing on zombies while on the ground trying to get up!
+		self.count = self.count + 1;
+		if (self.count > MONAI_ZOMBGRDBLOCK) {
+			self.health = self.gibhealth;	// Gib time
+			Killed(self, self);				// Register death
+			return;
+		}
 	}
 	else {
 		self.bodyonflr = string_null;	// Body is chop proof!
@@ -576,10 +588,11 @@ void() zombiek_wakeup	= {
 // ELSE setup next think timer and wait for opportunity to get back up
 //----------------------------------------------------------------------
 void(float frameno) zombiek_onground = {	
-	self.health = self.max_health;		// reset health
-	self.inpain = 2;					// Lying on floor, no pain
-	self.solid = SOLID_NOT;				// No world interaction
-	self.bodyonflr = MON_ONFLR;			// mark body for the chop
+	self.health = self.max_health;	// reset health
+	self.inpain = 2;				// Lying on floor, no pain
+	self.count = 0;					// Reset get up tries
+	self.solid = SOLID_NOT;			// No world interaction
+	self.bodyonflr = MON_ONFLR;		// mark body for the chop
 
 	// Does the zombie start on the ground?
 	if (frameno == MONAI_ZOMBIEFLR) {
@@ -683,6 +696,11 @@ void() zombiek_knockdown =
 ============================================================================*/
 void(float type) zombiek_sound =
 {
+	// check for gibbed or idle sound block
+	if (self.health < 1) return;
+	if (self.spawnflags & MON_SPAWN_NOIDLE && type < 3) return;
+	
+	// Random sound check
  	self.lip = random();
 	if (type == 2 && self.idletimer < time) {
 	 	self.idletimer = time + 1 + (random()*2);
@@ -767,6 +785,7 @@ void() monster_zombiek =
 	self.altsteptype = FS_TYPEDRAG;		// Clubfoot
 	self.pain_timeout = -5;				// Always go into pain (health reset)
 	self.inpain = 0;					// Zombie starts with no pain lock
+	self.count = 0;						// Reset get up timer
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

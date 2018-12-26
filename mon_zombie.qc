@@ -49,7 +49,9 @@ $frame cruc_1 cruc_2 cruc_3 cruc_4 cruc_5 cruc_6
 void(float type) zombie_sound;
 
 //=============================================================================
-void() zombie_stand1	=[	$stand1,		zombie_stand2	] {zombie_sound(2);ai_stand();};
+void() zombie_stand1	=[	$stand1,		zombie_stand2	] {
+	zombie_sound(2); self.solid = SOLID_SLIDEBOX; ai_stand();
+};
 void() zombie_stand2	=[	$stand2,		zombie_stand3	] {ai_stand();};
 void() zombie_stand3	=[	$stand3,		zombie_stand4	] {ai_stand();};
 void() zombie_stand4	=[	$stand4,		zombie_stand5	] {ai_stand();};
@@ -74,7 +76,9 @@ void() zombie_cruc5	=	[	$cruc_5,		zombie_cruc6	] {	self.nextthink = time + 0.1 +
 void() zombie_cruc6	=	[	$cruc_6,		zombie_cruc1	] {	self.nextthink = time + 0.1 + random()*0.1;};
 
 //============================================================================
-void() zombie_walk1		=[	$walk1,		zombie_walk2	] {self.inpain = 0; ai_walk(0);};
+void() zombie_walk1		=[	$walk1,		zombie_walk2	] {
+	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_walk(0);
+};
 void() zombie_walk2		=[	$walk2,		zombie_walk3	] {monster_footstep(TRUE); ai_walk(2);};
 void() zombie_walk3		=[	$walk3,		zombie_walk4	] {ai_walk(3);};
 void() zombie_walk4		=[	$walk4,		zombie_walk5	] {ai_walk(2);};
@@ -95,7 +99,9 @@ void() zombie_walk18	=[	$walk18,	zombie_walk19	] {ai_walk(0);};
 void() zombie_walk19	=[	$walk19,	zombie_walk1	] {zombie_sound(2);};
 
 //============================================================================
-void() zombie_run1		=[	$run1,		zombie_run2	] {self.inpain = 0; ai_run(1);};
+void() zombie_run1		=[	$run1,		zombie_run2	] {
+	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_run(1);
+};
 void() zombie_run2		=[	$run2,		zombie_run3	] {ai_run(1);};
 void() zombie_run3		=[	$run3,		zombie_run4	] {ai_run(0);};
 void() zombie_run4		=[	$run4,		zombie_run5	] {ai_run(1);};
@@ -281,9 +287,10 @@ void() zombie_painb3	=[	$painb3,	zombie_painb4	] {ai_pain(8);};
 void() zombie_painb4	=[	$painb4,	zombie_painb5	] {ai_pain(6);};
 void() zombie_painb5	=[	$painb5,	zombie_painb6	] {ai_pain(2);};
 void() zombie_painb6	=[	$painb6,	zombie_painb7	] {};
-void() zombie_painb7	=[	$painb7,	zombie_painb8	] {self.solid = SOLID_NOT;};
-void() zombie_painb8	=[	$painb8,	zombie_painb9	] {zombie_sound(5);};
-void() zombie_painb9	=[	$painb9,	zombie_painb9	] {zombie_onground(MONAI_ZOMBIEUPB);};
+void() zombie_painb7	=[	$painb7,	zombie_painb8	] {zombie_sound(5);};
+void() zombie_painb8	=[	$painb8,	zombie_painb9	] {self.solid = SOLID_NOT;};
+void() zombie_painb9	=[	$painb9,	zombie_painb9	] {
+	zombie_onground(MONAI_ZOMBIEUPB);};
 
 // Start of get up sequence
 void() zombie_painb10	=[	$painb10,	zombie_painb11	] {};
@@ -322,9 +329,10 @@ void() zombie_paine6	=[	$paine6,	zombie_paine7	] {ai_pain(2);};
 void() zombie_paine7	=[	$paine7,	zombie_paine8	] {ai_pain(1);};
 void() zombie_paine8	=[	$paine8,	zombie_paine9	] {ai_pain(1);};
 void() zombie_paine9	=[	$paine9,	zombie_paine10	] {ai_pain(2);};
-void() zombie_paine10	=[	$paine10,	zombie_paine11	] {self.solid = SOLID_NOT;};
-void() zombie_paine11	=[	$paine11,	zombie_paine12	] {zombie_sound(5);};
-void() zombie_paine12	=[	$paine12,	zombie_paine12	]{zombie_onground(MONAI_ZOMBIEUPE);};
+void() zombie_paine10	=[	$paine10,	zombie_paine11	] {zombie_sound(5);};
+void() zombie_paine11	=[	$paine11,	zombie_paine12	] {self.solid = SOLID_NOT;};
+void() zombie_paine12	=[	$paine12,	zombie_paine12	] {
+	zombie_onground(MONAI_ZOMBIEUPE);};
 
 // Start of get up sequence
 void() zombie_paine13	=[	$paine13,	zombie_paine14	] {};
@@ -400,9 +408,18 @@ void() zombie_wakeup	= {
 		self.nextthink = time + 0.1;	// Keep checking
 		self.think = self.th_wakeup;	// Same function
 		self.solid = SOLID_NOT;			// No world interaction yet
+		// Check if something has been blocking the zombie from getting up
+		// This is a check for weird world/bmodel geo or monster/players
+		// standing on zombies while on the ground trying to get up!
+		self.count = self.count + 1;
+		if (self.count > MONAI_ZOMBGRDBLOCK) {
+			self.health = self.gibhealth;	// Gib time
+			Killed(self, self);				// Register death
+			return;
+		}
 	}
 	else {
-		self.bodyonflr = string_null;	// Body is chop proof!
+		self.bodyonflr = "";			// Body is chop proof!
 		self.inpain = 1;				// Animation not finished
 		zombie_sound(6);				// Wake up sound
 		self.nextthink = time + 0.1;
@@ -418,10 +435,11 @@ void() zombie_wakeup	= {
 // paintype > 0 On floor and waiting to get back up
 //----------------------------------------------------------------------
 void(float frameno) zombie_onground = {
-	self.health = self.max_health;		// reset health
-	self.inpain = 2;					// Lying on floor, no pain
-	self.solid = SOLID_NOT;				// No world interaction
-	self.bodyonflr = MON_ONFLR;			// mark body for the chop
+	self.health = self.max_health;	// reset health
+	self.inpain = 2;				// Lying on floor, no pain
+	self.count = 0;					// Reset get up tries
+	self.solid = SOLID_NOT;			// No world interaction
+	self.bodyonflr = MON_ONFLR;		// mark body for the chop
 
 	// Does the zombie start on the ground?
 	if (frameno == MONAI_ZOMBIEFLR) {
@@ -444,8 +462,7 @@ void(float frameno) zombie_onground = {
 		self.fixangle = TRUE;
 	}
 	else {
-		// Zombie fall down function defines wake up pose
-		self.zombieflr = frameno;
+		self.zombieflr = frameno;	// Wakeup pose for later
 		// Keep zombies on the ground and check again later
 		self.nextthink = self.nextthink + MONAI_ZOMBGRDTIMER;
 		self.think = self.th_wakeup;
@@ -464,6 +481,11 @@ void(float frameno) zombie_onground = {
 ============================================================================*/
 void(float type) zombie_sound =
 {
+	// check for gibbed or idle sound block
+	if (self.health < 1) return;
+	if (self.spawnflags & MON_SPAWN_NOIDLE && type < 3) return;
+	
+	// Random sound check
  	self.lip = random();
 	if (type == 1) {
 		if (self.lip < 0.1) 
@@ -575,6 +597,7 @@ void() monster_zombie =
 		self.pain_timeout = -5;					// Always go into pain (health reset)
 		if (!self.movespeed) self.movespeed = 1;// Adjustable speed via skill level
 		self.inpain = 0;						// Zombie starts with no pain lock
+		self.count = 0;							// Reset get up timer
 
 		self.th_stand = zombie_stand1;
 		self.th_walk = zombie_walk1;
@@ -633,6 +656,7 @@ void() monster_mummy =
 	self.altsteptype = FS_TYPEDRAG;			// Clubfoot
 	self.pain_timeout = -5;					// Always go into pain (health reset)
 	self.inpain = 0;						// Zombie starts with no pain lock
+	self.count = 0;							// Reset get up timer
 	self.exactskin = 6;						// Mouldly bandages
 	self.gibtype = GIBTYPE_POISON;			// Poison gibs!
 	if (self.poisonous < 0) self.poisonous = FALSE;	// Poison debuff

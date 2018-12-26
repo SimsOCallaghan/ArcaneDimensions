@@ -268,6 +268,7 @@ void() voreling_droptouch =
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
 	setsize(self, self.bbmins, self.bbmaxs);
+	self.view_ofs = '0 0 24';		// Restore view offset
 
 	self.touch = SUB_Null;			// No more jump touching
 	FoundHuntTarget(TRUE);			// Setup goals and warn other monsters
@@ -309,12 +310,14 @@ void() voreling_wakeup =
 	self.spawnflags = self.spawnflags - (self.spawnflags & MON_VORELING_CEILING);
 
 	self.flags = FL_MONSTER;			// reset flags
-	if (engine == ENG_FITZ) self.origin_z = self.origin_z - 16;
+	
+	if (engine == ENG_FITZ) self.origin_z = self.origin_z - 8;
 	else self.origin_z = self.origin_z - 32;	// Unstick from ceiling
 	setorigin(self, self.origin);		// Move down slightly
+	
+	self.movetype = MOVETYPE_TOSS;		// Affected by gravity
 	self.solid = SOLID_SLIDEBOX;
-	self.movetype = MOVETYPE_STEP;
-	self.attack_timer = time + 1;
+	self.attack_timer = time + 1;		// Stuck timer
 
 	self.classmove = MON_MOVEWALK;		// Back to walking/running 
 	self.pain_finished = time + 1.5;	// No pain
@@ -323,7 +326,6 @@ void() voreling_wakeup =
 	makevectors (self.angles);			// Move towards face direction
 	self.velocity = v_forward * 50;		// Slight nudge forward
 
-	self.view_ofs = '0 0 24';			// Restore view offset
 	self.touch = voreling_droptouch;	// Touch something?
 	if (!self.jump_flag) 
 	self.jump_flag = time + 1 + random()*2;	// Don't jump straight away

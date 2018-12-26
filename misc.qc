@@ -413,7 +413,7 @@ void() misc_bubble_bob =
 
 	self.cnt = self.cnt + 1;
 	if (self.cnt == 4) misc_bubble_split();
-	if (self.cnt == 20) remove(self);
+	if (self.cnt == 20) { remove(self); return; }
 
 	rnd1 = self.velocity_x + (-10 + (random() * 20));
 	rnd2 = self.velocity_y + (-10 + (random() * 20));
@@ -1251,26 +1251,26 @@ void() misc_builtineffects_fire =
 	// has changed, there is an exact format for effects
 	if (self.count == TE_TELEPORT) {
 		self.lip = rint(random()*5);
-		if (self.lip == 0) sound (self.enemy, CHAN_VOICE, "misc/r_tele1.wav", 1, ATTN_NORM);
-		else if (self.lip == 1) sound (self.enemy, CHAN_VOICE, "misc/r_tele2.wav", 1, ATTN_NORM);
-		else if (self.lip == 2) sound (self.enemy, CHAN_VOICE, "misc/r_tele3.wav", 1, ATTN_NORM);
-		else if (self.lip == 3) sound (self.enemy, CHAN_VOICE, "misc/r_tele4.wav", 1, ATTN_NORM);
-		else sound (self.enemy, CHAN_VOICE, "misc/r_tele5.wav", 1, ATTN_NORM);
+		if (self.lip == 0) sound (self.movetarget, CHAN_VOICE, "misc/r_tele1.wav", 1, ATTN_NORM);
+		else if (self.lip == 1) sound (self.movetarget, CHAN_VOICE, "misc/r_tele2.wav", 1, ATTN_NORM);
+		else if (self.lip == 2) sound (self.movetarget, CHAN_VOICE, "misc/r_tele3.wav", 1, ATTN_NORM);
+		else if (self.lip == 3) sound (self.movetarget, CHAN_VOICE, "misc/r_tele4.wav", 1, ATTN_NORM);
+		else sound (self.movetarget, CHAN_VOICE, "misc/r_tele5.wav", 1, ATTN_NORM);
 	}	
 	else if (self.count == TE_LIGHTNING1 || self.count == TE_LIGHTNING2 || 
 		self.count == TE_LIGHTNING3) {
 		// Play lightning sound (LG weapon hit)
 		// Stop the sound constantly playing
 		if (self.waitmin < time) {
-			sound (self, CHAN_WEAPON, "weapons/lhit.wav", 1, ATTN_NORM);
+			sound (self.movetarget, CHAN_WEAPON, "weapons/lhit.wav", 1, ATTN_NORM);
 			self.waitmin = time + 0.6;
 		}
 	}
 	else if (self.count == TE_LAVASPLASH) 
-		sound (self.enemy, CHAN_BODY, "boss1/out1.wav", 1, ATTN_NORM);
+		sound (self.movetarget, CHAN_BODY, "boss1/out1.wav", 1, ATTN_NORM);
 	else if (self.count == TE_EXPLOSION || self.count == TE_TAREXPLOSION)
 		// Play original explosion sound
-		sound(self, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
+		sound(self.movetarget, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
 
 	// Continuous mode?
 	if (self.wait > 0) {
@@ -1305,7 +1305,8 @@ void() misc_builtineffects_setup =
 {
 	// Find any target destinations
 	if (self.target != "") self.movetarget = find(world, targetname, self.target);
-
+	else self.movetarget = self;
+	
 	// Lightning effects need source and target to work
 	// Check target is valid before trying to setup this effect
 	if (self.count == TE_LIGHTNING1 || self.count == TE_LIGHTNING2 || 

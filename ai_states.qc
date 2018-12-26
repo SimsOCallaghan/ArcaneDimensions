@@ -7,8 +7,8 @@
 //----------------------------------------------------------------------
 void() ai_stand =
 {
-	monster_liquid_check();				// Check for liquid damage
 	if (self.health < 1) return;		// Health < 0, no more standing
+	monster_liquid_check();				// Check for liquid damage
 	if (FindTarget ()) return;			// Found a player?
 	if (time > self.pausetime && self.movespeed >= 0) {
 		// Make sure AI is turning towards new path corner direction
@@ -25,11 +25,10 @@ void(float dist) ai_walk =
 {
 	local vector vertdiff;
 	
+	if (self.health < 1) return;		// Health < 0, no more walking
 	// Turret monsters don't walk, they stand around
 	if (self.movespeed < 0) { self.th_stand(); return; }
-	
 	monster_liquid_check();				// Check for liquid damage
-	if (self.health < 1) return;		// Health < 0, no more walking
 	movedist = dist;
 	if (FindTarget ()) return;			// Found a player?
 	
@@ -59,8 +58,8 @@ void(float dist) ai_walk =
 //----------------------------------------------------------------------
 void(float dist) ai_run =
 {
-	monster_liquid_check();				// Check for liquid damage
-	if (self.health < 1) return;		// Health < 0, no more running
+	if (self.health < 1) return;	// Health < 0, no more running
+	monster_liquid_check();			// Check for liquid damage
 	movedist = dist;
 
 	// Is the enemy dead or no longer taking damage?

@@ -195,20 +195,30 @@ void() ClientDeBuff =
 	if (self.cshift_upd) {
 		// Play different debuff sounds (pressure is on!)
 		if (self.debuff_sound > time) {
-			// Play heartbeat only for bleeding/healing
-			if (self.bleeding) 
-				sound (self, CHAN_VOICE, SOUND_HEARTBEAT, 1, ATTN_IDLE);
-			// Re-use player pain sounds
-			else if (self.poisoned) {
-				if (random() < 0.5) sound (self, CHAN_VOICE, "player/pain2.wav", 1, ATTN_IDLE);
-				else sound (self, CHAN_VOICE, "player/pain3.wav", 1, ATTN_IDLE);
+			self.debuff_sound = -1;		// Reset
+
+			// Sound exception for god/pentagram mode
+			if (self.flags & FL_GODMODE || self.invincible_finished >= time) {
+				if (self.invincible_sound < time) {
+					sound (self, CHAN_VOICE, SOUND_ARTPENT3, 1, ATTN_NORM);
+					self.invincible_sound = time + 2;
+				}
 			}
-			// Play on the same channel as player pain
-			else if (self.burning) {
-				if (random() < 0.5) sound (self, CHAN_VOICE, "player/pain1.wav", 1, ATTN_IDLE);
-				else sound (self, CHAN_VOICE, "player/pain4.wav", 1, ATTN_IDLE);
+			else {
+				// Play heartbeat only for bleeding/healing
+				if (self.bleeding) 
+					sound (self, CHAN_VOICE, SOUND_HEARTBEAT, 1, ATTN_IDLE);
+				// Re-use player pain sounds
+				else if (self.poisoned) {
+					if (random() < 0.5) sound (self, CHAN_VOICE, "player/pain2.wav", 1, ATTN_IDLE);
+					else sound (self, CHAN_VOICE, "player/pain3.wav", 1, ATTN_IDLE);
+				}
+				// Play on the same channel as player pain
+				else if (self.burning) {
+					if (random() < 0.5) sound (self, CHAN_VOICE, "player/pain1.wav", 1, ATTN_IDLE);
+					else sound (self, CHAN_VOICE, "player/pain4.wav", 1, ATTN_IDLE);
+				}
 			}
-			self.debuff_sound = -1;
 		}
 		// Check for screen update? 0.1s tick interval
 		if (self.cshift_time < time) {

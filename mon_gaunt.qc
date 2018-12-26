@@ -1,8 +1,7 @@
 /*==============================================================================
  GAUNT (Originally from Quoth - Kell/Necros/Preach)
- - Big thank you to necros for the code base for this monster
+ - Big thank you to necros for the his code base for this monster
 ==============================================================================*/
-
 // (000) Perched on a ledge (idling)
 $frame perch1 perch2 perch3 perch4 perch5 perch6 perch7 perch8
 $frame perch9 perch10 perch11 perch12 perch13 perch14 perch15 perch16
@@ -135,7 +134,7 @@ void() gaunt_plasma =
 	dir = normalize(SUB_orgEnemyTarget() - self.origin);
 	self.attack_speed = SPEED_GAUNTBOLT + (skill * SPEED_GAUNTSKILL);
 
-	launch_plasma(org, dir, CT_PROJ_PLASMA, self.attack_speed);
+	launch_plasma(org, dir, CT_MONGAUNT, self.attack_speed);
 };
 
 //----------------------------------------------------------------------
@@ -154,6 +153,7 @@ void(float elecframe) gaunt_elecupdate =
 		self.attachment.owner = self;
 		self.attachment.classtype = CT_ATTACHMENT;
 		self.attachment.mdl = self.weaponglow;
+		if (self.poisonous) self.attachment.skin = 1;
 	}
 	
 	if (elecframe == 0) {
@@ -254,7 +254,7 @@ void() gaunt_wakeup =
 
 	// Allow gaunt to fly up, no more ground checks
 	if (!(self.flags & FL_FLY)) self.flags = self.flags | FL_FLY;
-	self.movetype = MOVETYPE_FLY;
+	self.movetype = MOVETYPE_STEP;
 	self.pain_finished = time + 1.5;		// No pain
 	SUB_AttackFinished(2 + random());		// No attacking
 	gaunt_wakeup1();
@@ -281,6 +281,8 @@ void() 	gaunt_painB5 =[ $painB5, gaunt_run1 ] {};
 //----------------------------------------------------------------------
 void(entity inflictor, entity attacker, float damage) gaunt_pain =
 {
+	// Check for perching gaunt, need special wakeup
+	if (self.spawnflags & MON_GARGOYLE_PERCH) gaunt_wakeup();
 	// Check all pain conditions and set up what to do next
 	monster_pain_check(attacker, damage);
 
@@ -335,10 +337,14 @@ void() gaunt_die =
 			self.gibondeath = TRUE;
 			SpawnProjectileSmoke(self.origin, 200, 50, 150);
 			SpawnProjectileSmoke(self.origin, 200, 50, 150);
-			particle_explode(self.origin-'0 0 16', 50+random()*50, 2, PARTICLE_BURST_BLUE, PARTICLE_BURST_UPWARD);
+			if (self.poisonous) self.lip = PARTICLE_BURST_GREEN;
+			else self.lip = PARTICLE_BURST_BLUE;
+			particle_explode(self.origin-'0 0 16', 50+random()*50, 2, self.lip, PARTICLE_BURST_UPWARD);
 			makevectors(self.angles);
 			self.oldorigin = self.origin + v_forward*8;
-			SpawnExplosion(EXPLODE_PLASMA_BIG, self.oldorigin, SOUND_REXP3);
+			if (self.poisonous) self.lip = EXPLODE_POISON_BIG;
+			else self.lip = EXPLODE_PLASMA_BIG;
+			SpawnExplosion(self.lip, self.oldorigin, SOUND_REXP3);
 		}
 		// make sure any electricity is hidden
 		gaunt_elecfinish();
@@ -350,10 +356,11 @@ void() gaunt_die =
 	// regular death
 	if (!self.gibbed) {
 		sound (self, CHAN_VOICE, "gaunt/death.wav", 1, ATTN_NORM);
+		self.flags = FL_MONSTER;				// reset all flag conditions
+		self.movetype = MOVETYPE_TOSS;			// Affected by gravity
 		self.velocity_x = -200 + 400*random();
 		self.velocity_y = -200 + 400*random();
 		self.velocity_z = 100 + 100*random();
-		self.flags = self.flags - (self.flags & FL_ONGROUND);
 		if (random() < 0.5) gaunt_deathA1();
 		else gaunt_deathB1();
 	}
@@ -372,7 +379,7 @@ void() monster_gaunt =
 
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
-	precache_model (self.weaponglow);		// Lightning effect
+	precache_model (self.weaponglow);		// Lightning effect (2 colour)
 	precache_model (MODEL_PROJ_GAPLASMA);	// Plasma spike/bolt
 
 	self.idle_sound = "gaunt/idle1.wav";
@@ -393,6 +400,13 @@ void() monster_gaunt =
 	self.sight_sound = "gaunt/sight.wav";
 	precache_sound (self.sight_sound);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_GAPLASMAGRN);
+	}
+	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
@@ -423,8 +437,8 @@ void() monster_gaunt =
 		self.th_missile = gaunt_fire1;
 	}
 
-	if(!self.classtype) self.classtype = CT_MONGAUNT;
-	if (!self.classgroup) self.classgroup = CG_WIZARD;
+	self.classtype = CT_MONGAUNT;
+	self.classgroup = CG_WIZARD;
 	self.classmove = MON_MOVEFLY;
 
 	// Always reset Ammo Resistance to be consistent

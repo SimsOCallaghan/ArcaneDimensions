@@ -251,6 +251,7 @@ void() monster_oldone =
 	self.bbmaxs = '96 96 192';
 	self.bboxtype = BBOX_CUSTOM;	// Custom BBox size
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+	self.poisonous = FALSE;			// Cannot be poisonous
 
 	setmodel(self, self.mdl);					// Setup model
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size

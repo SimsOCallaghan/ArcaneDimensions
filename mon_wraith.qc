@@ -509,11 +509,8 @@ void(vector orgofs, float nbframe) wraith_nailball =
 void(vector boneofs) wraith_firenails =
 {
 	local vector org, dir;
-	local float bone_type;
 	if (self.health < 1) return;
 	
-	if (self.spawnflags & MON_WRAITH_SPIDERS) bone_type = CT_PROJ_WPOISON;
-	else bone_type = CT_PROJ_WBONE;
 	self.attack_speed = SPEED_WRAITHBONE + (skill * SPEED_WBONESKILL);
 	makevectors(self.angles);
 
@@ -521,16 +518,16 @@ void(vector boneofs) wraith_firenails =
 	org = self.origin + attack_vector(boneofs);
 	dir = SUB_orgEnemyTarget() + v_right*(BONEOFFSET*3);
 	dir = normalize(dir - org);
-	launch_projectile (org, dir, bone_type, self.attack_speed+random()*25);
+	launch_projectile (org, dir, CT_PROJ_WBONE, self.attack_speed+random()*25);
 	dir = SUB_orgEnemyTarget() - v_right*(BONEOFFSET*3);
 	dir = normalize(dir - org);
-	launch_projectile (org, dir, bone_type, self.attack_speed+random()*25);
+	launch_projectile (org, dir, CT_PROJ_WBONE, self.attack_speed+random()*25);
 	dir = SUB_orgEnemyTarget() + v_up*BONEOFFSET;
 	dir = normalize(dir - org);
-	launch_projectile (org, dir, bone_type, self.attack_speed+random()*25);
+	launch_projectile (org, dir, CT_PROJ_WBONE, self.attack_speed+random()*25);
 	dir = SUB_orgEnemyTarget() - v_up*BONEOFFSET;
 	dir = normalize(dir - org);
-	launch_projectile (org, dir, bone_type, self.attack_speed+random()*25);
+	launch_projectile (org, dir, CT_PROJ_WBONE, self.attack_speed+random()*25);
 };
 
 //----------------------------------------------------------------------
@@ -643,6 +640,7 @@ void() wraith_magic =
 			// If template no available, warn and remove feature
 			dprint("\b[WRAITH]\b Cannot find spider template!\n");
 			self.spawnflags = self.spawnflags - MON_WRAITH_SPIDERS;
+			self.poisonous = FALSE;
 		}
 	}
 	if (self.spawnflags & MON_WRAITH_SCORPIONS && !self.minion_active) {
@@ -859,7 +857,7 @@ void() monster_wraith =
 	self.gibbed = FALSE;				// not falling apart
 	self.pain_flinch = 70;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
-	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.frame = 1;						// First frame is never used!
 	
 	// Hitscan = 52 4 6; Nails = 60 4 14; Egg = 20 2 12;
@@ -883,16 +881,16 @@ void() monster_wraith =
 	
 	// Setup each wraith type with different skins/particles
 	if (self.spawnflags & MON_WRAITH_SCORPIONS) {
-		self.minion_maxcount = 3;	// default is usually 5!
+		// Check for override first, default should be 3 not 5 (spiders)
+		if (self.minion_maxcount < 1) self.minion_maxcount = 3;
 		self.exactskin = WRAITH_SKINPURPLE;			// Purple/Blood skin
 		self.poisonous = FALSE;						// Must be off for scorpion wraith
 		self.part_style = PARTICLE_BURST_PURPLE;	// Purple cloud
 	}
 	else if (self.spawnflags & MON_WRAITH_SPIDERS) {
-		self.exactskin = WRAITH_SKINGREEN;				// Poison/Green skin
-		if (self.poisonous < 0) self.poisonous = FALSE;	// Poison debuff
-		else self.poisonous = TRUE;
-		self.part_style = PARTICLE_BURST_GREEN;			// Poison cloud
+		self.exactskin = WRAITH_SKINGREEN;			// Poison/Green skin
+		self.poisonous = TRUE;						// Fires Poison needles
+		self.part_style = PARTICLE_BURST_GREEN;		// Poison cloud
 	}
 	else {
 		self.exactskin = WRAITH_SKINBLUE;	// Blue/Red skin

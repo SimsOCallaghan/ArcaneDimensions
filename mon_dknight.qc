@@ -647,8 +647,8 @@ void() monster_dknight =
 	precache_model (self.gib1mdl);
 
 	self.gib1sound = GIB_IMPACT_METALA;
-	if (random() < 0.5) self.gib2mdl = string_null;
-	if (random() < 0.5) self.gib3mdl = string_null;
+	if (random() < 0.5) self.gib2mdl = "";
+	if (random() < 0.5) self.gib3mdl = "";
 
 	self.idle_sound = "hknight/idle.wav";
 	precache_sound (self.idle_sound);
@@ -661,9 +661,6 @@ void() monster_dknight =
 	// filename is hardcoded (engine.exe)
 	precache_sound ("hknight/hit.wav");				
 
-	// Always precache these stone gib models
-	precache_stonegibs();
-	
 	self.sight_sound = "hknight/sight1.wav";
 	precache_sound (self.sight_sound);
 
@@ -677,6 +674,16 @@ void() monster_dknight =
 	precache_sound ("weapons/sword1b.wav");
 	precache_sound ("weapons/sword2a.wav");
 	precache_sound ("weapons/sword2b.wav");
+	
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_HKNGRN);
+	}
+
+	// dknight model does not support stone skins
+	//precache_stonegibs();
 	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement

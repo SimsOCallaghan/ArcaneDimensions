@@ -6,7 +6,7 @@ float BREAK_NOSHOOT = 2;		// Cannot be damaged/shot, trigger only
 float BREAK_EXPLOSION = 4;		// Spawn sprite/particle explosion
 float BREAK_SILENT = 8;			// No initial break sound
 float BREAK_DAMAGE = 16;		// Rubble does damage on touch
-float BREAK_NOMONSTER = 32;		// No damage to monsters from rubble
+float BREAK_NOMONSTER = 32;		// No damage from monsters
 float BREAK_NOSOUND = 64;		// No impact sound for rubble
 float BREAK_NOROTATE = 128;		// No Y rotation for rubble
 float BREAK_MOVEDIR = 4096;		// Set by entity, movedir/angles active
@@ -249,7 +249,7 @@ NODAMAGE  : Cannot be damaged or shot, trigger only
 EXPLOSION : trigger sprite/particle explosion
 SILENT    : No initial breakage sound
 DAMAGE    : Spawning rubble can damage (def = 2, use dmg key for touch damage)
-NOMONSTER : monsters cannot damage this breakable and/or spawning rubble will not damage monsters
+NOMONSTER : Monsters cannot damage this breakable and/or spawning rubble will not damage monsters
 NOSOUND   : Spawning rubble has no impact sounds
 NOROTATE  : Spawning rubble has No Y rotation
 -------- NOTES --------
@@ -364,6 +364,14 @@ void() breakable_touch =
 		// Does the spawning rubble hurt?
 		if (self.owner.spawnflags & BREAK_DAMAGE) {
 			if (other.takedamage) {
+				// Spawnflag BREAK_NOMONSTER = 32;  (No damage to monsters from rubble)
+				// Was originally about monsters being immune to spawning rubble
+				// This has changed over time to mean NO monster damage to breakable
+				// The original intention is still active and really meant for
+				// breakable spawners which don't have a bmodel component.
+				// The ability for breakable rubble to injure monsters is not a major
+				// feature and the no monster damage is more important.
+				// 
 				if ( other.flags & FL_MONSTER && self.owner.spawnflags & BREAK_NOMONSTER ) {}
 				else T_Damage(other, self, self, self.owner.dmg, DAMARMOR);
 			}
@@ -597,7 +605,7 @@ void() funcbreakable_touch =
 };
 
 //----------------------------------------------------------------------
-void(entity inflictor, entity attacker, float damage)	funcbreakable_pain =
+void(entity inflictor, entity attacker, float damage) funcbreakable_pain =
 {
 	local float loop_count;
 	local vector vel;
@@ -1105,6 +1113,8 @@ void() breakable_on =
 //======================================================================
 void() func_breakable =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// reset out of range styles and setup default = BTYPE_ROCK (1)
 	if (self.style < BTYPE_ROCK || self.style > BTYPE_MAX) self.style = BTYPE_ROCK;
 	// precache all sound/model stuff
@@ -1142,12 +1152,6 @@ void() func_breakable =
 //----------------------------------------------------------------------
 void() func_breakable_spawner =
 {
-	// reset out of range styles and setup default = BTYPE_ROCK (1)
-	if (self.style < BTYPE_ROCK || self.style > BTYPE_MAX) self.style = BTYPE_ROCK;
-	// precache all sound/model stuff
-	breakable_cache();
-	breakable_defaults();
-
 	// Check for targetname
 	if (self.targetname == "") {
 		dprint("\b[BRKTRIG]\b Missing targetname\n");
@@ -1155,6 +1159,12 @@ void() func_breakable_spawner =
 		remove(self);
 		return;
 	}
+
+	// reset out of range styles and setup default = BTYPE_ROCK (1)
+	if (self.style < BTYPE_ROCK || self.style > BTYPE_MAX) self.style = BTYPE_ROCK;
+	// precache all sound/model stuff
+	breakable_cache();
+	breakable_defaults();
 
 	self.classtype = CT_FUNCBREAKSPN;
 	self.classgroup = CG_BREAKABLE;
@@ -1243,11 +1253,16 @@ void() breakable_wall_use =
 //----------------------------------------------------------------------
 void() func_breakable_wall =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_FUNCBREAKWALL;
 	self.classgroup = CG_BREAKABLE;
 	self.bsporigin = TRUE;		// bmodel origin 0,0,0
 	self.angles = '0 0 0';		// Stop model twisting
 	self.mdl = self.model;		// Save for later
+	
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// Make sure the bmodel is active in the world before changing state
 	self.solid = SOLID_BSP;
 	self.movetype = MOVETYPE_PUSH;
@@ -1394,8 +1409,7 @@ void() misc_breakable_pot1 =
 	// Save any custom angles, otherwise random Y rotation
 	self.pos2 = '0 0 0';
 	if (CheckZeroVector(self.mangle) == FALSE) self.pos2 = self.mangle;
-	else if (query_configflag(SVR_ITEMROTATE) == FALSE)
-		self.pos2_y = rint(random()*359);
+	else self.pos2_y = rint(random()*359);
 	
 	// precache all sound/model stuff
 	breakable_cache();

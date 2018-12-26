@@ -7,6 +7,7 @@
  - float(entity targ) visblocked
  - float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide
  - float(entity targ) infront
+ - float(vector org_source, vector org_targ) check_liquidblock
  
  Distance checks
  - float(entity targ) range
@@ -59,6 +60,33 @@
 ======================================================================*/
 
 /*======================================================================
+ check_liquidblock
+ - Checks pointcontents of source+target because traceline parms
+   are not 100% reliable for flagging water/air content
+ - One function check for all the different visibility functions
+ - Designed to work with the new liquidblock entity flag
+======================================================================*/
+float(vector org_source, vector org_targ) check_liquidblock =
+{
+	local float pc_source, pc_targ;
+	
+	// Is r_wateralpha set or monsters forced to check liquid surfaces?
+	if (liquid_alpha == 1 || self.liquidblock) {
+		// Check point contents first
+		pc_source = pointcontents(org_source);
+		pc_targ = pointcontents(org_targ);
+		// Are point content different? (like water/air)
+		if (pc_source != pc_targ) return TRUE;
+		
+		// Standard traceline check (not 100% reliable)
+		if (trace_inopen && trace_inwater) return TRUE;
+	}
+	
+	// No liquid check required
+	return FALSE;
+};
+
+/*======================================================================
  visible (target entity)
  Conditions added to water surface check
  - most maps are compiled with transparent water nowadays
@@ -82,11 +110,8 @@ float(entity targ) visible =
 		setorigin(debugent1, spot2);
 	}
 
-	// Does the world define any water transparency
-	if (liquid_alpha == 1) {	
-		// sight line crossed contents
-		if (trace_inopen && trace_inwater) return FALSE;
-	}
+	// Check for liquid surface block condition
+	if (check_liquidblock(spot1, spot2) == TRUE) return FALSE;
 
 	if (trace_fraction == 1) return TRUE;
 	return FALSE;
@@ -110,11 +135,8 @@ float(entity targ, vector s_offset, vector t_offset, float nomonsters) visxray =
 	spot2 = targ.origin + t_offset;
 	traceline (spot1, spot2, nomonsters, self);	// custom options
 	
-	// Does the world define any water transparency
-	if (liquid_alpha == 1) {	
-		// sight line crossed contents
-		if (trace_inopen && trace_inwater) return FALSE;
-	}
+	// Check for liquid surface block condition
+	if (check_liquidblock(spot1, spot2) == TRUE) return FALSE;
 
 	// monster blocking changes which test to use
 	if (nomonsters) {
@@ -142,11 +164,8 @@ float(entity targ) visblocked =
 	spot2 = targ.origin + targ.view_ofs;
 	traceline (spot1, spot2, FALSE, self);	// blocked by monsters
 	
-	// Does the world define any water transparency
-	if (liquid_alpha == 1) {	
-		// sight line crossed contents
-		if (trace_inopen && trace_inwater) return FALSE;
-	}
+	// Check for liquid surface block condition
+	if (check_liquidblock(spot1, spot2) == TRUE) return FALSE;
 
 	// Original ID behaviour for this type of function
 	// Traceline entity hit = enemy?
@@ -169,12 +188,20 @@ float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide =
 	tr_leftmon = tr_rightmon = 0;
 	makevectors(self.angles);
 
+	//------------------------------------------------------------------
 	// Traceline 1 - MIDDLE
 	spot1 = self.origin + s_ofset_x * v_forward + s_ofset_y * v_right + s_ofset_z * v_up;
 	spot2 = targ.origin + t_ofset;
 	traceline (spot1, spot2, FALSE, self);
+	
+	// Is trace entity the same as the target entity?
 	if (trace_ent == targ) tr_line_x = 1;
-		
+	// Check for liquid surface block condition
+	// Only need to do this once for the central traceline
+	// If this fails then the left/right should as well
+	if (check_liquidblock(spot1, spot2) == TRUE) tr_line_x = 0;
+	
+	//------------------------------------------------------------------
 	// Traceline 2 - 32 units LEFT
 	spot3 = spot1 - (v_right * 16);
 	traceline (spot3, spot2, FALSE, self);
@@ -187,6 +214,7 @@ float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide =
 		setorigin(debugent2, trace_endpos);
 	}
 		
+	//------------------------------------------------------------------
 	// Traceline 3 - 32 units RIGHT
 	spot3 = spot1 + (v_right * 16);
 	traceline (spot3, spot2, FALSE, self);
@@ -199,6 +227,7 @@ float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide =
 		setorigin(debugent3, trace_endpos);
 	}
 
+	//------------------------------------------------------------------
 	// Default = no clear shot (keep aim/moving)
 	tr_result = TRUE;
 	// SIMPLE 3 complete traces = nothing blocking visibility
@@ -215,6 +244,7 @@ float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide =
 		else if (tr_line_y + tr_line_z == 1) tr_result = FALSE;
 	}
 
+	//------------------------------------------------------------------
 	if (self.debuglvl) {
 		dprint("Trace ("); dprint(ftos(tr_line_x));
 		dprint(" "); dprint(ftos(tr_line_y));
@@ -304,8 +334,15 @@ float (entity source, entity targ) rangeattack_check =
 	if (!source.th_melee && r < MON_RANGE_MELEE) return TRUE;
 
 	traceline (spot1, spot2, FALSE, source);	// trace hits monsters (infighting)
-	if (trace_ent != targ) return FALSE;			// don't have a clear shot
-	else return TRUE;
+	if (trace_ent != targ) return FALSE;		// don't have a clear shot
+
+	// Does the world define any water transparency
+	if (liquid_alpha == 1 || source.liquidblock) {	
+		// sight line crossed contents
+		if (trace_inopen && trace_inwater) return FALSE;
+	}
+
+	return TRUE;
 };
 
 /*======================================================================
@@ -391,6 +428,11 @@ void() FoundTarget =
 {
 	if (self.health < 1) return FALSE;	// Dead monsters don't hunt!
 
+	// Check for Liquid surface block entity key
+	// if the monster has range attack, can NOW see through liquid surface
+	if (self.liquidblock == TRUE && self.th_missile)
+		self.liquidblock = FALSE;
+
 	if (self.enemy.flags & FL_CLIENT) {
 		sight_entity = self;			// Highlight an angry monster for others
 		sight_entity_time = time;		// reset wakeup timer
@@ -428,6 +470,11 @@ void(float wakeupothers) FoundHuntTarget =
 {
 	if (self.health < 1) return;	// Dead monsters don't hunt!
 	if (!self.enemy) return;
+	
+	// Check for Liquid surface block entity key
+	// if the monster has range attack, can NOW see through liquid surface
+	if (self.liquidblock == TRUE && self.th_missile)
+		self.liquidblock = FALSE;
 
 	if (self.enemy.flags & FL_CLIENT && wakeupothers == TRUE) {
 		sight_entity = self;			// Highlight an angry monster for others
@@ -527,14 +574,17 @@ float() FindTarget =
 	// show_hostile flag is set when the player fires a weapon
 	//----------------------------------------------------------------------
 	if (enemy_range == RANGE_NEAR) {
-		if (client.show_hostile < time && !infront (client))
-			return FALSE;
+		if (client.show_hostile < time) {
+				if (self.sight_nofront == FALSE && !infront (client))
+					return FALSE;
+		}
 	}
 	//----------------------------------------------------------------------
 	// (Distance 500+) Is client infront?
 	//----------------------------------------------------------------------
 	else if (enemy_range > RANGE_NEAR) {
-			if (!infront (client)) return FALSE;
+			if (self.sight_nofront == FALSE && !infront (client)) 
+				return FALSE;
 	}
 
 	// At this point if the enemy is <120 (melee range) the enemy
@@ -645,12 +695,14 @@ float() FacingIdeal =
 //----------------------------------------------------------------------
 // ai_trackenemy
 //----------------------------------------------------------------------
-void() ai_trackenemy =
+float() ai_trackenemy =
 {
 	if (visible(self.enemy)) {
-		self.attack_track = self.enemy.origin;
+		self.attack_track = SUB_orgEnemyTarget();
 		ai_face();
+		return TRUE;
 	}
+	else return FALSE;
 };
 
 //----------------------------------------------------------------------
@@ -862,6 +914,27 @@ float(entity source, entity targ, float ignorenoshoot) ai_foundbreakable =
 };
 
 /*======================================================================
+ ai_immunedamage
+  Check if a breakable/pushable is immune to damage from monsters
+======================================================================*/
+float(entity source, entity targ) ai_immunedamage =
+{
+	// Found a breakable?
+	if (targ.classtype == CT_FUNCBREAK) {
+		// Check no damage spawnflag?
+		if (source.flags & FL_MONSTER && targ.spawnflags & BREAK_NOMONSTER)
+			return TRUE;
+	}
+	// Found a pushable?
+	else if (targ.classtype == CT_FUNCPUSHABLE) {
+		// Check no damage spawnflag?
+		if (source.flags & FL_MONSTER && targ.spawnflags & PUSH_NOMONSTER)
+			return TRUE;
+	}
+	return FALSE;
+};
+
+/*======================================================================
  ai_damagebreakable
   Check if the monster (self) can hit any breakables infront (target)
   Triple trace infront (self.angles) up,middle,down
@@ -959,7 +1032,9 @@ void() ai_melee =
 	// This candamage test not in origina id code (sync'd to melee_side)
 	if (!CanDamage (self.enemy, self)) return;
 
+	// 1-9 damage
 	ldmg = (random() + random() + random()) * 3;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 
 	// Only spawn blood/gore/sound every second
@@ -968,6 +1043,9 @@ void() ai_melee =
 		SpawnMeatSpray (self, self.enemy, random() * 100);
 	}
 	
+	// Check for poisonous blades!
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+
 	// Some melee weapons have swing and hit as separate sounds
 	// This is trigger_once per melee combat swing
 	// No check if meleehitsound is defined or not
@@ -998,13 +1076,20 @@ void(float dmg_multiplier) ai_meleesmash =
 	// If this is infighting do more damage as it will look more impressive
 	// Also if this damage is enough to kill in a single blow, gib for effect
 	if (self.enemy.flags & FL_MONSTER) dmg_multiplier = dmg_multiplier * 2;
+
+	// 1-9 damage
 	ldmg = (random() + random() + random()) * dmg_multiplier;
+	if (ldmg < 1) ldmg = 1;
 	if (self.enemy.health < ldmg) ldmg = ldmg*3;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
+
 	// Lots of blood and gore
 	SpawnMeatSpray (self, self.enemy, crandom() * 100);
 	SpawnMeatSpray (self, self.enemy, crandom() * 100);
 	
+	// Check for poisonous blades!
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+
 	// Some melee weapons have swing and hit as separate sounds
 	// This is trigger_once per melee combat swing
 	if (self.meleecontact) {
@@ -1031,9 +1116,14 @@ void() ai_melee_side =
 	// Can the target bleed? - no blood/damage, quick exit
 	if (!CanDamage (self.enemy, self)) return;
 
+	// 1-9 damage
 	ldmg = (random() + random() + random()) * 3;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	SpawnMeatSpray (self, self.enemy, random() * 50);
+	
+	// Check for poisonous blades!
+	if (self.poisonous) PoisonDeBuff(self.enemy);
 
 	// Some melee weapons have swing and hit as separate sounds
 	// This is trigger_once per melee combat swing

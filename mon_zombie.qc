@@ -68,14 +68,6 @@ void() zombie_stand14	=[	$stand14,		zombie_stand15	] {ai_stand();};
 void() zombie_stand15	=[	$stand15,		zombie_stand1	] {ai_stand();};
 
 //============================================================================
-void() zombie_cruc1	=	[	$cruc_1,		zombie_cruc2	] {zombie_sound(1);};
-void() zombie_cruc2	=	[	$cruc_2,		zombie_cruc3	] { self.nextthink = time + 0.1 + random()*0.1;};
-void() zombie_cruc3	=	[	$cruc_3,		zombie_cruc4	] {	self.nextthink = time + 0.1 + random()*0.1;};
-void() zombie_cruc4	=	[	$cruc_4,		zombie_cruc5	] {	self.nextthink = time + 0.1 + random()*0.1;};
-void() zombie_cruc5	=	[	$cruc_5,		zombie_cruc6	] {	self.nextthink = time + 0.1 + random()*0.1;};
-void() zombie_cruc6	=	[	$cruc_6,		zombie_cruc1	] {	self.nextthink = time + 0.1 + random()*0.1;};
-
-//============================================================================
 void() zombie_walk1		=[	$walk1,		zombie_walk2	] {
 	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_walk(0);
 };
@@ -126,14 +118,15 @@ void() zombie_run18		=[	$run18,		zombie_run1	] {zombie_sound(3);	ai_run(8); };
 void(vector st) ZombieThrowFlesh =
 {
 	local vector org, dir, ang, avel;
-	local float zom_proj;
 
+	if (self.health < 0) return;
+	
 	// Throw the flesh missle from the hand above the head
-	org = self.origin + st_x*v_forward + st_y*v_right + (st_z - 24)*v_up;
+	makevectors (self.angles);
+	org = self.origin + attack_vector(st);
 
 	// Is Z aware enabled (AI track player much better)
 	if ( query_configflag(SVR_ZAWARE) || self.no_zaware ) {
-		makevectors (self.angles);
 		dir = normalize(self.enemy.origin - org);
 		dir = dir * SPEED_ZOMBFLESH;
 		dir_z = ELEV_ZAXIS;
@@ -149,10 +142,7 @@ void(vector st) ZombieThrowFlesh =
 	}
 
 	avel = vecrand(100,200,FALSE);
-	if (self.classtype == CT_MONZOMBIE) zom_proj = CT_PROJ_FLESH;
-	else zom_proj = CT_PROJ_FLESHP;
-	
-	Launch_Grenade(org, dir, avel, zom_proj);
+	Launch_Grenade(org, dir, avel, CT_PROJ_FLESH);
 };
 
 //----------------------------------------------------------------------
@@ -172,9 +162,8 @@ void() zombie_atta11	=[	$atta11,	zombie_atta12	] {ai_face();
 	self.attack_speed = SPEED_ZOMBFLESH + (skill * SPEED_ZOMBIESKILL);
 	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed); };
 void() zombie_atta12	=[	$atta12,	zombie_atta13	] {ai_face();
-	self.attack_speed = SPEED_ZOMBFLESH + (skill * SPEED_ZOMBIESKILL);
-	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed); };
-void() zombie_atta13	=[	$atta13,	zombie_run1	] {ai_face();ZombieThrowFlesh('-10 -22 30'); };
+	ZombieThrowFlesh('8 12 28');};
+void() zombie_atta13	=[	$atta13,	zombie_run1	] {};
 
 //----------------------------------------------------------------------
 void() zombie_attb1		=[	$attb1,		zombie_attb2	] {ai_face();};
@@ -192,8 +181,8 @@ void() zombie_attb11	=[	$attb11,	zombie_attb12	] {ai_face();
 void() zombie_attb12	=[	$attb12,	zombie_attb13	] {ai_face();
 	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, SPEED_ZOMBFLESH); };
 void() zombie_attb13	=[	$attb13,	zombie_attb14	] {ai_face();
-	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, SPEED_ZOMBFLESH); };
-void() zombie_attb14	=[	$attb13,	zombie_run1	] {ai_face();ZombieThrowFlesh('-10 -24 29');};
+	ZombieThrowFlesh('6 -6 26');};
+void() zombie_attb14	=[	$attb13,	zombie_run1	] {};
 
 //----------------------------------------------------------------------
 void() zombie_attc1		=[	$attc1,		zombie_attc2	] {ai_face();};
@@ -209,8 +198,8 @@ void() zombie_attc9		=[	$attc9,		zombie_attc10	] {ai_face();
 void() zombie_attc10	=[	$attc10,	zombie_attc11	] {ai_face();
 	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, SPEED_ZOMBFLESH); };
 void() zombie_attc11	=[	$attc11,	zombie_attc12	] {ai_face();
-	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, SPEED_ZOMBFLESH); };
-void() zombie_attc12	=[	$attc12,	zombie_run1		] {ai_face();ZombieThrowFlesh('-12 -19 29');};
+	ZombieThrowFlesh('18 13 24');};
+void() zombie_attc12	=[	$attc12,	zombie_run1		] {};
 
 //----------------------------------------------------------------------
 void() zombie_missile =
@@ -535,6 +524,81 @@ void() zombie_die =
 	monster_death_precheck();
 };
 
+//============================================================================
+void() zombie_cruc1	= [$cruc_1,zombie_cruc2] {zombie_sound(1);};
+void() zombie_cruc2	= [$cruc_2,zombie_cruc3] {self.nextthink = time + 0.1 + random()*0.1;};
+void() zombie_cruc3	= [$cruc_3,zombie_cruc4] {self.nextthink = time + 0.1 + random()*0.1;};
+void() zombie_cruc4	= [$cruc_4,zombie_cruc5] {self.nextthink = time + 0.1 + random()*0.1;};
+void() zombie_cruc5	= [$cruc_5,zombie_cruc6] {self.nextthink = time + 0.1 + random()*0.1;};
+void() zombie_cruc6	= [$cruc_6,zombie_cruc1] {self.nextthink = time + 0.1 + random()*0.1;};
+
+//----------------------------------------------------------------------
+void(entity inflictor, entity attacker, float damage) zombie_cruc_pain =
+{
+	self.health = self.max_health;				// reset health	
+	// Any pain to moan about?
+	if (self.pain_finished < time) zombie_sound(4);
+	self.pain_finished = time + 1 + random();
+};
+
+//----------------------------------------------------------------------
+void() zombie_cruc_spawn =
+{
+	self.use = SUB_Null;				// No more triggers
+	self.solid = SOLID_BBOX;			// Interact with objects
+	self.movetype = MOVETYPE_FLY;		// Cannot be movetype_none
+	setmodel(self, self.mdl);			// Nail to cross
+	setsize (self, self.bbmins, self.bbmaxs);
+
+	// Setup exact/randon skin choices
+	self.randomskin = 4;
+	if (self.exactskin > 0) self.skin = rint(self.exactskin);
+	else self.skin = rint(random()*(self.randomskin-1));
+	if (self.skin < 0) self.skin = 0;	// Double check no negatives	
+	
+	self.takedamage = DAMAGE_AIM;		// Can receive damage
+	self.velocity = '0 0 0';			// Make sure stationary
+	self.deadflag = DEAD_NO;			// used to stop death re-triggering
+	self.view_ofs = '0 0 -24';			// Standard setup
+	self.pain_timeout = 1;				// Default
+	
+	zombie_cruc1 ();					// Time to do some moaning
+};
+
+//----------------------------------------------------------------------
+void() zombie_cruc_setup =
+{
+	// Setup AI functions
+	self.th_stand = self.th_walk = self.th_run = zombie_cruc1;
+	self.th_pain = zombie_cruc_pain; self.th_die = zombie_die;
+	
+	self.gibbed = FALSE;				// Still in one piece
+	self.health = self.max_health = 60;	// Save for later
+	self.gibhealth = 0 - self.health;	// Work out damage trigger
+	self.pain_flinch = 10;				// Always in pain
+	self.nomonstercount = TRUE;			// Don't include in initial total
+
+	// Zombies cannot be crucified and on the floor at once!
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_ONFLOOR);
+	
+	self.flags = FL_MONSTER;			// Always reset this flag
+	self.effects = 0;					// Always reset
+	self.oldorigin = self.origin;		// Save origin
+	self.bbmins = '-8 -8 -24';			// Narrow pole
+	self.bbmaxs = '8 8 32';
+
+	if (self.spawnflags & MON_SPAWN_DELAY) {
+		setmodel(self, string_null);
+		self.solid = SOLID_NOT;				// No world interaction
+		self.use = zombie_cruc_spawn;		// Wait for trigger
+	}
+	else {
+		// Variable start delay on all monsters to reduce packet errors
+		self.nextthink = time + 0.1 + random()*0.4;
+		self.think = zombie_cruc_spawn;
+	}
+};
+
 /*======================================================================
  QUAKED monster_zombie (1 0 0) (-16 -16 -24) (16 16 32) Crucified ambush FLOOR
 If crucified, stick the bounding box 12 pixels back into a wall to look right.
@@ -543,23 +607,25 @@ void() monster_zombie =
 {
 	if (deathmatch) { remove(self); return; }
 
+	// Stupid ID getting the crucified and ambush back to front on zombies
+	// Lets fix the problem and reverse the flags to match everything else
+	if (self.classtype != CT_MONMUMMY) {
+		if (self.spawnflags & MON_ZOMCRUCIFIED || self.spawnflags & MON_ZOMBAMBUSH) {
+			self.health = 0;		// Temporarily use this variable
+			if (self.spawnflags & MON_ZOMCRUCIFIED) self.health = self.health + MON_CRUCIFIED;
+			if (self.spawnflags & MON_ZOMBAMBUSH) self.health = self.health + MON_AMBUSH;
+			
+			// Removed the old bits and then add the new one's
+			self.spawnflags = self.spawnflags - (self.spawnflags & MON_ZOMIDHACK);
+			self.spawnflags = self.spawnflags + self.health;
+		}
+	}
+
 	self.mdl = "progs/mon_zombie.mdl";
 	self.headmdl = "progs/h_zombie.mdl";
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
-	//precache_model (MODEL_PROJ_FLESH); (world.qc)
-
-	// Stupid ID getting the crucified and ambush back to front on zombies
-	// Lets fix the problem and reverse the flags to match everything else
-	if (self.spawnflags & MON_ZOMCRUCIFIED || self.spawnflags & MON_ZOMBAMBUSH) {
-		self.health = 0;		// Temporarily use this float variable
-		if (self.spawnflags & MON_ZOMCRUCIFIED) self.health = self.health + MON_CRUCIFIED;
-		if (self.spawnflags & MON_ZOMBAMBUSH) self.health = self.health + MON_AMBUSH;
-		
-		// Removed the old bits and then add the new one's
-		self.spawnflags = self.spawnflags - (self.spawnflags & MON_ZOMIDHACK);
-		self.spawnflags = self.spawnflags + self.health;
-	}
+	precache_model (MODEL_PROJ_FLESH); 	// Also in world.qc
 
 	precache_sound ("zombie/z_idle.wav");	// Idle A
 	precache_sound ("zombie/z_idle1.wav");	// Idle B
@@ -579,10 +645,17 @@ void() monster_zombie =
 	self.sight_sound = "zombie/z_idle.wav";
 	precache_sound (self.sight_sound);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();				// precache gibs
+		self.gibtype = GIBTYPE_POISON;		// Poisonous blood trails
+		precache_model (MODEL_PROJ_FLESHP);	// Green flesh!?!
+	}
+
 	self.solid = SOLID_NOT;					// No interaction with world
 	self.movetype = MOVETYPE_NONE;			// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
-	self.classtype = CT_MONZOMBIE;
+	if (!self.classtype) self.classtype = CT_MONZOMBIE;
 	self.classgroup = CG_ZOMBIE;			// One big happy zombie family!
 	self.classmove = MON_MOVEWALK;
 	if (!self.exactskin) self.randomskin = 4;
@@ -592,11 +665,7 @@ void() monster_zombie =
 	self.resist_rockets = self.resist_cells = 0;
 
 	// Setup crucified zombies
-	if (self.spawnflags & MON_CRUCIFIED) {
-		setmodel(self, self.mdl);
-		setsize (self, self.bbmins, self.bbmaxs);
-		zombie_cruc1 ();
-	}
+	if (self.spawnflags & MON_CRUCIFIED) zombie_cruc_setup();
 	else {
 		// Setup zombie ready for placement
 		self.health = 60;						// Basic health (cannot override)
@@ -628,68 +697,12 @@ Poisonous Zombie that explodes poisonous gibs on death
 ======================================================================*/
 void() monster_mummy =
 {
-	if (deathmatch) { remove(self); return; }
-
-	self.mdl = "progs/mon_zombie.mdl";
-	self.headmdl = "progs/h_zombie.mdl";
-	precache_model (self.mdl);
-	precache_model (self.headmdl);
-	precache_model (MODEL_PROJ_FLESHP);
-
-	precache_sound ("zombie/z_idle.wav");	// Idle A
-	precache_sound ("zombie/z_idle1.wav");	// Idle B
-	precache_sound ("zombie/idle_w2.wav");	// Crucified
-
-	self.pain_sound = "zombie/z_pain.wav";
-	self.pain_sound2 = "zombie/z_pain1.wav";
-	precache_sound (self.pain_sound);
-	precache_sound (self.pain_sound2);
-
-	precache_sound ("zombie/z_shot1.wav");	// Swipe sound
-	precache_sound ("zombie/z_fall.wav");	// Impact - floor
-	precache_sound ("zombie/z_miss.wav");	// Impact - miss
-	precache_sound ("zombie/z_hit.wav");	// Impact - hit
-	precache_sound ("zombie/z_gib.wav");	// Death sound
-
-	self.sight_sound = "zombie/z_idle.wav";
-	precache_sound (self.sight_sound);
-
-	precache_poisongibs();					// precache gibs
-	
-	self.solid = SOLID_NOT;					// No interaction with world
-	self.movetype = MOVETYPE_NONE;			// Static item, no movement
-	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
-	self.health = 60;						// Basic health (cannot override)
-	self.gibhealth = -60;					// Gib value, not used
-	self.gibbed = FALSE;					// In one piece
-	self.pain_flinch = MONAI_ZOMBIEHGH_DAM;
-	self.steptype = FS_TYPESLOW;			// Small leg
-	self.altsteptype = FS_TYPEDRAG;			// Clubfoot
-	self.pain_timeout = -5;					// Always go into pain (health reset)
-	self.inpain = 0;						// Zombie starts with no pain lock
-	self.count = 0;							// Reset get up timer
+	self.classtype = CT_MONMUMMY;			// Special poison zombie
 	self.exactskin = 6;						// Mouldly bandages
-	self.gibtype = GIBTYPE_POISON;			// Poison gibs!
 	self.no_liquiddmg = TRUE;				// Immune to slime/lava
-	if (self.poisonous < 0) self.poisonous = FALSE;	// Poison debuff
-	else self.poisonous = TRUE;
-
-	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = self.resist_cells = 0;
-
-	self.th_stand = zombie_stand1;
-	self.th_walk = zombie_walk1;
-	self.th_run = zombie_run1;
-	self.th_pain = zombie_pain;
-	self.th_die = zombie_die;
-	self.th_missile = zombie_missile;		// Throwing flesh
-	self.th_wakeup = zombie_wakeup;			// Get off floor
-
-	self.classtype = CT_MONMUMMY;
-	self.classgroup = CG_ZOMBIE;			// One big happy zombie family!
-	self.classmove = MON_MOVEWALK;
+	self.spawnflags  = self.spawnflags - (self.spawnflags & MON_CRUCIFIED);
 	
-	monster_start();
+	// The mummy is just poisonous, it is still a zombie
+	monster_zombie();
 };
 

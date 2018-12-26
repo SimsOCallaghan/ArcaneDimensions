@@ -309,7 +309,6 @@ void() skullw_tele13 = {
 void(vector orgofs) skullw_fire =
 {
 	local vector org, dir;
-	local float proj_type;
 
 	ai_face();
 	self.effects = self.effects | EF_MUZZLEFLASH;
@@ -321,9 +320,7 @@ void(vector orgofs) skullw_fire =
 	dir = normalize(self.enemy.origin - org);
 
 	self.attack_speed = SPEED_SWIZMISSILE + (skill * SPEED_SWIZSKILL);
-	if (self.spawnflags & MON_SKULLWIZ_GUARDIAN) proj_type = CT_PROJ_SKULLWP;
-	else proj_type = CT_PROJ_SKULLW;
-	Launch_Missile (org, dir, '0 0 0', proj_type, self.attack_speed);
+	Launch_Missile (org, dir, '0 0 0', CT_PROJ_SKULLW, self.attack_speed);
 };
 
 //----------------------------------------------------------------------
@@ -371,6 +368,9 @@ void() skullw_guardian =
 {
 	local float poison_loop;
 	local vector poison_angles, org, dir;
+	
+	// Double check the skull wizard has poisonous flag set
+	if (!self.poisonous) return;
 	
 	// Remove projectile
 	entity_remove(self, 1);
@@ -784,6 +784,11 @@ void() monster_skullwiz =
 	self.pain_flinch = 50;			// Armour strength robes!
 	self.steptype = FS_TYPEMEDIUM;	// Humanoid footsteps
 	self.pain_longanim = FALSE;		// No long pain animation
+	self.poisonous = FALSE;			// Only Guardians can be poisonous
+
+	// Always reset Ammo Resistance to be consistent
+	self.resist_shells = self.resist_nails = 0;
+	self.resist_rockets = self.resist_cells = 0;
 
 	// Skull wizards have special animation movement sets
 	// Need extra parameters for their teleporting ability
@@ -795,11 +800,8 @@ void() monster_skullwiz =
 	if (!self.bodyphased) self.bodyphased = MONAI_SKULLWSOLID;
 	else self.bodyphased = MONAI_SKULLWINVIS;
 
-	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = self.resist_cells = 0;
-
 	self.th_checkattack = SkullWizCheckAttack;
+	self.th_updmissile = skullw_guardian;
 	self.th_pain = skullw_pain;
 	self.th_die = skullw_die;
 
@@ -818,7 +820,6 @@ void() monster_skullwiz =
 		self.th_run = skullw_run1;
 		self.th_missile = skullw_magic;
 		self.th_melee = skullw_tele1;
-		self.th_updmissile = skullw_guardian;
 	}
 	
 	self.classtype = CT_MONSKULLW;
@@ -827,13 +828,14 @@ void() monster_skullwiz =
 
 	// Special black robes for skull spawner
 	if (self.spawnflags & MON_SKULLWIZ_MINIONS) {
-		self.health = self.health * 1.5;	// 150% HP
+		self.health = self.health * 1.5;			// 150% HP
 		if (!self.exactskin) self.exactskin = 2;	// Black robes
 	}
 	// Special green robes for rune guardians
 	else if (self.spawnflags & MON_SKULLWIZ_GUARDIAN) {
-		self.health = self.health * 2;		// 200% HP
-		if (!self.exactskin) self.exactskin = 3;	// Green rboes
+		self.health = self.health * 2;				// 200% HP
+		if (!self.exactskin) self.exactskin = 3;	// Green robes
+		self.poisonous = TRUE;						// Explosive Poison
 	}
 	
 	// Make sure the particles match the skin

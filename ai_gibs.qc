@@ -30,6 +30,9 @@
 .float		blockudeath;		// ID udeath.wav sounds human, block it for non-humanoids
 .float		gib1dmg;			// Special damage from touching
 .float		gib1exp;			// Special damage particle explosion
+.float		gibAnimTimer;		// Starting time for animation
+.float		gibAnimstart;		// Starting frame no for animation
+.float		gibAnimfinal;		// Final frame no for animation
 
 .float		gibpartbase;		// Base quantity of particle from gibs
 .float		gibpartrnd;			// Random quantity of particles from gibs
@@ -58,6 +61,7 @@ float GIBTYPE_POISON = 10;		// Poisoned flesh
 float MON_BCOLOR_RED = 68;		// Red index colour
 float MON_BCOLOR_GREEN = 52;	// Green index
 float MON_BCOLOR_YELLOW = 192;	// Bright yellow, not gold
+float MON_BCOLOR_SILVER = 36;	// Silver/Ice
 float MON_BCOLOR_WHITE = 4;		// Grey/white
 
 string GIB_SOUND_HEAVY = "gibs/gibheavy1.wav";
@@ -134,6 +138,32 @@ void() precache_poisongibs =
 	precache_model (GIB5_POISON);			// New gib - large chunk/ball
 };
 
+//----------------------------------------------------------------------
+void(entity gibent) DPP_blood_trail =
+{
+	// Cannot add particle trails to the player!
+	if (gibent.flags & FL_CLIENT) {
+		dprint("\b[GIB]\b Cannot add particle trail to player!\n");
+		return;
+	}
+	
+	// Stone = dark black dust on the floor
+	if (gibent.gibtype == GIBTYPE_STONE) {
+		gibent.traileffectnum = particleeffectnum(DPP_TRSBLOOD);
+	}
+	// Glowing green blobs splashed about
+	else if (gibent.gibtype == GIBTYPE_POISON) {
+		gibent.traileffectnum = particleeffectnum(DPP_TRPBLOOD);
+	}
+	else {
+		// DISABLED - Excessive blood trails can be bad for large maps
+		// Typical blood stains (20% chance of more blood)
+		//if (random() < 0.2) gibent.traileffectnum = particleeffectnum(DPP_ITSBLOOD);
+		//else gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
+		gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
+	}
+};
+
 /*======================================================================
  DirectionForDamage
   Takes the angle between self and enemy and projects backwards
@@ -188,6 +218,8 @@ vector(float gibforce) DirectionForDamage =
 //======================================================================
 void() RemoveGib =
 {
+	// Stop any touch functions
+	self.waitmin = LARGE_TIMER;
 	// Fade away model
 	self.think = model_fade;
 	self.nextthink = time + 0.1;
@@ -209,6 +241,19 @@ void() CheckFloorGib =
 		// Origin at base of model + 16 (typical step height)
 		ent_floorcheck(self, FLOOR_TRACE_GIBS);
 
+		// Check for final impact animation
+		if (self.gibAnimfinal > 0 && self.gibAnimTimer < time) {
+			if (self.walkframe > self.gibAnimfinal) {
+				self.gibAnimfinal = 0;
+				RemoveGib();
+				return;
+			}
+			else {
+				self.frame = self.gibAnimstart + self.walkframe;
+				self.walkframe = self.walkframe + 1;
+			}
+		}
+		
 		// Keep checking
 		self.think = CheckFloorGib;
 		self.nextthink = time + 0.1;
@@ -303,32 +348,6 @@ void() TouchGib =
 			
 	// Has any impact sounds been defined?
 	if (self.noise != "") sound(self, CHAN_VOICE, self.noise, 1, self.volume);
-};
-
-//----------------------------------------------------------------------
-void(entity gibent) DPP_blood_trail =
-{
-	// Cannot add particle trails to the player!
-	if (gibent.flags & FL_CLIENT) {
-		dprint("\b[GIB]\b Cannot add particle trail to player!\n");
-		return;
-	}
-	
-	// Stone = dark black dust on the floor
-	if (gibent.gibtype == GIBTYPE_STONE) {
-		gibent.traileffectnum = particleeffectnum(DPP_TRSBLOOD);
-	}
-	// Glowing green blobs splashed about
-	else if (gibent.gibtype == GIBTYPE_POISON) {
-		gibent.traileffectnum = particleeffectnum(DPP_TRPBLOOD);
-	}
-	else {
-		// DISABLED - Excessive blood trails can be bad for large maps
-		// Typical blood stains (20% chance of more blood)
-		//if (random() < 0.2) gibent.traileffectnum = particleeffectnum(DPP_ITSBLOOD);
-		//else gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
-		gibent.traileffectnum = particleeffectnum(DPP_TRBLOOD);
-	}
 };
 
 //======================================================================
@@ -440,6 +459,14 @@ void(float gib_no, float gib_qty) ThrowGib =
 		else if (gib_no == 25) {
 			gibitem.mdl = self.headmdl;
 			gibitem.skin = self.skin;
+		}
+
+		// Check for any animations on impact
+		if (self.gibAnimfinal > 0) {
+			gibitem.walkframe = 0;
+			gibitem.gibAnimstart = self.gibAnimstart;
+			gibitem.gibAnimfinal = self.gibAnimfinal;
+			gibitem.gibAnimTimer = time + self.gibAnimTimer + random()*(self.gibAnimTimer*2);
 		}
 		
 		// Bounce like a grenade have trigger/touch impact
@@ -587,6 +614,15 @@ void() monster_ThrowGib =
 		ThrowGib(4, rint(random()*3));
 		ThrowGib(11, rint(random()*2));
 	}
+	else if (self.classtype == 	CT_MONELF) {
+		ThrowGib(4, 3 + rint(random()*3));
+	}
+	else if (self.classtype == CT_MONSANTA) {
+		ThrowGib(3, 1);
+		ThrowGib(4, 8 + rint(random()*4));
+		ThrowGib(5, 4 + rint(random()*2));
+		ThrowGib(13, 8 + rint(random()*4));
+	}
 	else if (self.classgroup == CG_FISH) {
 		ThrowGib(4, 3 + rint(random()*3));
 		ThrowGib(5, 1);
@@ -597,7 +633,8 @@ void() monster_ThrowGib =
 		ThrowGib(4, 5 + rint(random()*3));
 	}
 	else if (self.classgroup == CG_ZOMBIE) {
-		ThrowGib(4, 3 + rint(random()*2));
+		ThrowGib(4, 3 + rint(random()*3));
+		ThrowGib(5, 1 + rint(random()*2));
 	}
 	// Includes vanilla and new hunter ogres
 	else if (self.classgroup == CG_OGRE) {
@@ -607,6 +644,7 @@ void() monster_ThrowGib =
 	else if (self.classgroup == CG_DCAPTAIN) {
 		ThrowGib(3, 1);
 		ThrowGib(4, 2 + rint(random()*4));
+		ThrowGib(5, 2 + rint(random()*2));
 	}
 	else if (self.classtype == CT_MONGARGOYLE) {
 		ThrowGib(4, 2 + rint(random()*3));
@@ -617,7 +655,7 @@ void() monster_ThrowGib =
 		ThrowGib(5, 2 + rint(random()*2));
 	}
 	else if (self.classtype == CT_MONWIZARD) {
-		ThrowGib(4, 1 + rint(random()*3));
+		ThrowGib(4, 3 + rint(random()*3));
 	}
 	else if (self.classtype == CT_MONSHAM) {
 		ThrowGib(3, 1);
@@ -633,11 +671,18 @@ void() monster_ThrowGib =
 		ThrowGib(4, 2 + rint(random()*4));
 		ThrowGib(5, 2 + rint(random()*4));
 	}
-	// Default humanoid explosion
+	// Default gib setup
 	else {
-		if (random()<0.5) ThrowGib(2, 2);
-		else ThrowGib(3, 1);
-		ThrowGib(4, 2 + rint(random()*4));
+		// Is humanoid sound blocked?
+		if (self.blockudeath) {
+			// Throw large slice gib
+			ThrowGib(3, rint(random()*2));
+		}
+		// Throw humanoid torso gib
+		else if (random()<0.5) ThrowGib(2, 1);
+		// Regular gibs (4=small, 5=large)
+		ThrowGib(4, 3 + rint(random()*3));
+		ThrowGib(5, 1 + rint(random()*1));
 	}				
 
 	//----------------------------------------------------------------------
@@ -647,7 +692,7 @@ void() monster_ThrowGib =
 		// If monster set for low velocity throw extra gibs instead
 		if (self.max_health == MON_NOGIBVELOCITY)
 			ThrowGib(4, rint(random()*4));
-		// Throw a head gib instead of switch to one
+		// Throw a head gib instead of switching to one
 		else ThrowGib(25, 1);
 	}
 	// Finally hide monster
@@ -700,5 +745,7 @@ void(entity onflr, float impactdmg) monster_flrbody_gib =
 	
 	self = tself; other = tother;	// switch back
 	SpawnBlood (onflr, onflr.origin, '0 0 50', impactdmg*4);
-	if (onflr.bodyonflrtrig) trigger_strs(onflr.bodyonflrtrig,self); 
+	if (onflr.bodyonflrtrig) trigger_strs(onflr.bodyonflrtrig,self);
+	// Hide/Remove original body/shadow
+	entity_hide(onflr);
 };

@@ -60,6 +60,8 @@ void() func_wall_on =
 	// Needs to exist after entity has been added to work for BSPorigin
 	if (check_nightmare() == TRUE) return;
 	if (check_coop() == TRUE) return;
+
+	if (self.switchshadstyle != 0) lightstyle(self.switchshadstyle, "a");
 };
 
 //----------------------------------------------------------------------
@@ -69,6 +71,8 @@ void() func_wall_off =
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
 	setmodel (self, "");
+
+	if (self.switchshadstyle != 0) lightstyle(self.switchshadstyle, "m");
 };
 
 //----------------------------------------------------------------------
@@ -77,9 +81,11 @@ void() func_wall_aframe = { };
 //----------------------------------------------------------------------
 void() func_wall =
 {
-	self.angles = '0 0 0';
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_FUNCWALL;
 	self.bsporigin = TRUE;
+	self.angles = '0 0 0';
 	self.mdl = self.model;
 	if (self.spawnflags & FUNC_AFRAME) self.frame = 1;
 	if (self.spawnflags & FUNC_MODCHECK) remove(self);
@@ -138,11 +144,16 @@ void() func_illusionary_on =
 };
 
 //----------------------------------------------------------------------
+void() func_illusionary_aframe = { };
+
+//----------------------------------------------------------------------
 void() func_illusionary =
 {
-	self.angles = '0 0 0';
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_FUNCILLUSIONARY;
 	self.bsporigin = TRUE;
+	self.angles = '0 0 0';
 	self.mdl = self.model;
 	if (self.spawnflags & FUNC_AFRAME) self.frame = 1;
 
@@ -159,6 +170,7 @@ void() func_illusionary =
 		self.estate_on = func_illusionary_on;
 		self.estate_off = func_wall_off;
 		self.estate_use = func_wall_use;
+		self.estate_aframe = func_illusionary_aframe;
 		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 		else self.estate_on();
 	}
@@ -191,11 +203,16 @@ void() func_episodegate_use =
 };
 
 //----------------------------------------------------------------------
+void() func_episodegate_aframe = { };
+
+//----------------------------------------------------------------------
 void() func_episodegate =
 {
-	self.angles = '0 0 0';
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_FUNCEPISODEGATE;
 	self.bsporigin = TRUE;
+	self.angles = '0 0 0';
 	self.mdl = self.model;
 
 	// Check for spawning conditions (nightmare, coop)
@@ -211,6 +228,7 @@ void() func_episodegate =
 	self.estate_on = func_wall_on;
 	self.estate_off = func_wall_off;
 	self.estate_use = func_episodegate_use;
+	self.estate_aframe = func_episodegate_aframe;
 	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 	else {
 		// Wait 1 frame before checking for rune keys
@@ -242,11 +260,16 @@ void() func_bossgate_use =
 };
 
 //----------------------------------------------------------------------
+void() func_bossgate_aframe = { };
+
+//----------------------------------------------------------------------
 void() func_bossgate =
 {
-	self.angles = '0 0 0';
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_FUNCBOSSGATE;
 	self.bsporigin = TRUE;
+	self.angles = '0 0 0';
 	self.mdl = self.model;
 
 	// Check for spawning conditions (nightmare, coop)
@@ -259,6 +282,7 @@ void() func_bossgate =
 	self.estate_on = func_wall_on;
 	self.estate_off = func_wall_off;
 	self.estate_use = func_bossgate_use;
+	self.estate_aframe = func_bossgate_aframe;
 	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 	else {
 		// Wait 1 frame before checking for rune keys
@@ -406,6 +430,8 @@ void() func_laser_off =
 //----------------------------------------------------------------------
 void() func_laser =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_FUNCLASER;		// Classtype
 	self.mdl = self.model;				// Save for later (on function)
 	if (self.spr_frame > 0 && CheckZeroVector(self.angles)) self.angles = '0 -2 0';
@@ -625,6 +651,8 @@ void() func_skill_off =
 //----------------------------------------------------------------------
 void() func_skill =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// Setup default sounds if no custom sounds exist
 	if (self.noise1 == "") self.noise1 = "doors/drclos4.wav";
 	if (self.noise2 == "") self.noise2 = "doors/stndr1.wav";

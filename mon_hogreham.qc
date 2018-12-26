@@ -397,7 +397,7 @@ void() monster_hogreham =
 	precache_model (self.gib3mdl);
 	precache_model (self.gib4mdl);
 	self.gib1sound = GIB_IMPACT_WOOD;
-
+	
 	self.idle_sound = "ogre/ogidle.wav";
 	precache_sound (self.idle_sound);
 	self.idle_soundcom = "ogre/ogidle2.wav";
@@ -427,7 +427,7 @@ void() monster_hogreham =
 	if (self.health < 1) self.health = 300;
 	if (self.spawnflags & MON_HOGRE_METAL) {
 		self.health = self.health + MON_HOGRE_METUPG;
-		// Always drop hammer, make sure correct skin
+		// make sure correct skin for hammer
 		self.gib1skin = 1;
 		self.skin = 1;
 	}
@@ -435,7 +435,15 @@ void() monster_hogreham =
 		// Random chance to switch GL for hammer
 		if (random() < 0.5) self.gib1mdl = self.gib4mdl;
 	}
+	self.gib4mdl = "";
 		
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_GRENADEGRN);
+	}
+
 	self.gibhealth = -80;
 	self.gibbed = FALSE;
 	self.pain_flinch = 100;

@@ -175,6 +175,8 @@ void() func_button_disable =
 //=============================================================================
 void() func_button =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// Setup all empty/silent sound files first
 	if (self.noise == "") self.noise = SOUND_EMPTY;
 

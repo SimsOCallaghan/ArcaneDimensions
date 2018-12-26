@@ -424,7 +424,9 @@ void() monster_hogre =
 	precache_model (self.gib4mdl);
 
 	self.gib1sound = GIB_IMPACT_WOOD;
+	// Random chance to switch GL for chainsaw
 	if (random() < 0.5) self.gib1mdl = self.gib4mdl;
+	self.gib4mdl = "";
 
 	self.idle_sound = "ogre/ogidle.wav";
 	precache_sound (self.idle_sound);
@@ -457,6 +459,13 @@ void() monster_hogre =
 	if (self.spawnflags & MON_HOGRE_METAL) {
 		self.health = self.health + MON_HOGRE_METUPG;
 		self.skin = 1;
+	}
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_GRENADEGRN);
 	}
 
 	// Always reset Ammo Resistance to be consistent

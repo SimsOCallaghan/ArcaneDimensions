@@ -376,6 +376,7 @@ void() monster_boss =
 	self.bbmaxs = '80 80 256';
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+	self.poisonous = FALSE;			// Cannot be poisonous
 
 	self.health = 3;
 	self.takedamage = DAMAGE_NO;	// Cannot be damaged

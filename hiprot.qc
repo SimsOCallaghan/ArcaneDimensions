@@ -832,6 +832,8 @@ Emulate collision on rotating objects
 //======================================================================
 void() func_movewall =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.angles = '0 0 0';
 	self.movetype = MOVETYPE_PUSH;
 	
@@ -885,6 +887,8 @@ void() rotate_object_move =
 //----------------------------------------------------------------------
 void() rotate_object =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classname = "rotate_object";
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;

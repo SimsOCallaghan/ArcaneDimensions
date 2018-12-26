@@ -482,8 +482,8 @@ void() monster_dguard =
 	precache_model (self.gib3mdl);
 	
 	self.gib1sound = GIB_IMPACT_METALA;
-	if (random() < 0.5) self.gib2mdl = string_null;
-	if (random() < 0.5) self.gib3mdl = string_null;
+	if (random() < 0.5) self.gib2mdl = "";
+	if (random() < 0.5) self.gib3mdl = "";
 
 	self.idle_sound = "knight/idle.wav";
 	precache_sound (self.idle_sound);
@@ -500,6 +500,12 @@ void() monster_dguard =
 	
 	self.sight_sound = "knight/ksight.wav";
 	precache_sound (self.sight_sound);
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
 	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement

@@ -351,6 +351,9 @@ void() lost_bite =
 	ldmg = (random() + random() + random()) * 3;
 	T_Damage (enemy_targ, self, self, ldmg, DAMARMOR);
 
+	// Check for poisonous attribute (new poison version)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+
 	// Spawn blood at mouth of Lost Soul
 	spawn_touchblood (self, enemy_targ, ldmg*3);
 };
@@ -559,7 +562,7 @@ void() setup_lostsoul =
 	self.blockudeath = TRUE;		// no humanoid death sound
 	self.steptype = FS_FLYING;		// Silent feet
 	self.pain_longanim = FALSE;		// No long pain animation
-	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.meleeattack = time + 4;	// no rotation at spawn
 	self.mangle = self.angles;		// idle rotate left/right
 	self.idlebusy = 0;				// Tilt/turn head animations
@@ -568,6 +571,10 @@ void() setup_lostsoul =
 	self.lostenemy = world;				// Setup old enemy
 	self.losttimer = LARGE_TIMER;		// Stop lost timer
 	self.lostsearch = FALSE;			// Not searching for an enemy
+	
+	// I can understand lost souls would be the perfect candidate for
+	// poison attacks, but they are tricky already! default = disabled.
+	self.poisonous = FALSE;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

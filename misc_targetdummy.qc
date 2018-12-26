@@ -152,7 +152,7 @@ void() misc_targetdummy =
 		self.pos1 = '0 9 0';	// stand1-9
 	}
 	else if (self.spawnflags & MISC_TARGWIZARD) {
-		self.mdl = "progs/wizard.mdl";
+		self.mdl = "progs/mon_wizard.mdl";
 		self.headmdl = "progs/targd_tall.mdl";
 		self.pain_sound = "wizard/wpain.wav";
 		self.t_width = FALSE;

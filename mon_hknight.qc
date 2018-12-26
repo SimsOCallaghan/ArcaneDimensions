@@ -644,9 +644,6 @@ void() monster_hell_knight =
 	// filename is hardcoded (engine.exe)
 	precache_sound ("hknight/hit.wav");				
 
-	// Always precache these stone gib models
-	precache_stonegibs();
-	
 	//----------------------------------------------------------------------
 	if (self.spawnflags & MON_STATUE) {
 		self.idle_sound = "statue/idle1.wav";
@@ -656,10 +653,11 @@ void() monster_hell_knight =
 		precache_sound (self.idle_sound2);
 		precache_sound (self.idle_soundcom);
 
+		self.sight_sound = "statue/sight.wav";
 		self.pain_sound = "statue/hurt.wav";
 		self.death_sound = "statue/death.wav";
-		self.sight_sound = "statue/sight.wav";
 		self.gib1skin = 1;					// Stoney sword
+		precache_stonegibs();				// Cache gib models
 		self.gibtype = GIBTYPE_STONE;		// Stoney gibs!
 		self.gib2mdl = self.gib3mdl = string_null;
 	}
@@ -667,14 +665,21 @@ void() monster_hell_knight =
 		self.idle_sound = "hknight/idle.wav";
 		precache_sound (self.idle_sound);
 
+		self.sight_sound = "hknight/sight1.wav";
 		self.pain_sound = "hknight/pain1.wav";
 		self.death_sound = "hknight/death1.wav";
-		self.sight_sound = "hknight/sight1.wav";
+
+		// Check for poisonous entity flag
+		if (self.poisonous) {
+			precache_poisongibs();			// precache gibs
+			self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+			precache_model (MODEL_PROJ_HKNGRN);
+		}
 	}
-	// Cannot have if precache statements, precache duplicates as well
+	// precache sight, pain and death (changes on type)
+	precache_sound (self.sight_sound);
 	precache_sound (self.pain_sound);
 	precache_sound (self.death_sound);
-	precache_sound (self.sight_sound);
 
 	// New sword sweep/slash sounds
 	precache_sound ("weapons/sword1a.wav");
@@ -682,12 +687,12 @@ void() monster_hell_knight =
 	precache_sound ("weapons/sword2a.wav");
 	precache_sound ("weapons/sword2b.wav");
 	
-	self.solid = SOLID_NOT;				// No interaction with world
-	self.movetype = MOVETYPE_NONE;		// Static item, no movement
+	self.solid = SOLID_NOT;					// No interaction with world
+	self.movetype = MOVETYPE_NONE;			// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
 	if (self.health < 1) self.health = 250;
-	self.gibhealth = -40;
-	self.gibbed = FALSE;
+	self.gibhealth = -40;					// Not easy to gib
+	self.gibbed = FALSE;					// Still in one piece
 	self.pain_flinch = 40;					// Medium pain threshold
 	self.pain_timeout = 1.5;				// Higher than a knight
 	self.steptype = FS_TYPEHEAVY;			// Heavy player
@@ -706,8 +711,8 @@ void() monster_hell_knight =
 		precache_model (self.weaponglow);	// Glowing magical swords
 		if (self.spawnflags & MON_STATUE) {
 			self.classgroup = CG_STONE;		// Stone hates metal!
-			self.skin = 1;					// Stone skin
-			self.pain_flinch = 60;			// Doubled
+			self.skin = self.exactskin = 1;	// Stone skin
+			self.pain_flinch = 60;			// Higher resistance
 			self.pain_longanim = FALSE;		// resistant to shadow axe
 			self.pain_timeout = 2;			// high pain threshold
 			self.no_liquiddmg = TRUE;		// Immune to slime/lava
@@ -733,9 +738,11 @@ void() monster_hell_knight =
 	//----------------------------------------------------------------------
 	else if (self.spawnflags & MON_STATUE) {
 		self.classgroup = CG_STONE;		// Stone hates metal!
+		self.poisonous = FALSE;			// Cannot be poisonous and stone!
 		self.resist_nails = 0.5;		// Tough skin for nails
-		self.skin = 1;					// Stone skin
-		self.pain_flinch = 60;			// Doubled
+		self.reflectnails = TRUE;		// Reflect nail projectiles
+		self.skin = self.exactskin = 1;	// Stone skin
+		self.pain_flinch = 60;			// Higher resistance
 		self.pain_longanim = FALSE;		// resistant to shadow axe
 		self.pain_timeout = 2;			// high pain threshold
 		self.no_liquiddmg = TRUE;		// Immune to slime/lava
@@ -766,6 +773,7 @@ void() monster_hell_knight =
 		}
 	}
 	else {
+		// Default Hell knight (like a death knight really)
 		self.pain_longanim = TRUE;		// can be chopped with shadow axe
 		self.classgroup = CG_DKNIGHT;	// Classic tincan!
 		hknight_aistates();				// setup AI state functions
@@ -789,7 +797,6 @@ pos2 : XYZ random offset to start lightning (uses v_forward/v_right/v_up)
 pos3 : Animation lightning frame set (Start/Finish/Direction)
 t_length : random wobble to electricity target origin (0=def 5)
 dmg : amount of contact damage with electricity (0=def 5)
-health : Override default health settings
 deathtarget : entity to trigger upon death (useful if target field already in use)
 health : Override default health settings
 upgrade_ssg : 1 = will only spawn if shotgun upgrade active on server
@@ -817,6 +824,9 @@ void() monster_hell_pointknight =
 	// remove notfrozen and angry, always start/spawn firing lightning
 	self.spawnflags = self.spawnflags - (self.spawnflags & MON_NOTFROZEN);
 	self.spawnflags = self.spawnflags - (self.spawnflags & MON_SPAWN_ANGRY);
+	
+	// Override early to prevent unnecesaary cache of assets
+	self.poisonous = FALSE;			// Never poisonous
 	
 	// If not target setup then stop!
 	if (self.target == "") {

@@ -242,7 +242,7 @@ void()	knight_painb10	=[	$painb10,	knight_painb11	] {ai_painforward(0);};
 void()	knight_painb11	=[	$painb11,	knight_run1	] {};
 
 //----------------------------------------------------------------------
-void(entity inflictor, entity attacker, float damage)	knight_pain =
+void(entity inflictor, entity attacker, float damage) knight_pain =
 {
 	// Check all pain conditions and set up what to do next
 	monster_pain_check(attacker, damage);
@@ -268,33 +268,33 @@ void(entity inflictor, entity attacker, float damage)	knight_pain =
 };
 
 //============================================================================
-void()	knight_die1	=[	$death1,	knight_die2	] {};
-void()	knight_die2	=[	$death2,	knight_die3	] {monster_check_gib();};
-void()	knight_die3	=[	$death3,	knight_die4	] {monster_check_gib();
+void() knight_die1 =[ $death1, knight_die2] {};
+void() knight_die2 =[ $death2, knight_die3] {monster_check_gib();};
+void() knight_die3 =[ $death3, knight_die4] {monster_check_gib();
 	self.solid = SOLID_NOT;};
-void()	knight_die4	=[	$death4,	knight_die5	] {};
-void()	knight_die5	=[	$death5,	knight_die6	] {};
-void()	knight_die6	=[	$death6,	knight_die7	] {};
-void()	knight_die7	=[	$death7,	knight_die8	] {};
-void()	knight_die8	=[	$death8,	knight_die9	] {};
-void()	knight_die9	=[	$death9,	knight_die10] {monster_death_postcheck();};
-void()	knight_die10=[	$death10,	knight_die10] {monster_deadbody_check();};
+void() knight_die4 =[ $death4, knight_die5] {};
+void() knight_die5 =[ $death5, knight_die6] {};
+void() knight_die6 =[ $death6, knight_die7] {};
+void() knight_die7 =[ $death7, knight_die8] {};
+void() knight_die8 =[ $death8, knight_die9] {};
+void() knight_die9 =[ $death9, knight_die10] {monster_death_postcheck();};
+void() knight_die10 =[ $death10, knight_die10] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
-void()	knight_dieb1	=[	$deathb1,	knight_dieb2	] {};
-void()	knight_dieb2	=[	$deathb2,	knight_dieb3	] {monster_check_gib();};
-void()	knight_dieb3	=[	$deathb3,	knight_dieb4	] {monster_check_gib();
+void() knight_dieb1 =[ $deathb1, knight_dieb2] {};
+void() knight_dieb2 =[ $deathb2, knight_dieb3] {monster_check_gib();};
+void() knight_dieb3 =[ $deathb3, knight_dieb4] {monster_check_gib();
 	self.solid = SOLID_NOT;};
-void()	knight_dieb4	=[	$deathb4,	knight_dieb5	] {};
-void()	knight_dieb5	=[	$deathb5,	knight_dieb6	] {};
-void()	knight_dieb6	=[	$deathb6,	knight_dieb7	] {};
-void()	knight_dieb7	=[	$deathb7,	knight_dieb8	] {};
-void()	knight_dieb8	=[	$deathb8,	knight_dieb9	] {};
-void()	knight_dieb9	=[	$deathb9,	knight_dieb10] {};
-void()	knight_dieb10 = [	$deathb10,	knight_dieb11] {monster_death_postcheck();};
-void()	knight_dieb11 = [	$deathb11,	knight_dieb11] {monster_deadbody_check();};
+void() knight_dieb4 =[ $deathb4, knight_dieb5] {};
+void() knight_dieb5 =[ $deathb5, knight_dieb6] {};
+void() knight_dieb6 =[ $deathb6, knight_dieb7] {};
+void() knight_dieb7 =[ $deathb7, knight_dieb8] {};
+void() knight_dieb8 =[ $deathb8, knight_dieb9] {};
+void() knight_dieb9 =[ $deathb9, knight_dieb10] {};
+void() knight_dieb10 =[ $deathb10, knight_dieb11] {monster_death_postcheck();};
+void() knight_dieb11 =[ $deathb11, knight_dieb11] {monster_deadbody_check();};
 
-//============================================================================
+//----------------------------------------------------------------------
 void() knight_die =
 {
 	// Pre-check routine to tidy up extra entities
@@ -303,8 +303,8 @@ void() knight_die =
 	// regular death
 	if (!self.gibbed) {
 		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
-		if (random() > 0.5) knight_die1 ();		// Forward - standard
-		else knight_dieb1 ();									// Backward - standard
+		if (random() > 0.5) knight_die1 ();		// Forward
+		else knight_dieb1 ();					// Backward
 	}
 };
 
@@ -401,7 +401,8 @@ void() monster_knight =
 		self.sight_sound = "statue/sight.wav";
 		self.pain_sound = "statue/hurt.wav";
 		self.death_sound = "statue/death.wav";
-		self.gib1skin = 1;					// Stoney sword
+		self.gib1skin = 1;					// Stoney sword		
+		precache_stonegibs();				// Cache gib models
 		self.gibtype = GIBTYPE_STONE;		// Stoney gibs!
 		self.gib2mdl = self.gib3mdl = string_null;
 	}
@@ -412,9 +413,16 @@ void() monster_knight =
 		self.sight_sound = "knight/ksight.wav";
 		self.pain_sound = "knight/khurt.wav";
 		self.death_sound = "knight/kdeath.wav";
+		
+		// Check for poisonous entity flag
+		if (self.poisonous) {
+			precache_poisongibs();			// precache gibs
+			self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+			if (!self.exactskin) self.exactskin = 3;	// Swampy skin
+		}
 	}
 
-	// Cannot have if precache statements, precache duplicates as well
+	// precache sight, pain and death (changes on type)
 	precache_sound (self.sight_sound);
 	precache_sound (self.pain_sound);
 	precache_sound (self.death_sound);
@@ -422,19 +430,16 @@ void() monster_knight =
 	precache_sound ("knight/sword1.wav");
 	precache_sound ("knight/sword2.wav");
 
-	// Always precache these stone gib models
-	precache_stonegibs();
-	
-	self.solid = SOLID_NOT;					// No interaction with world
-	self.movetype = MOVETYPE_NONE;			// Static item, no movement
+	self.solid = SOLID_NOT;				// No interaction with world
+	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
 	if (self.health < 1) self.health = 75;
-	self.gibhealth = -40;
-	self.gibbed = FALSE;
-	self.pain_flinch = 20;
-	self.pain_longanim = TRUE;
-	self.steptype = FS_TYPEMEDIUM;
-	self.skin = 0;
+	self.gibhealth = -40;				// Not easy to gib
+	self.gibbed = FALSE;				// Still in one peice
+	self.pain_flinch = 20;				// Light pain threshold
+	self.pain_longanim = TRUE;			// Can do long stagger animation
+	self.steptype = FS_TYPEMEDIUM;		// Light soldier feet
+	self.skin = 0;						// Always reset (use exactskin)
 	self.th_die = knight_die;			// Face meets floor
 
 	// Always reset Ammo Resistance to be consistent
@@ -447,7 +452,9 @@ void() monster_knight =
 	//----------------------------------------------------------------------
 	if (self.spawnflags & MON_STATUE) {
 		self.classgroup = CG_STONE;		// Stone hates metal!
+		self.poisonous = FALSE;			// Cannot be poisonous and stone!
 		self.resist_nails = 0.5;		// Tough skin for nails
+		self.reflectnails = TRUE;		// Reflect nail projectiles
 		if (!self.exactskin) self.exactskin = 4;	// Stone skin
 		self.pain_flinch = 40;			// Doubled
 		self.pain_longanim = FALSE;		// resistant to shadow axe

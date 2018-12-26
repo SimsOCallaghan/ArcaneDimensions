@@ -287,6 +287,9 @@ void()	zombiek_JumpTouch =
 		  ldmg = 10 + 10*random();
 			T_Damage (other, self, self, ldmg, DAMARMOR);	
 			spawn_touchblood (self, self.enemy, ldmg*3);
+
+			// Check for poisonous attribute (new poison version)
+			if (self.poisonous) PoisonDeBuff(self.enemy);
 		}
 	}
 
@@ -761,7 +764,7 @@ void() monster_zombiek =
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
 
-	self.gib1mdl = "progs/w_knightsword.mdl";	// Unique sword
+	self.gib1mdl = "progs/w_zombiesword.mdl";	// Unique sword
 	self.gib1sound = GIB_IMPACT_METALA;
 	precache_model (self.gib1mdl);
 
@@ -785,6 +788,13 @@ void() monster_zombiek =
 	// New sight sound, mixture of knight + zombie
 	self.sight_sound = "zombie/zk_sight.wav";
 	precache_sound (self.sight_sound);
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		self.skin = self.exactskin = self.gib1skin = 1;
+	}
 
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement

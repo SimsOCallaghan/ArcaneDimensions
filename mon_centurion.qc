@@ -61,7 +61,7 @@ void()	cent_walk8	=[	$stand8,	cent_walk1	] {ai_walk(4);};
 void()	cent_run1	=[	$stand1,	cent_run2	] {
 	centurionhover();monster_idle_sound(); 
 	if (self.meleeattack < time) {
-		self.meleeattack = time + 4 + (random() + random() + random() * 4);
+		self.meleeattack = time + 4 + (random() * 4);
 		self.lefty = rint(1 - self.lefty);
 	}
 	ai_run(8);};
@@ -87,7 +87,7 @@ void() cent_fire =
 	vec = SUB_orgEnemyTarget() - '0 0 12';
 	vec = normalize(vec - self.origin);
 
-	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
+	launch_plasma(org, vec, CT_MONCENTURION, SPEED_PLASMA);
 };
 
 //----------------------------------------------------------------------
@@ -286,6 +286,13 @@ void() monster_centurion =
 	precache_sound ("enforcer/cent_hover.wav");
 	precache_sound (GIB_SOUND_WOOD);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_PLASMAGRN);
+	}
+	
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
@@ -296,7 +303,7 @@ void() monster_centurion =
 	self.pain_flinch = 60;				// high pain tolerance
 	self.pain_longanim = FALSE;			// Not using D pain, too slow
 	self.steptype = FS_FLYING;			// Silent feet
-	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	if (!self.exactskin) self.randomskin = 6;
 	self.ammo_cells = rint(random()*3);
 	self.attack_offset = '28 8.5 24';

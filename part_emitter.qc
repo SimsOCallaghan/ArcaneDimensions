@@ -971,7 +971,7 @@ void() misc_particle_use =
 		self.estate = ESTATE_ON;
 
 		// Is DP particles active?)
-		if (ext_dppart || self.dpp_only) {
+		if ((ext_dppart || self.dpp_only) && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 			// decide between particle types
 			if (self.part_style == PARTICLE_STYLE_FCIRCLE) emitdpp_fcircle();
 			else if (self.part_style == PARTICLE_STYLE_WEATHER) {

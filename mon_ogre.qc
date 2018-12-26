@@ -100,8 +100,13 @@ void(float side, float dmgmultipler) chainsaw =
 	// Can the target bleed? - generate blood
 	if (!CanDamage (self.enemy, self)) return;
 	
+	// Damage 1-12
 	ldmg = (random() + random() + random()) * (4*dmgmultipler);
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
+
+	// Check for poisonous attribute (new poison version)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
 
 	SpawnMeatSpray (self, self.enemy, side);
 };
@@ -150,19 +155,68 @@ void() ogre_melee =
 
 /*======================================================================
  Range - Grenades (uses generic attack function in projectiles.qc)
+ Nail - Alternative firemode (based on nail ogre from Marcher Fortress)
 ======================================================================*/
-void() ogre_shoot1	=[	$shoot1,		ogre_shoot2	] {ai_face();
-	MonsterGrenadeSound(); self.attack_speed = MonsterGrenadeSpeed();
-	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, self.attack_speed); };
-void() ogre_shoot2	=[	$shoot2,		ogre_shoot3	] {ai_face();
-	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed); };
-void() ogre_shoot3	=[	$shoot2,		ogre_shoot4	] {ai_face();
-	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed); };
-void() ogre_shoot4	=[	$shoot3,		ogre_shoot5	] {ai_face();
-	MonsterFireGrenade(self.origin, self.enemy.origin);};
-void() ogre_shoot5	=[	$shoot4,		ogre_shoot6	] {};
-void() ogre_shoot6	=[	$shoot5,		ogre_shoot7	] {};
-void() ogre_shoot7	=[	$shoot6,		ogre_run1	] {ai_face();};
+void() OgreFireNails =
+{
+	local vector org, dir, vec;
+	local float loopvar;
+	
+	// Check for death?
+	if (self.health < 1) return;
+	loopvar = 0;
+
+	// Light up face, setup projectile speed and play fire sound
+	self.effects = self.effects | EF_MUZZLEFLASH;
+	self.attack_speed = SPEED_NAILOGREPROJ + (skill * SPEED_NAILOGRESKILL);
+	sound(self, CHAN_WEAPON, "ogre/nail_fire.wav", 1, ATTN_NORM);
+
+	// turn and face your enemy!
+	makevectors (self.angles);
+	org = self.origin + attack_vector(self.attack_offset);
+	
+	// Loop through the nail burst (all at once)
+	while (loopvar < self.attack_count) {
+		// Random circle spread pattern
+		vec = (crandom()*20)*v_right + (crandom()*20)*v_up;
+		dir = normalize((self.enemy.origin + vec) - org);
+		// Generate a red hot nail projectile
+		launch_projectile(org, dir, CT_PROJ_MONNG, self.attack_speed);
+		loopvar = loopvar + 1;
+	}
+};
+
+//----------------------------------------------------------------------
+void() ogre_shoot1 =[ $shoot1, ogre_shoot2 ] {
+	ai_face();
+	MonsterGrenadeSound(); 
+	self.attack_speed = MonsterGrenadeSpeed();
+	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, self.attack_speed);
+};
+void() ogre_shoot2 =[ $shoot2, ogre_shoot3 ] {
+	ai_face();
+	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed);
+};
+void() ogre_shoot3 =[ $shoot2, ogre_shoot4 ] {
+	ai_face();
+	self.attack_elev = SUB_Elevation(self.attack_elev, self.origin, self.enemy.origin, self.attack_speed);
+};
+void() ogre_shoot4 =[ $shoot3, ogre_shoot5 ] {
+	ai_face();
+	MonsterFireGrenade(self.origin, self.enemy.origin);
+};
+void() ogre_shoot5 =[ $shoot4, ogre_shoot6 ] {};
+void() ogre_shoot6 =[ $shoot5, ogre_shoot7 ] {};
+void() ogre_shoot7 =[ $shoot6, ogre_run1 ] {ai_face();};
+
+//----------------------------------------------------------------------
+void() ogre_nail1 =[ $shoot1, ogre_nail2 ] {ai_face();};
+void() ogre_nail2 =[ $shoot2, ogre_nail3 ] {ai_face();};
+void() ogre_nail3 =[ $shoot2, ogre_nail4 ] {ai_face();};
+void() ogre_nail4 =[ $shoot3, ogre_nail5 ] {ai_face();OgreFireNails();};
+void() ogre_nail5 =[ $shoot4, ogre_nail6 ] {};
+void() ogre_nail6 =[ $shoot5, ogre_nail7 ] {};
+void() ogre_nail7 =[ $shoot6, ogre_run1  ] {ai_face();};
 
 //======================================================================
 // Lots of different pain animations (falling over is a classic
@@ -411,6 +465,31 @@ void() ogre_fishing =
 			sound (self, CHAN_VOICE, "ogre/ogrefish_idle.wav", 1, ATTN_NORM);
 	}
 	
+	// Ghost version updates alpha and spawns particles
+	if (self.spawnflags & MON_GHOST_ONLY) {
+		// Is ogre setup invisible?
+		if (self.alpha < 1) {
+			// Wait for the ogre to get into position
+			if (self.respawn_time < time) {
+				// exponential fade in model alpha 
+				self.alpha = self.alpha + self.lefty;
+				self.lefty = self.lefty + self.lefty;
+				if (self.alpha >= 1) self.alpha = 1;
+			}
+		}
+		else {
+			// Model is all screwed up, with loads of extra surfaces
+			// cannot do alpha sparkle because of back surface problem
+			//self.alpha = 0.5 + (0.1*random());
+			self.pos1 = '0 0 0';
+			self.pos1_x = crandom()*16;
+			self.pos1_y = crandom()*16;
+			self.pos1_z = crandom()*24;
+			if (random() < 0.5) 
+				particle_explode(self.origin+self.pos1, 2, 1, PARTICLE_BURST_WHITE, PARTICLE_BURST_LOSTUP);
+		}
+	}
+
 	if (self.idlebusy == FALSE) {
 		// Move frame forward, check for conditions
 		self.walkframe = self.walkframe + 1;
@@ -494,25 +573,40 @@ void() ogre_fishdie = {};
 //----------------------------------------------------------------------
 void() ogre_fishsetup =
 {
-	// Take direct damage only and grenades bounce!
-	self.takedamage = DAMAGE_YES;
-	self.noradiusdmg = TRUE;
-	self.health = MEGADEATH;
-	self.use = ogre_fishwakeup;
-	
-	// Create a temporary entity to fill up space behind ogre
-	// Prevent anthing getting in the way when ogre wakes up
-	if (!self.attachment) {
-		self.attachment = spawn();
-		setmodel(self.attachment, MODEL_EMPTY);
-		setorigin(self.attachment, self.origin);
-		setsize (self.attachment, self.bbmins, self.bbmaxs);
-		self.attachment.solid = SOLID_BBOX;
-		self.attachment.movetype = MOVETYPE_STEP;
+	// Setup ghost version (no pain or death)
+	if (self.spawnflags & MON_GHOST_ONLY) {
+		self.respawn_time = time + 0.3;	// Wait to get into position
+		self.lefty = 0.01;				// Exponential increase
+		self.solid = SOLID_NOT;			// No interaction with world
+		self.movetype = MOVETYPE_NONE;	// Static item, no movement
+		self.takedamage = DAMAGE_NO;
+		self.noradiusdmg = TRUE;
+		self.gibhealth = MON_NEVERGIB;
+		self.health = LARGE_TIMER;
+		self.use = SUB_Null;
+	}
+	else {
+		// Take direct damage only and grenades bounce!
+		self.takedamage = DAMAGE_YES;
+		self.noradiusdmg = TRUE;
+		self.health = MEGADEATH;
+		self.use = ogre_fishwakeup;
+		
+		// Create a temporary entity to fill up space behind ogre
+		// Prevent anthing getting in the way when ogre wakes up
+		if (!self.attachment) {
+			self.attachment = spawn();
+			setmodel(self.attachment, MODEL_EMPTY);
+			setorigin(self.attachment, self.origin);
+			setsize (self.attachment, self.bbmins, self.bbmaxs);
+			self.attachment.solid = SOLID_BBOX;
+			self.attachment.movetype = MOVETYPE_STEP;
+		}
 	}
 	
 	setmodel(self, self.weaponglow);	// Setup fishing model pose
 	self.pos1 = self.origin;			// Save current origin for later
+	if (self.spawnflags & MON_GHOST_ONLY) self.skin = 2;
 	
 	// Move ogre into fishing animation position
 	makevectors(self.angles);
@@ -537,15 +631,17 @@ void() monster_ogre_precache =
 	self.gib4mdl = "progs/w_ogregl.mdl";	// Grenade Launcher
 
 	precache_model (self.mdl);
-	precache_model (self.headmdl);
 	precache_model (MODEL_PROJ_GRENADE);
+	precache_model (self.headmdl);
 	precache_model (self.gib1mdl);
 	precache_model (self.gib2mdl);
 	precache_model (self.gib3mdl);
 	precache_model (self.gib4mdl);
 
+	// Randomly swap in GL instead of Chainsaw
 	self.gib1sound = GIB_IMPACT_WOOD;
-	if (random() < 0.5) self.gib1mdl = self.gib4mdl;
+	if (random() < 0.5) self.gib1mdl = self.gib4mdl; 
+	self.gib4mdl = "";
 
 	self.idle_sound = "ogre/ogidle.wav";
 	precache_sound (self.idle_sound);
@@ -561,6 +657,22 @@ void() monster_ogre_precache =
 
 	self.sight_sound = "ogre/ogwake.wav";
 	precache_sound (self.sight_sound);
+
+	// Load additional models/sounds for nail ogre
+	if (self.spawnflags & MON_OGRE_NAIL) {
+		// Default attack - red glowing nails
+		precache_model (MODEL_PROJ_NGRED);
+		precache_sound("ogre/nail_fire.wav");
+		// Default amount of nails to burst fire (5x9=45dmg)
+		if (self.attack_count < 1) self.attack_count = 5;
+	}
+	
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_GRENADEGRN);
+	}
 };
 
 //----------------------------------------------------------------------
@@ -582,7 +694,8 @@ void() monster_ogre =
 	self.pain_longanim = TRUE;			// Can be chopped with shadow axe
 	self.steptype = FS_TYPESLOW;		// Small sounding feet
 	self.meleerange = MONAI_MELEEOGRE;	// Chainsaw range
-	self.no_zaware = TRUE;				// Always not zware
+	self.no_zaware = TRUE;				// Always NOT zware
+	self.attack_offset = '24 0 20';		// Run + Gun vector
 	if (!self.ammo_rockets) self.ammo_rockets = 2;	// Default ammo drop
 
 	// Standard ogre health 200 with green+ option
@@ -605,6 +718,10 @@ void() monster_ogre =
 	self.th_pain = ogre_pain;
 	self.th_die = ogre_die;
 	self.th_wakeup = ogre_wakeup1;
+	
+	// Switch attack types
+	if (self.spawnflags & MON_OGRE_NAIL) self.th_missile = ogre_nail1;
+	else self.th_missile = ogre_shoot1;
 		
 	self.classtype = CT_MONOGRE;		// Old style ogre
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
@@ -647,10 +764,14 @@ void() monster_ogre_fishing =
 	self.noinfighting = TRUE;		// No infighting
 	self.pain_ignore = TRUE;		// Will not wake up from monsters
 	self.movespeed = 0;				// This is not a turret
-	self.lip = 0;
+	self.frame = OGREFISH_FISHING;	// Start in fishing frame
 
 	// Remove spawnflag options not needed for this monster
-	if (self.spawnflags & MON_OGRE_GREEN) self.lip = self.lip | MON_OGRE_GREEN;
+	self.lip = 0;
+	// Ghost version has unique skin, cannot have green version as well
+	if (self.spawnflags & MON_GHOST_ONLY) self.lip = self.lip | MON_GHOST_ONLY;
+	else if (self.spawnflags & MON_OGRE_GREEN) self.lip = self.lip | MON_OGRE_GREEN;
+	// Classic check for fx/spawn options
 	if (self.spawnflags & MON_SPAWN_NOGFX) self.lip = self.lip | MON_SPAWN_NOGFX;
 	if (self.spawnflags & MON_SPAWN_DELAY) self.lip = self.lip | MON_SPAWN_DELAY;
 	self.spawnflags = self.lip;
@@ -666,6 +787,9 @@ void() monster_ogre_fishing =
 		self.health = 150;		// Lower HP than regular
 	}
 
+	// Fishing ogre can never uses nails, grenades only
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_OGRE_NAIL);
+	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = 1;	// Rocket resistance
@@ -674,8 +798,16 @@ void() monster_ogre_fishing =
 	self.th_checkattack = OgreCheckAttack;
 	self.th_stand = self.th_walk = self.th_run = ogre_fishsetup;
 	self.th_altstand = ogre_fishing;
-	self.th_pain = ogre_fishpain;
-	self.th_die = ogre_fishdie;
+	// Setup ghost version (no pain or death)
+	if (self.spawnflags & MON_GHOST_ONLY) {
+		self.th_pain = SUB_Null_pain;
+		self.th_die = SUB_Null;
+		self.headmdl = "";
+	}
+	else {
+		self.th_pain = ogre_fishpain;
+		self.th_die = ogre_fishdie;
+	}
 
 	self.classtype = CT_MONOGREFISH;
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
@@ -683,3 +815,15 @@ void() monster_ogre_fishing =
 
 	monster_start();
 }
+
+//----------------------------------------------------------------------
+void() monster_ogre_fishing_ghost =
+{
+	// Special spawnflag (code only)
+	self.spawnflags = self.spawnflags | MON_GHOST_ONLY;
+	// Always no monster count
+	self.nomonstercount = TRUE;
+	// Start model invisible (to prevent snapping)
+	self.alpha = 0.01;
+	monster_ogre_fishing();
+};

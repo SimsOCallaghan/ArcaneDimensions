@@ -462,20 +462,22 @@ void() func_train_blocked =
 
 //----------------------------------------------------------------------
 void() func_train =
-{	
+{
 	// 0 = No sound, 1 = train, 5 = custom
-	if (self.sounds > 0) {
-		if (self.sounds == 1) {
-			self.noise = ("plats/train2.wav");
-			self.noise1 = ("plats/train1.wav");
-		}
-		else if (self.sounds == 5) {
-			if (self.noise == "") self.noise = SOUND_EMPTY;
-			if (self.noise1 == "") self.noise1 = SOUND_EMPTY;
-		}	
-		precache_sound (self.noise);
-		precache_sound (self.noise1);
+	if (self.sounds == 0) {
+		self.noise = SOUND_EMPTY;
+		self.noise1 = SOUND_EMPTY;
 	}
+	else if (self.sounds == 1) {
+		self.noise = ("plats/train2.wav");
+		self.noise1 = ("plats/train1.wav");
+	}
+	else {
+		if (self.noise == "") self.noise = SOUND_EMPTY;
+		if (self.noise1 == "") self.noise1 = SOUND_EMPTY;
+	}
+	precache_sound (self.noise);
+	precache_sound (self.noise1);
 	
 	self.classtype = CT_FUNCTRAIN;
 	self.classgroup = CG_FUNCMOVER;

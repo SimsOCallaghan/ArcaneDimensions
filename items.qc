@@ -11,10 +11,10 @@ float H_MEGA = 2;		// Mega Health
 float A_LARGE = 1;		// Used by ammo boxes
 float A_LID = 2;		// Display Lid
 
-float ITEM_CKEY1 = 1;	// Custom Key 1
-float ITEM_CKEY2 = 2;	// Custom Key 2
-float ITEM_CKEY3 = 4;	// Custom Key 3
-float ITEM_CKEY4 = 8;	// Custom Key 4
+float ITEM_CKEY1 = 1;	// Arcane Key 1
+float ITEM_CKEY2 = 2;	// Arcane Key 2
+float ITEM_CKEY3 = 4;	// Arcane Key 3
+float ITEM_CKEY4 = 8;	// Arcane Key 4
 
 float BACKPACK_SHELLS = 1;
 float BACKPACK_NAILS = 2;
@@ -120,10 +120,36 @@ void() item_reset =
 //----------------------------------------------------------------------
 void() item_finished =
 {
-	// Check for respawning ammo override for coop
-	if (coop > 0 && coop_ammoboxes > 0 && self.classgroup == CG_AMMOITEM) 
-		self.spawnflags = self.spawnflags | ITEM_RESPAWN;
-	
+	// Check for coop respawn options
+	if (coop > 0) {
+		if (self.classgroup == CG_WEAPON) {
+			if (coop_weapons == TRUE)
+				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
+			else if (coop_weapons == FALSE && self.respawn_time > 0) {
+				self.respawn_time = RESPAWN_COOP;
+				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
+			}
+		}
+		else if (self.classgroup == CG_HEALTH) {
+			if (coop_health == FALSE)
+				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
+			else if (coop_health == TRUE && self.respawn_time > 0)
+				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
+		}
+		else if (self.classgroup == CG_AMMOITEM) {
+			if (coop_ammoboxes == FALSE)
+				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
+			else if (coop_ammoboxes == TRUE && self.respawn_time > 0)
+				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
+		}
+		else if (self.classgroup == CG_ARTIFACT) {
+			if (coop_powerups == FALSE)
+				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
+			else if (coop_powerups == TRUE && self.respawn_time > 0)
+				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
+		}
+	}
+
 	self.attack_finished = LARGE_TIMER;
 	if (!self.estate_off) item_estate_setup();
 	self.estate_off();
@@ -494,6 +520,12 @@ void() item_start =
 	if (self.respawn_time < 0) self.respawn_trig = TRUE;
 	if (self.respawn_count < 0) self.respawn_count = 1;
 
+	// Override default item pickup sound with silence?
+	// It would have been good to offer the other sounds (1-6)
+	// on all items, but there is a good chance that a mapper
+	// has left a rogue sounds key on some item somewhere!
+	if (self.sounds == 4) self.noise = SOUND_EMPTY;
+
 	// Setup Entity State functionality
 	item_estate_setup();
 
@@ -571,7 +603,8 @@ void() health_touch =
 	s = ftos(self.healamount);
 	sprint(other, s);
 	sprint(other, " health\n");
-	sound(other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound(other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
 	item_finished();
@@ -617,9 +650,10 @@ Health box gives 15, 25 or 100 points depending on spawnflags.
 
 ======================================================================*/
 void() item_health =
-{	
+{
 	if (self.spawnflags & H_ROTTEN) {
-		if (world.worldtype < 2 && !self.skin_override) {
+		// worldtype 0 = medieval, 1 = metal, 2 = base
+		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 2) {
 			// New Medieval style red flask
 			self.mdl = "progs/health_15.mdl";
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
@@ -636,7 +670,8 @@ void() item_health =
 		self.respawn_ofs = '0 0 16';
 	}
 	else if (self.spawnflags & H_MEGA) {
-		if (world.worldtype < 2 && !self.skin_override) {
+		// worldtype 0 = medieval, 1 = metal, 2 = base
+		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 2) {
 			// New Medieval style red flask
 			self.mdl = "progs/health_100.mdl";
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
@@ -655,7 +690,8 @@ void() item_health =
 		self.respawn_ofs = '0 0 28';
 	}
 	else {
-		if (world.worldtype < 2 && !self.skin_override)
+		// worldtype 0 = medieval, 1 = metal, 2 = base
+		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 2)
 		{
 			// New Medieval style red flask
 			self.mdl = "progs/health_25.mdl";
@@ -687,9 +723,8 @@ void() item_health =
 		setorigin(self, self.oldorigin);
 	}
 
-	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && query_configflag(SVR_ITEMROTATE) == FALSE) ) 
-		self.angles_y = rint(random()*359);
+	// Setting the angle key in the editor to UP/DOWN/0 = random rotation	
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 	self.touch2 = health_touch;
 	self.classgroup = CG_HEALTH;
@@ -714,7 +749,8 @@ void() armor_touch =
 	other.items = other.items - (other.items & (IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3)) + self.items;
 
 	sprint(other, "You got armor\n");
-	sound(other, CHAN_ITEM, "items/armor1.wav", 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound(other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
 	item_finished();
@@ -733,6 +769,7 @@ void() item_armor_setup =
 	self.bbmins = '-16 -16 0';
 	self.bbmaxs = '16 16 56';
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_ARMOR;
+	self.noise = "items/armor1.wav";
 
 	// Check for coop errors
 	item_coopcheck();
@@ -1050,7 +1087,8 @@ void() weapon_touch =
 		sprint (other, "\n");
 	}
 	// weapon touch sound
-	sound (other, CHAN_ITEM, "weapons/pkup.wav", 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
 	// Make sure no ammo is over limits
@@ -1077,12 +1115,6 @@ void() weapon_touch =
 		W_SetCurrentAmmo(other);
 	}
 
-	// Setup respawn for co-op
-	if (coop > 0 && self.respawn_time > 0) {
-		self.respawn_time = RESPAWN_COOP;
-		self.spawnflags = self.spawnflags | ITEM_RESPAWN;
-	}
-
 	// hide item and check for respawn
 	item_finished();
 	check_item_respawn();
@@ -1103,6 +1135,7 @@ void() weapon_start =
 	self.bbmins = VEC_WPNS_MIN;
 	self.bbmaxs = VEC_WPNS_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_WEAPON;
+	self.noise = "weapons/pkup.wav";
 	
 	item_start ();
 };
@@ -1465,7 +1498,8 @@ void() ammo_touch =
 	sprint (other, "You got the ");
 	sprint (other, self.netname);
 	sprint (other, "\n");
-	sound (other, CHAN_ITEM, "weapons/lock4.wav", 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
 	// if the player was using his best weapon, 
@@ -1500,6 +1534,7 @@ void() item_ammo_setup =
 	self.bbmins = VEC_AMMO_MIN;
 	self.bbmaxs = VEC_AMMO_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_AMMO;
+	self.noise = "weapons/lock4.wav";
 
 	// Query console variable 'temp1' for model upgrade option.
 	// Cannot use global vars because they don't exist at this point
@@ -1517,8 +1552,7 @@ void() item_ammo_setup =
 	else if (world.worldtype < 2) self.skin = 1;
 
 	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-		self.angles_y = rint(random()*359);
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 	// Setup lid attachment entity (defined in item setup)
 	if (self.spawnflags & A_LID) {
@@ -1792,6 +1826,13 @@ void() item_plasma =
 /*======================================================================
  KEYS (Silver, Gold and Custom)
 ======================================================================*/
+void() key_touchbindmsg =
+{ 
+	sound (self.enemy, CHAN_VOICE, SOUND_TALK, 1, ATTN_NORM);
+	centerprint(self.enemy, "Press 'i' Key to open Inventory\nTo see what \bArcane keys\b you have!\n");
+};
+
+//----------------------------------------------------------------------
 void() key_touch =
 {
 	// Check if the player has the custom key already?
@@ -1803,10 +1844,12 @@ void() key_touch =
 		if ( other.items & self.items ) return;
 	}
 
+	
 	sprint (other, "You got the ");
 	sprint (other, self.netname);
 	sprint (other,"\n");
-	sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
 	// Add key to player inventory (items / customkey)
@@ -1835,6 +1878,14 @@ void() key_touch =
 	SUB_UseTargets();
 	// Triggers events work once in co-op
 	if (coop > 0) self.target = "";
+	
+	// Warn player about new key binding for inventory (first time only)
+	if (self.moditems > 0 && other.ckeyhint == FALSE) {
+		self.enemy = other;		// Store for later
+		other.ckeyhint = TRUE;	// Only works once
+		self.think = key_touchbindmsg;
+		self.nextthink = time + 3;
+	}
 };
 
 //----------------------------------------------------------------------
@@ -2001,13 +2052,30 @@ void() item_keyx =
 	precache_model (self.mdl);	
 
 	// Setup custom key reference number (must exist)
-	if (self.spawnflags & ITEM_CKEY2) self.moditems = IT_CKEY2;
-	else if (self.spawnflags & ITEM_CKEY3) self.moditems = IT_CKEY3;
-	else if (self.spawnflags & ITEM_CKEY4) self.moditems = IT_CKEY4;
-	else self.moditems = IT_CKEY1;
+	if (self.spawnflags & ITEM_CKEY1) {
+		self.moditems = IT_CKEY1;
+		if (self.netname == "") self.netname = "Arcane Key 1";
+	}
+	else if (self.spawnflags & ITEM_CKEY2) {
+		self.moditems = IT_CKEY2;
+		if (self.netname == "") self.netname = "Arcane Key 2";
+	}
+	else if (self.spawnflags & ITEM_CKEY3) {
+		self.moditems = IT_CKEY3;
+		if (self.netname == "") self.netname = "Arcane Key 3";
+	}
+	else if (self.spawnflags & ITEM_CKEY4) {
+		self.moditems = IT_CKEY4;
+		if (self.netname == "") self.netname = "Arcane Key 4";
+	}
+	else {
+		dprint("\b[CUSTOM KEY]\b Missing spawnflag key number!\n");
+		spawn_marker(self.origin, SPNMARK_YELLOW);
+		remove(self);
+		return;
+	}
 		
 	self.classtype = CT_CUSTOMKEY;
-	if (self.netname == "") self.netname = "custom key";
 	self.items = IT_KEY1 | IT_KEY2;
 	if (self.exactskin > 0) self.skin = self.exactskin;
 
@@ -2066,7 +2134,8 @@ void() item_custom_touch =
 	sprint (other, "You got the ");
 	sprint (other, self.netname);
 	sprint (other,"\n");
-	sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
 	// Check for a particle pickup burst (can be blocked)
@@ -2113,8 +2182,7 @@ void() item_custom =
 	self.part_active = 0;	// Must clear this afterward
 
 	// Setup random rotation, will be ignored if spinning model
-	if (self.angles_y == 0 && query_configflag(SVR_ITEMROTATE) == FALSE ) 
-		self.angles_y = rint(random()*359);
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 	// Setup different skin options
 	if (self.exactskin > 0) self.skin = self.exactskin;
@@ -2166,7 +2234,8 @@ void() sigil_touch =
 	if (query_configflag(self.customkey)) return;
 	
 	centerprint (other, "You got the rune!");
-	sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
 	// Add rune to server! not player
@@ -2259,7 +2328,8 @@ void() tomeofpower_touch =
 	sprint (other, "You got the ");
 	sprint (other, self.netname);
 	sprint (other,"\n");
-	sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
 	// This is a trigger once condition (regardless of coop)
@@ -2346,7 +2416,8 @@ void() artifact_touch =
 	sprint (other, "You got the ");
 	sprint (other, self.netname);
 	sprint (other,"\n");
-	sound (other, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_VOICE, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
 	// Update player item flags (regular + mod)
@@ -2380,8 +2451,7 @@ void() artifact_setup =
 
 	// Setup artifact default respawn timers
 	if (self.respawn_time == 0) {
-		if (self.classtype == CT_ARTPENT || self.classtype == CT_ARTINVS ||
-			self.classtype == CT_ARTSHARP || self.classtype == CT_ARTPIERCE )
+		if (self.classtype == CT_ARTPENT || self.classtype == CT_ARTINVS)
 			self.respawn_time = RESPAWN_ARTIFACT2;
 		else self.respawn_time = RESPAWN_ARTIFACT1;
 	}	
@@ -2989,7 +3059,8 @@ void() BackpackTouch =
 	}
 
 	sprint (other, " from a backpack\n");
-	sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
+	if (self.noise != SOUND_EMPTY) 
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
 	// Check ammo limts, change to best weapon and set ammo type

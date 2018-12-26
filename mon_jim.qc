@@ -523,11 +523,12 @@ void() monster_jim =
 	self.steptype = FS_FLYING;			// Silent feet
 	self.pain_longanim = FALSE;			// No long pain animation
 	self.blockudeath = TRUE;			// No humanoid death sound
-	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.oldorigin = self.origin;		// Used for wing angles
 	self.idlebusy = 0;					// Rotate gun idle states
 	self.idlereverse = FALSE;			// Reverse direction for idle
 	self.attack_offset = '20 0 -10';	// front of laser/rocket
+	self.poisonous = FALSE;				// Robots are not poisonous
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

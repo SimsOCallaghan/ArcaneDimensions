@@ -172,7 +172,8 @@ void() army_rocket_think =
 void()	army_rocket_atk1 =[	$load1,	army_load2	] {ai_face();
 	self.pain_finished = time + 1.3;
 	self.attack_track = self.enemy.origin;
-	sound (self, CHAN_WEAPON, "soldier/rocket_load.wav", 1, ATTN_NORM);};
+	sound (self, CHAN_WEAPON, "soldier/rocket_load.wav", 1, ATTN_NORM);
+};
 void()	army_load2	=[	$load2,	army_load3	] {ai_trackenemy();};
 void()	army_load3	=[	$load3,	army_load4	] {ai_trackenemy();};
 void()	army_load4	=[	$load4,	army_load5	] {ai_trackenemy();};
@@ -227,7 +228,7 @@ void() army_plasma_fire =
 	org = self.origin + attack_vector(self.attack_offset);
 	vec = normalize(self.enemy.origin - self.origin);
 
-	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
+	launch_plasma(org, vec, CT_MONARMYPLASMA, SPEED_PLASMA);
 };
 
 //----------------------------------------------------------------------
@@ -403,6 +404,13 @@ void() monster_army =
 	self.sight_sound = "soldier/sight1.wav";
 	precache_sound (self.sight_sound);
 
+	// Check for poisonous entity flag
+	// This is just a gib/blood update, the SG is not poisonous
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
+
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
@@ -438,16 +446,15 @@ void() monster_army =
 	monster_start();
 };
 
-
-
-
-
 //----------------------------------------------------------------------
 void() monster_army_rocket =
 {	
 	if (deathmatch) { remove(self); return; }
 	
 	self.classtype = CT_MONARMYROCKET;
+	precache_model (MODEL_PROJ_ROCKET);
+	if (self.poisonous) precache_model (MODEL_PROJ_ROCKETGRN);
+
 	if (self.health < 1) self.health = 45;
 	// There are two red jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 4;
@@ -473,6 +480,7 @@ void() monster_army_grenade =
 	
 	self.classtype = CT_MONARMYGRENADE;
 	precache_model (MODEL_PROJ_GRENADE);
+	if (self.poisonous) precache_model (MODEL_PROJ_GRENADEGRN);
 	
 	if (self.health < 1) self.health = 60;
 	// There are two green jacket skins to pick from
@@ -495,7 +503,8 @@ void() monster_army_plasma =
 	
 	self.classtype = CT_MONARMYPLASMA;
 	precache_model (MODEL_PROJ_PLASMA);
-	
+	if (self.poisonous) precache_model (MODEL_PROJ_PLASMAGRN);
+
 	if (self.health < 1) self.health = 75;
 	// There are two blue jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 8;

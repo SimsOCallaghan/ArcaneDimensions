@@ -12,6 +12,7 @@ estate.qc
 globalfog.qc
 settings.qc
 breakable.qc
+pushable.qc
 
 part_manage.qc
 part_generate.qc
@@ -30,11 +31,13 @@ ai_combat.qc
 ai_minions.qc
 
 world.qc
+client_mapvar.qc
 client_debuff.qc
 client_power.qc
 client.qc
 client_camera.qc
 client_info.qc
+
 monsters.qc
 items.qc
 projectiles.qc
@@ -79,7 +82,9 @@ mon_centurion.qc
 mon_dcrossbow.qc
 mon_dfury.qc
 mon_dguard.qc
+mon_dguardquoth.qc
 mon_dknight.qc
+mon_dlord.qc
 mon_drole.qc
 mon_dsergeant.qc
 mon_eel.qc
@@ -87,6 +92,7 @@ mon_freddie.qc
 mon_gargoyle.qc
 mon_gaunt.qc
 mon_golem.qc
+//mon_gug.qc
 mon_hogre.qc
 mon_hogreham.qc
 mon_hogremac.qc
@@ -96,12 +102,19 @@ mon_minotaur.qc
 mon_pyro.qc
 mon_scorpion.qc
 mon_seeker.qc
+mon_sentinel.qc
 mon_skullwiz.qc
 mon_spider.qc
 mon_swampling.qc
 mon_voreling.qc
 mon_wraith.qc
 mon_zombiek.qc
+
+// Xmas Monsters
+mon_xmas_elf.qc
+mon_xmas_raindeer.qc
+mon_xmas_snowman.qc
+mon_xmas_santa.qc
 
 // ID Bosses
 mon_bossidchthon.qc

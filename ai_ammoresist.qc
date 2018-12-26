@@ -80,8 +80,11 @@ void(entity targ, vector org, vector vel, float damage) Resist_Shells =
 		targ.pain_finished = time + 0.3 + random();
 		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
 	}
+	
 	// Drastically reduce blood particles
-	if (targ.resist_shells < 1) SpawnBlood (targ, org, vel*0.2, damage/4);
+	if (targ.resist_shells < 1) {
+		SpawnBlood (targ, org, vel*0.2, rint(DAMAGE_SHELL*targ.resist_shells));
+	}
 	if (random() < 0.3) {
 		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 		if (random() < 0.5) WriteByte (MSG_BROADCAST, TE_SPIKE);
@@ -89,7 +92,7 @@ void(entity targ, vector org, vector vel, float damage) Resist_Shells =
 		WriteCoord (MSG_BROADCAST, org_x);
 		WriteCoord (MSG_BROADCAST, org_y);
 		WriteCoord (MSG_BROADCAST, org_z);
-		SpawnProjectileSmoke(org, 200, 50, 150);
+		if (random() < 0.5) SpawnProjectileSmoke(org, 200, 50, 150);
 	}
 };
 

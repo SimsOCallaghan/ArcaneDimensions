@@ -9,13 +9,17 @@ nosave float postthink;			// Used once after map load
 nosave float coop_cvar;			// Has the coop cvar been read from console
 nosave float skill_cvar;		// Has the skill cvar been read from console
 nosave float autoaim_cvar;		// What is the current state of autoaim
+nosave float mapvar_cvar;		// Detects if map variables have been loaded
 
 // Client related features
 entity		client_ent;			// Client entity that started server
 entity		camera_ent;			// Start of the info_intermission camera chain
 entity		coop_ent;			// Start of the info_coop spawn locations
 float		coop_artifacts;		// Do artifacts drop from backpacks for coop
-float		coop_ammoboxes;		// Override ammo boxes respawning in coop
+float		coop_ammoboxes;		// Toggle ammo boxes respawning in coop
+float		coop_weapons;		// Toggle weapons respawning in coop
+float		coop_health;		// Toggle health packs respawning in coop
+float		coop_powerups;		// Toggle powerups respawning in coop
 float		engine;				// Type of engine active 0=Fitz, 1=DP/FTE/QSS
 float		ext_active;			// PR extenstions active (DP/FTE)
 float		ext_dpfog;			// Extra DP fog parameters
@@ -25,6 +29,7 @@ float		ext_dprain;			// Extra DP particle rain system
 float		ext_dpsnow;			// Extra DP particle snow system
 //float		ext_dprot;			// Extra DP rotating bmodel system
 float		pixelmode;			// Change texture pixel mode (linear/nearest)
+float		playerprojsize;		// Player projectiles 0=Large or 1=Small
 entity		gibitem;			// Latest gib to be generated
 float		gibstone;			// Has stone gibs been precached
 float		gibpoison;			// Has poison gibs been precached
@@ -43,19 +48,21 @@ entity		debugent1, debugent2, debugent3; // Used on wide visibility tests
 .float		upgrade_ssg;		// Upgrade Super Shotgun with new weapon
 .float		upgrade_lg;			// Upgrade Lightning Gun with new weapon
 .float		no_item_offset; 	// All ammo + heal items to use central rotation
-.float		no_item_rotate;		// No random rotated for all items (ammo/heal/misc)
+.float		no_item_rotate;		// Not used anymore, kept for compatibility
 .float		no_zaware;			// Switches OFF ALL zaware monsters
 .float		no_sgprojectile;	// Switches OFF ALL shotgun projectiles
 .float		no_sgcasing;		// Switches OFF ALL shotgun casings
+.float		no_bigprojectiles;	// Switches OFF large player projectiles size
 .float		no_liquiddmg;		// Blocks liquid damage checks for monsters
-.float		no_weather;			// Block any advanced engine weather effects
 .float		no_surfacecheck;	// Stops surface checks for large maps
+.float		sprite_particles;	// Forces all particles to be dots/sprites
 .float		knight_defskin;		// Default skin (0-3) type for new knight model
 .float		give_weapons;		// Which weapons the player always starts with
 .float		take_weapons;		// Which weapons the player never starts with
 .float		reset_health;		// Reset health to this value upon spawning
 .float		bodyflrcheck;		// Check floor for monster dead bodies
 .float		bodyfadeaway;		// Time in seconds before body/head fades away
+.vector		mapvar_update;		// Update map variables (Range X->Y=Z)
 
 // Global fog system
 float		fog_active;			// Global fog values are active
@@ -71,6 +78,10 @@ entity		fog_control;		// Global fog controller (unique to map)
 .vector		fog_diffcol;		// Difference between current and target
 .float		fog_difftime;		// Amount of time to fade fog (seconds)
 .float		fog_steptime;		// Amount of steps to fade (20 per second)
+
+// Eric Compiler - Switchable Style Shadows
+.float		switchshadstyle;	// Switchable style for bmodels (shadows)
+.entity		switchfader;		// Controller for fading shadows on bmodels
 
 // General features
 .float		moditems;			// New items flag for new stuff in the mod
@@ -121,9 +132,11 @@ entity		fog_control;		// Global fog controller (unique to map)
 .entity		attachment2;		// 2nd entity attachment (additional model)
 .entity		attachment3;		// 3rd entity attachment (additional model)
 .entity		sound_emitter;		// Used by various entities for add sound
+.float		check_weather;		// Checks for weather system on sound emitters
 .float		entno_unique;		// Unique number for linking entities
 .string		str_unique;			// Unique string name for testing
 .string		ckeyname1, ckeyname2, ckeyname3, ckeyname4;	// Custom key netnames
+.float		ckeyhint;			// Hint to the player about inventory key
 
 // Item respawning parameter
 .float		respawn_time;		// Amount of time to spend respawning item
@@ -202,6 +215,7 @@ entity		fog_control;		// Global fog controller (unique to map)
 
 .float		liquidbase;			// Liquid content at base of model (feet)
 .float		liquidcheck;		// Timer to prevent over checking of liqdmg
+.float		liquidblock;		// Cannot see through liquids for wakeup
 .float		distmin;			// Minimum amount of distance to teleport
 .float		distmax;			// Maximum amount of distance to teleport
 
@@ -209,11 +223,16 @@ entity		fog_control;		// Global fog controller (unique to map)
 .float		move_elev;			// Z movement adjustment for flying units
 .vector		move_state;			// AI state movement; Stand, Walk & Run
 .float		bouncegrenade;		// All grenades bounce off monster body
+.float		reflectlightning;	// All Lightning strikes are reflected
+.float		reflectplasma;		// All plasma projectiles are reflected
+.float		reflectnails;		// All NG/SNG projectiles are reflected
+.entity		reflectent;			// Entity to generate lightning from
 
 .vector		attack_track;		// Iternative tracking for range attacks
 .float		attack_chance;		// The percentage chance the monster will attack
 .float		attack_speed;		// Skill based adjusted projectile speed
 .float		attack_timer;		// Blocking of certain attack types (charging)
+.float		attack_count;		// Total amount of consecutive attacks
 .vector		attack_offset;		// Vector where AI fires projectiles from
 .float		attack_rage;		// Is the monster in a rage mode
 .float		attack_sidestep;	// Timer to switch sides for movement
@@ -254,6 +273,7 @@ entity		fog_control;		// Global fog controller (unique to map)
 .string		pain_sound;			// Pain sound wav file
 .string		pain_sound2;		// Alternative Pain sound wav file
 .string		death_sound;		// Death sound wav file
+.string		death_sound2;		// Alternative death sound wav file
 .float		death_dmg;			// Used by tarbaby for explosive damage on death
 
 .float		idlebusy;			// Busy with an alternative idle animation
@@ -265,7 +285,12 @@ entity		fog_control;		// Global fog controller (unique to map)
 .string		idle_soundcom;		// Combat Idle sound wav file
 .string		idle_soundcom2;		// Alternative Combat Idle sound wav file
 .float		sight_timeout;		// Time block for sight sound
-.string		sight_sound;		// Sight sound wav file
+.string		sight_sound;		// Sight sound wav file 1
+.string		sight_sound2;		// Sight sound wav file 2
+.string		sight_sound3;		// Sight sound wav file 3
+.string		sight_sound4;		// Sight sound wav file 4
+.float		sight_count;		// Total amount of sight sounds defined
+.float		sight_nofront;		// Monster has no infront check
 
 .float		enemydist;			// Distance the enemy is from the monster
 .float		enemymaxdist;		// Maximum distance enemy is out of range
@@ -282,6 +307,7 @@ entity		fog_control;		// Global fog controller (unique to map)
 .float		infightextra;		// Damage multiplier for infighting damage
 .float		noinfighting;		// Will ignore/start any infighting
 .float		nomonstercount;		// excluded from map monster count
+.float		delaymonstercount;	// Monster added to count when spawned
 .entity		jumptouch;			// Last entity a jumping monster touched
 
 .float		steptype;			// Primary footstep type
@@ -353,7 +379,7 @@ float SVR_HIGHFLAG = 8323072;	// Bits 17-23 - these options carry over
 // MOD Options that can only be changed via temp1 console variable
 // These affect the spawning functions of monster / items
 float SVR_ITEMOFFSET = 256;		// Toggle item offset (corner/center)
-float SVR_ITEMROTATE = 512;		// Always randomly rotate ammo items
+float SVR_SPRPARTON = 512;		// Always use sprite particles (default OFF)
 float SVR_PARTICLES = 1024;		// Turn ON particle system (default OFF)
 float SVR_NOFOGCMDS = 2048;		// Disables all fog commands (winquake)
 float SVR_DEVHELPER = 4096;		// Turn OFF Dev helpers (marks+arrows)
@@ -369,7 +395,7 @@ float SVR_SHOTGPROJ = 131072;	// Turn OFF Shotgun projectiles
 float SVR_SHOTGCASE = 262144;	// Turn OFF Shotgun casings
 float SVR_ZAWARE = 524288;		// Turn OFF Z aware monsters
 float SVR_FOOTSTEP = 1048576;	// Turn OFF Enemy/player footsteps
-// 2097152 empty
+//float SVR_ = 2097152;			// Not used atm
 float SVR_LIQDAM = 4194304;		// Turn OFF Monster Liquid damage
 
 //----------------------------------------------------------------------
@@ -382,6 +408,7 @@ float IT_CKEY1		= 8192;		// Custom Key 1
 float IT_CKEY2		= 16384;	// Custom Key 2
 float IT_CKEY3		= 32768;	// Custom Key 3
 float IT_CKEY4		= 65536;	// Custom Key 4
+float IT_CKEYALL	= 122880;	// All Custom keys
 
 float IT_ARTTOME	= 524288;	// Tome of Power (event trigger)
 float IT_ARTSHARP	= 1048576;	// Reduce SG/SSG/RG spread pattern
@@ -499,12 +526,13 @@ float MON_SPAWN_NOIDLE = 16;		// no idle sounds (cupboard monster)
 float MON_SPAWN_NOGFX = 32;			// no spawn effect or sound
 float MON_SPAWN_DELAY = 64;			// Trigger spawn DELAY
 float MON_SPAWN_ANGRY = 128;		// Trigger spawn ANGRY
-float MON_GHOST_ONLY = 4096;		// Design for the ghost knights
+float MON_GHOST_ONLY = 4096;		// Design for any ghost like monster
 float MON_POINT_KNIGHT = 8192;		// Pointy Electricity Knight
 
 // Unique options
 float MON_HOGRE_METAL = 4;			// Metal Skin version +HP
 float MON_HOGRE_METUPG = 50;		// Extra health for metal upgrade
+float MON_OGRE_NAIL = 2;			// Fires Nails instead of grenades
 float MON_OGRE_GREEN = 4;			// Green Skin version +HP
 float MON_OGRE_GRNUPG = 50;			// Extra health for green upgrade
 float MON_FREDDIE_LASER = 2;		// Fires laser instead of nails
@@ -516,17 +544,25 @@ float MON_SWAMPLING_LARGE = 2;		// Large Green spitting version
 float MON_SWAMPLING_CEILING = 4;	// Swampling starts on the ceiling
 float MON_GARGOYLE_PERCH = 4;		// Start in perched position
 float MON_GAUNT_PERCH = 4;			// Start in perched position
-float MON_FISH_SMALL = 2;			// Smaller and faster fish!
 float MON_BOIL_HANGING = 2;			// Hanging on wall upside down by spikes
 float MON_BOIL_HOBBLED = 4;			// Hobbled on the floor, random A/B position
 float MON_SEEK_SHIELD = 4;			// Shield mode until triggered
+float MON_SENTINEL_NAIL = 4;		// Red nail firing sentinels (quoth)
 float MON_CHTHON_RED = 2;			// New red skin + fire balls
 float MON_CHTHON_GREEN = 4;			// Green skin + Slime balls
 float MON_SHUB_DMGTRIG = 2;			// Can be triggered with damage
 float MON_SHUB_UPSIDE = 4;			// Setup upside (ceiling pose)
+float MON_NOUR_BOSS = 2;			// Boss version (with waves+minions)
 float MON_BOGL_STRONG = 2;			// Stronger +HP and skin 2
 float MON_DCROSSSNIPER = 2;			// No max range limitations for enemies
 float MON_DCROSSTRACK = 4;			// Enable tracking for crossbow knights
+float MON_ELF_MAGIC = 2;			// Magic range attack (+HP)
+float MON_RAINDEER_DEAD = 2;		// Dead body sacrifice
+float MON_SANTA_GOOD = 2;			// Good Santa with touch trigger
+
+// Underwater enemies (liquid block option for all of them)
+float MON_LIQUIDBLOCK = 4;			// Liquids block sightlines (fish/eel)
+float MON_FISH_SMALL = 2;			// Smaller and faster fish!
 
 // Minion spawner options
 float MON_MINOTAUR_MINIONS = 4;		// Allow the Minotaur to spawn gargoyles
@@ -547,6 +583,7 @@ float MON_CRUCIFIED = 2;			// Zombies - start in crucified position
 float MON_STATUE = 2;				// Will start frozen with stone skin
 float MON_NOTFROZEN = 4;			// Will not start frozen (works with statues)
 float MON_ONFLOOR = 4;				// Zombies - start lying on the floor
+
 // Zombie hacks
 float MON_ZOMCRUCIFIED = 1;			// Zombies - crucified
 float MON_ZOMBAMBUSH = 2;			// Zombies - Ambush (ID hack)
@@ -592,6 +629,7 @@ float SPEED_SPIDER = 600;			// Large Spiders (acid spit)
 float SPEED_VORELING = 600;			// Large Voreling (purple spit)
 float SPEED_SWAMPLING = 600;		// Large Swamping (poison spit)
 float SPEED_BLORD = 600;			// Boglord (acid spit)
+float SPEED_ELF = 600;				// Dark Elf (snowballs)
 float SPEED_LAVABALL = 250;			// Boss Lava balls
 float SPEED_LAVASKILL = 50;			// Lava ball skill upgrade
 
@@ -603,27 +641,40 @@ float SPEED_ZOMBFLESH = 550;		// Zombie flesh speed (org 600)
 float SPEED_ZOMBIESKILL = 25;		// 550=easy, 575=normal, 600=hard, 625=nm
 
 float SPEED_PLAYPLASMA = 900;		// Player speed for Plasma
+float SPEED_REFLECTION = 600;		// Reflection speed for Plasma/Lightning
 float SPEED_LASER = 600;			// Enforcer laser speed
 float SPEED_PLASMA = 600;			// Eliminator plasma speed
 float SPEED_JIMPROJ = 575;			// Crazy flying jim robot laz0r/rockets!?
 float SPEED_JIMPROJSKILL = 75;		// 575=easy, 650=normal, 725=hard, nm=800
+float SPEED_SENTPROJ = 575;			// Crazy flying jim robot laz0r/rockets!?
+float SPEED_SENTPROJSKILL = 75;		// 575=easy, 650=normal, 725=hard, nm=800
+
+float SPEED_DGQFB = 700;			// Chainmail Hell Knight from Quoth
+float SPEED_DGQFBSKILL = 100;		// 700=easy, 800=normal, 900=hard, nm=1000
 
 float SPEED_SEEKROCK = 575;			// Large UV ugly robot from rrp
 float SPEED_SEEKROCKSKILL = 75;		// 575=easy, 650=normal, 725=hard, nm=800
 float SPEED_SEEKLAZ = 400;			// Base speed of Laser attacks
 float SPEED_SEEKLAZSKILL = 225;		// 400=easy, 625=normal, 850=hard, 1075=nm
 
+float SPEED_RAINDROCK = 575;		// Mobile xmas meat wagaon
+float SPEED_RAINDROCKSKILL = 75;	// 575=easy, 650=normal, 725=hard, nm=800
+
 float SPEED_DFURYSPIKE = 400;		// Base speed of Fury attack A/B
 float SPEED_DFURYSKILL = 225;		// 400=easy, 625=normal, 850=hard, 1075=nm
+
+float SPEED_DLORDMISSILE = 650;		// Death lord ball attack
+float SPEED_DLORDSKILL = 100;		// 550=easy, 650=normal, 750=hard, 850=nm
+float MONAI_DLORDMAX = 30;			// Maximum amount of projectiles to fire
 
 float SPEED_NOURSPIKE = 600;		// Base speed of Nour attack A/B
 float SPEED_NOURSKILL = 200;		// 600=easy, 800=normal, 1000=hard, 1200=nm
 float SPEED_NOURBOMB = 600;			// Grenade bounce speed (no skill change)
 
-float SPEED_GARGMISSILE = 500;		// Gargoyle rocket speed
+float SPEED_GARGMISSILE = 500;		// Gargoyle fireball attack
 float SPEED_GARGSKILL = 150;		// 500=easy, 650=normal, 800=hard, 950=nm
 
-float SPEED_SWIZMISSILE = 525;		// Skull wizard rocket speed
+float SPEED_SWIZMISSILE = 525;		// Skull wizard SKULL attack
 float SPEED_SWIZSKILL = 75;			// 525=easy, 600=normal, 675=hard, 750=nm
 float DAMAGE_SWIZPOISON = 30;		// Direct damage from Poison Rocket
 
@@ -635,11 +686,21 @@ float SPEED_GAUNTSKILL = 150;		// 500=easy, 650=normal, 800=hard, 950=nm
 float SPEED_EELBOLT = 300;			// Eel plasma bolt speed
 float SPEED_EELSKILL = 100;			// 300=easy, 400=normal, 500=hard, 600=nm
 
+float SPEED_SANTAPROJ = 600;		// Santa snowball attack
+float SPEED_SANTASKILL = 200;		// 600=easy, 800=normal, 1000=hard, 1200=nm
+float MONAI_SANTAMAX = 30;			// Maximum amount of projectiles to fire
+
 float SPEED_FREDDIEPROJ = 500;		// Freddie spike/laser bolt speed
 float SPEED_FREDDIESKILL = 150;		// 500=easy, 650=normal, 800=hard, 950=nm
 
+float SPEED_NAILOGREPROJ = 500;		// Nail Ogre spike speed
+float SPEED_NAILOGRESKILL = 150;	// 500=easy, 650=normal, 800=hard, 950=nm
+
+float SPEED_NAILSNOWMPROJ = 500;		// Snowman Nail spike speed
+float SPEED_NAILSNOWMSKILL = 150;	// 500=easy, 650=normal, 800=hard, 950=nm
+
 float SPEED_SHALMISSILE = 200;		// Shalrath intial speed of homing missile
-float SPEED_SHALSKILL = 50;			// 200=easy, 250=normal, 300=hard, 350=nm
+float SPEED_SHALSKILL = 25;			// 200=easy, 225=normal, 250=hard, 275=nm
 float SPEED_SERGMISSILE = 200;		// Death Sergeant homing missile initial speed
 float SPEED_SERGSKILL = 20;			// 200=easy, 220=normal, 240=hard, 260=nm
 
@@ -668,6 +729,7 @@ float LIFE_GRENADE = 2.5;			// Bounce, bounce, explode
 float LIFE_EGG = 1.5;				// Very quick egg hatch!
 float LIFE_FLESH = 2.5;				// Life of zombie flesh
 
+float DAMAGE_NGREFSPIKE = 4;		// Reflected Spike for NG
 float DAMAGE_NGSPIKE = 9;			// Single Spike for NG
 float DAMAGE_SNGSPIKE = 18;			// Single Spike for SNG
 float DAMAGE_PLAYGRENADE = 120;		// Direct damage from player grenade
@@ -687,14 +749,18 @@ vector DAMAGE_RLWRAITH = '100 20 0';	// Wraith hitscan bolt against monsters
 vector DAMAGE_RLDROLE = '40 10 80';		// High splash damage, low direct
 vector DAMAGE_RLARMY = '25 5 45';		// Weak direct, high splash
 vector DAMAGE_RLJIM2 = '25 15 25';		// Weak direct, med splash
+vector DAMAGE_RLDGUARDQ = '25 0 40';	// Weak direct, high splash
 vector DAMAGE_RLSEEKER = '25 15 25';	// Weak direct, med splash
+vector DAMAGE_RLRAINDEER = '20 0 20';	// Weak direct, low splash
 vector DAMAGE_RLFIRETOP = '70 0 20';	// High direct, low splash
 vector DAMAGE_RLEIDO = '25 15 25';		// Eidolon Rock - med damage
 vector DAMAGE_RLICEG = '20 0 20';		// Ice Golem shard - fury damage
 vector DAMAGE_RLBLORD = '20 10 30';		// Bog Lord Slime - High Splashdamage
+vector DAMAGE_RLKILLZOM = '120 0 0';	// Direct Damage to kill zombie
 
 vector DAMAGE_PLASMA = '15 5 20';		// Default plasma (very high)
 vector DAMAGE_PGPLAYER = '45 0 20';		// Player plasma (very high)
+vector DAMAGE_PGREFLECT = '15 0 0';		// Plasma reflection (very low)
 vector DAMAGE_PGMINOTAUR = '10 5 10';	// Lower damage for minotaur
 vector DAMAGE_PGGAUNT = '10 5 10';		// Lower damage for gaunt
 vector DAMAGE_PGNOUR = '10 0 0';		// Direct damage only
@@ -727,8 +793,11 @@ float DAMAGE_BOLT1 = 15;			// High damage hot red bolts!
 
 float DAMAGE_TARBABY = 120;			// Explosive damage from tarbies
 float DAMAGE_BOIL = 75;				// Explosive damage from boil
+float DAMAGE_NOUR = 50;				// Explosive damage from Nouronihar
 float DAMAGE_SEEKER = 50;			// Explosive damage from seeker
 float DAMAGE_FREDDIE = 40;			// Explosive damage from Freddie
+float DAMAGE_RAINDEER = 20;			// Explosive damage from raindeer
+float DAMAGE_SNOWMAN = 40;			// Explosive damage from Snowman
 
 float SPEED_LOSTSTART = 400;		// Initial charging speed
 float SPEED_LOSTCHARGE = 50;		// Charging speed multiplier
@@ -751,6 +820,7 @@ float MONAI_MELEEBLUNTOGRE = 120;	// Ogre hammer/mace very long range
 float MONAI_MELEEOGREHAM = 250;		// Ogre Special Hammer with knockback
 float MONAI_MELEESHAM = 100;		// Shambler smash claw attack range
 float MONAI_SHAMRANGE = 600;		// Range of Shambler lightning
+float MONAI_MELEEGUG = 170;			// Really long arm reach attack range
 float MONAI_BOGLORDMELEE = 200;		// over arm slime ball attack
 float MONAI_BOGLORDRANGE = 400;		// Inside range for intense melee
 float MONAI_MELEESPAWN = 80;		// Jump in-the-face range
@@ -776,6 +846,11 @@ float MONAI_GOLEMRANGE = 200;		// How close for golem stomp attack
 float MONAI_LOSTTIMER = 15;			// How long a lost soul will stay lost
 float MONAI_MELEEBOIL = 80;			// Exploding boil trigger range
 float MONAI_HOBBLEBOIL = 120;		// Exploding range for hobble version
+float MONAI_MELEEDGUARDQ = 100;		// Long range for Death Guard swing
+float MONAI_CHARGEDGARDQ1 = 140;	// Min range for charge attack
+float MONAI_CHARGEDGARDQ2 = 190;	// Max range for charge attack
+float MONAI_RANGEDGARDQ = 300;		// Max range for fireball attack
+float MONAI_RANGEDLORD = 200;		// Range for switching magic attacks
 
 float MONAI_JUMPTIMEOUT = 2;		// Time between jumps
 float MONAI_RUNPAUSE = 128;			// If enemy this close, stop pause and run!
@@ -848,6 +923,15 @@ float MONAI_SKULLWINVIS = 2;		// Invisible
 float MONAI_JUMPHOGRETIME = 5;		// Time before next jump attack
 float MONAI_JUMPHOGRENEAR = 200;	// Hunter Ogre jump attack distance
 float MONAI_JUMPHOGREFAR = 300;
+
+// Xmas monsters
+float MONAI_MELEERAINDEER = 80;		// Medium range attack
+float MONAI_MELEEELF = 60;			// Distance for elf melee
+float MONAI_JUMPELFNEAR = 80;		// ELF Jump attack ranges
+float MONAI_JUMPELFFAR = 200;		// (Based on spiders)
+float MONAI_JUMPELFDIST = 400;		// Forward distance modifier
+float MONAI_MELEESNOWMAN = 80;		// Standing still attack
+float MONAI_MELEESANTA = 100;		// Large Sack attack
 
 // Shockwave floor attacks
 vector MONAI_STOMPIMPACT = '12 8 -22';
@@ -923,7 +1007,8 @@ float CG_OGRE = 650;			// (4) Vanilla and Hunter (Chainsaw, Mace, Hammer), Fredd
 float CG_SPIDER = 660;			// (4) Shalrath, Vorling, Wraith, Spider
 float CG_SHAM = 666;			// (1) Shambler
 float CG_SPAWN = 670;			// (2) Blue/Green, Boil
-float CG_WIZARD = 680;			// (6) Wizard, Gargoyle, Gaunt, Skull Wizard, Skull, Nour
+float CG_WIZARD = 675;			// (6) Wizard, Gargoyle, Gaunt, Skull Wizard, Skull, Nour
+float CG_XMAS = 680;			// (3) Elf, Raindeer, Snowman, Santa
 float CG_ZOMBIE = 685;			// (3) Zombie, Knight, Mummy
 float CG_BOSS = 690;			// (3) Cthon, Old one
 
@@ -948,6 +1033,7 @@ float CT_PATHCORNER = 26;		// Standard path nodes
 float CT_ENEMYTARGET = 30;		// Target enemy for flying enemies
 float CT_ATTACHMENT = 32;		// Attachment for entities
 float CT_ESTATE = 34;			// Entity state modifier
+float CT_MAPVAR = 35;			// Map Variable logic
 
 float CT_PARTICLE = 40;			// A particle
 float CT_PARTICLEEMIT = 41;		// A particle emitter
@@ -957,6 +1043,9 @@ float CT_PARTICLETEMP = 45;		// Particle emitter template
 float CT_TEMPGIB = 50;			// Temporary entity (gib)
 float CT_TEMPSPARK = 52;		// Temporary entity (spark)
 float CT_TEMPSTREAM = 54;		// Temporary entity (stream)
+
+float CT_REFLECTLIGHT = 55;		// Reflection entity (Lightning)
+float CT_REFLECTPLASMA = 56;	// Reflection entity (Plasma)
 
 float CT_STORYCONTROL = 60;		// Controller for story system
 float CT_STORYBOOK = 62;		// Story book for the player
@@ -1045,18 +1134,28 @@ float CT_MONEEL = 357;			// Plasma bolt spewing eel
 
 // RMQ MOD(Ijed/?)
 float CT_MONBOIL = 360;			// Slow moving zombie bomb
-float CT_MONSEEKER = 364;		// Robot replacement for Shambler
+float CT_MONSEEKER = 362;		// Robot replacement for Shambler
+
+// Twisted Xmas MOD (Twisted Matrix)
+float CT_MONELF = 365;			// Little melee (knight)
+float CT_MONRAINDEER = 366;		// Rocket wielding stag (ogre)
+float CT_MONSNOWMAN = 367;		// Quick firing turret
+float CT_MONSANTA = 369;		// Good/bad santa (boss)
 
 // Quoth MOD (Kell/Necros/Preach)
 float CT_MONVORELING = 370;		// Little baby vorelings! ahh so cute!
 float CT_CACHEVORELING = 372;	// Special entity for precache of assets
 float CT_MINIONVORELING = 374;	// Minion Spawning version from shalrath
 float CT_MONSWAMPLING = 375;	// Tiny swamplings! ahh so cute!
+float CT_MONDGUARDQ = 376;		// Special Hell Knight with fireball
+float CT_MONDLORD = 377;		// Special Hell Knight with shield
 float CT_MONDROLE = 380;		// Fast moving tentacle tank with rockets
-float CT_MONFREDDIE = 381;		// Slow moving mechanical ogre mutant
-float CT_MONGAUNT = 382;		// Flying harpy thing with plasma bolts!
+float CT_MONGUG = 381;			// Large hulking bile spewing nightmare
+float CT_MONFREDDIE = 383;		// Slow moving mechanical ogre mutant
+float CT_MONGAUNT = 384;		// Flying harpy thing with plasma bolts!
 float CT_MONJIM = 385;			// Jim the flying robot of doom!
 float CT_MONJIMROCKET = 386;	// Jim has a rocket launcher!
+float CT_MONSENTINEL = 387;		// Fleshy robot Sentry
 
 // Rubicon series (metlslime)
 float CT_MONPYRO = 390;			// Enforcer Flame (Pyro)
@@ -1076,38 +1175,36 @@ float CT_PROJ_SSG = 412;		// SSG projectile
 float CT_PROJ_NG = 415;			// NG projectile
 float CT_PROJ_SNG = 416;		// SNG projectile
 float CT_PROJ_MONNG = 417;		// NG monster projectile (glowing red)
-float CT_PROJ_HKN = 418;		// Hell Knight Spike
+float CT_PROJ_REFNG = 418;		// Reflected (glowing red)
+float CT_PROJ_HKN = 419;		// Hell Knight Spike
 
 float CT_PROJ_WBONE = 420;		// Wraith Bone Bolt (nail)
 float CT_PROJ_GROCK = 421;		// Golem rock debris (pebble)
 float CT_PROJ_SCORP = 422;		// Scorpion Tail (nail)
+float CT_PROJ_DLORD = 423;		// Death Lord spike ball
+float CT_PROJ_SANTA = 424;		// Santa Snowball shotgun!
 
 float CT_PROJ_WIZ = 425;		// Wizard Spit
 float CT_PROJ_NOUR1 = 426;		// Nour Spit 
 float CT_PROJ_MPOISON = 427;	// Minotaur Poison Bolt (nail)
-float CT_PROJ_WPOISON = 428;	// Wraith Poison Bolt (nail)
 float CT_PROJ_FURY2 = 429;		// Fury Spit with grenade trail
 
-float CT_PROJ_BOLT1 = 435;		// Crossbow Knight Bolt +hknight trail
-float CT_PROJ_NOUR3 = 437;		// Nour Lightning Bolt
+float CT_PROJ_PLASMA = 430;		// Generic Plasma (blue laser version)
 
-float CT_PROJ_LASER = 440;		// Enforcer/Traps/Bob Laser
-float CT_PROJ_PLASMA = 441;		// Generic Plasma (blue laser version)
-float CT_PROJ_GAUNT = 443;		// Gaunt Plasma bolt
-float CT_PROJ_MINO = 444;		// Minotaur Plasma bolt
-
-float CT_PROJ_WBOLT = 445;		// Wraith Hitscan Bolt 
-float CT_PROJ_BLBOLT = 446;		// Boglord fast bolt (green)
-float CT_PROJ_BLBOLT2 = 447;	// Boglord fast bolt (red)
+float CT_PROJ_WBOLT = 440;		// Wraith Hitscan Bolt 
+float CT_PROJ_BOLT1 = 442;		// Crossbow Knight Bolt +hknight trail
+float CT_PROJ_LASER = 445;		// Enforcer/Traps/Bob Laser
+float CT_PROJ_BLBOLT = 448;		// Boglord fast bolt (green)
+float CT_PROJ_BLBOLT2 = 449;	// Boglord fast bolt (red)
 
 float CT_PROJ_GL = 450;			// Grenade projectile
 float CT_PROJ_GLMON = 452;		// Monster grenades
 float CT_PROJ_MEGG = 455;		// Minion Egg (grenade arc+bounce)
 float CT_PROJ_FLESH = 460;		// Zombie Flesh (grenade arc)
-float CT_PROJ_FLESHP = 462;		// Zombie Poison Flesh (grenade arc)
-float CT_PROJ_SPID = 464;		// Spider Spit (grenade arc)
-float CT_PROJ_VORE = 465;		// Voreling Spit (grenade arc)
-float CT_PROJ_SWAMP = 466;		// Swampling Spit (grenade arc)
+float CT_PROJ_SPID = 461;		// Spider Spit (grenade arc)
+float CT_PROJ_VORE = 462;		// Voreling Spit (grenade arc)
+float CT_PROJ_SWAMP = 463;		// Swampling Spit (grenade arc)
+float CT_PROJ_ELF = 464;		// Elf snowball (grenade arc)
 float CT_PROJ_NOUR2 = 467;		// Nour Spit bomb! (grenade arc+bounce)
 float CT_PROJ_CHTHON2 = 468;	// Chthon Frenzy (grenade arc)
 float CT_PROJ_SHUB2 = 469;		// Shub Frenzy (grenade arc)
@@ -1118,16 +1215,17 @@ float CT_PROJ_FIRETOP = 472;	// Chthon Lavaball (less splash dmg)
 float CT_PROJ_CHTHON = 473;		// Custom Chthon Lava/Slime ball
 float CT_PROJ_GARG = 475;		// Gargoyle fireball
 float CT_PROJ_SKULLW = 477;		// Skull Wizard Skull (rocket)
-float CT_PROJ_SKULLWP = 478;	// Skull Wizard Skull (poison rocket)
 float CT_PROJ_FURY1 = 480;		// Fury Knight spike ball +rocket trail
 float CT_PROJ_ARMY = 482;		// Army rocket
 float CT_PROJ_JIM2 = 483;		// Jim robot rocket
 float CT_PROJ_SEEKER = 484;		// Seeker robot rocket
 float CT_PROJ_DROLE = 485;		// Drole fireball
+float CT_PROJ_DGUARDQ = 486;	// Death Guard (Quoth) fireball
 float CT_PROJ_BLORD = 487;		// Bog Lord Green Slime bomb
 float CT_PROJ_BLORD2 = 488;		// Bog Lord Red Slime bomb
 float CT_PROJ_EIDO1 = 490;		// Eidolon boulder
 float CT_PROJ_ICEG1 = 492;		// Ice Golem ice shard
+float CT_PROJ_RAINDEER = 494;	// Raindeer rocket
 
 float CT_PROJ_SHAL = 495;		// Shalrath spike ball +purple trail
 float CT_PROJ_SERG = 496;		// Death Sergeant spike ball +hknight trail
@@ -1207,10 +1305,11 @@ float CT_FUNCLASER = 834;		// Func laser
 float CT_FUNCSKILL = 836;		// Func_skill pillars
 
 float CT_FUNCBREAK = 840;		// Func breakable (parent)
-float CT_FUNCBREAKMDL = 841;	// Func breakable (model)
-float CT_FUNCBREAKSPN = 842;	// Func breakable (spawner)
-float CT_FUNCBREAKOBJ = 845;	// Func breakable (rubble))
-float CT_FUNCBREAKWALL = 850;	// Bmodel to activate after breakage
+float CT_FUNCBREAKWALL = 842;	// Bmodel to activate after breakage
+float CT_FUNCBREAKMDL = 845;	// Func breakable (model)
+float CT_FUNCBREAKSPN = 846;	// Func breakable (spawner)
+float CT_FUNCBREAKOBJ = 847;	// Func breakable (rubble))
+float CT_FUNCPUSHABLE = 850;	// Func pushable
 
 float CT_FUNCEPISODEGATE = 875;	// Episode gates (not used anymore)
 float CT_FUNCBOSSGATE = 880;	// Final boss gate (not used anymore)
@@ -1234,7 +1333,8 @@ float CT_TRIGSECRET = 950;		// Secret, volume
 float CT_TRIGLADDER = 955;		// Ladder, volume
 float CT_TRIGFOG = 957;			// Fog, volume
 float CT_TRIGHURT = 960;		// Hurt, volume
-float CT_TRIGHEAL = 965;		// Heal, volume
+float CT_TRIGHEAL = 962;		// Heal, volume
+float CT_TRIGGIVEITEM = 964;	// Give items, volume
 float CT_TRIGTSOUND = 968;		// Touch sounds, volume
 float CT_TRIGPUSH = 970;		// Push, volume
 float CT_TRIGLEVEL = 975;		// Change level
@@ -1327,15 +1427,20 @@ string MODEL_PROJ_NG = "progs/proj_ng.mdl";
 string MODEL_PROJ_NGRED = "progs/proj_ngred.mdl";
 string MODEL_PROJ_SNG = "progs/proj_sng.mdl";
 string MODEL_PROJ_GRENADE = "progs/proj_grenade.mdl";
+string MODEL_PROJ_GRENADEGRN = "progs/proj_grenadegrn.mdl";
 string MODEL_PROJ_RINGSHOCK = "progs/proj_ringshock.mdl";
 string MODEL_PROJ_RINGBLAST = "progs/proj_ringblast.mdl";
 string MODEL_PROJ_ROCKET = "progs/proj_rocket.mdl";
+string MODEL_PROJ_ROCKETGRN = "progs/proj_rocketgrn.mdl";
 string MODEL_PROJ_FLESH = "progs/proj_flesh.mdl";
 string MODEL_PROJ_FLESHP = "progs/proj_fleshp.mdl";
 string MODEL_PROJ_HKN = "progs/proj_dk.mdl";
+string MODEL_PROJ_HKNGRN = "progs/proj_dkgrn.mdl";
+string MODEL_PROJ_DGUARDQ = "progs/proj_dguardq.mdl";
 string MODEL_PROJ_SERG = "progs/proj_serg.mdl";
 string MODEL_PROJ_FURY1 = "progs/proj_fury1.mdl";
 string MODEL_PROJ_FURY2 = "progs/proj_fury2.mdl";
+string MODEL_PROJ_DLORD1 = "progs/proj_dlord1.mdl";
 string MODEL_PROJ_NOUR1 = "progs/proj_nour1.mdl";
 string MODEL_PROJ_NOUR2B = "progs/proj_nour2b.mdl";
 string MODEL_PROJ_NOUR2P = "progs/proj_nour2p.mdl";
@@ -1354,24 +1459,38 @@ string MODEL_PROJ_WIZ = "progs/proj_wiz.mdl";
 string MODEL_PROJ_SPID = "progs/proj_spider.mdl";
 string MODEL_PROJ_VORE = "progs/proj_voreling.mdl";
 string MODEL_PROJ_SWAMP = "progs/proj_swampling.mdl";
-string MODEL_PROJ_SHOME = "progs/proj_shalhome.mdl";
 string MODEL_PROJ_SHAL = "progs/proj_shal.mdl";
+string MODEL_PROJ_SHALGRN = "progs/proj_shalgrn.mdl";
+string MODEL_PROJ_SHOME = "progs/proj_shalhome.mdl";
+string MODEL_PROJ_SHOMEGRN = "progs/proj_shalhomegrn.mdl";
 string MODEL_PROJ_SBALL = "progs/proj_shalball.mdl";
 string MODEL_PROJ_SEGG = "progs/proj_shalegg.mdl";
 string MODEL_PROJ_SSHELL = "progs/proj_shalshell.mdl";
 string MODEL_PROJ_LAVA = "progs/proj_balllava.mdl";
 string MODEL_PROJ_SLIME = "progs/proj_ballslime.mdl";
 string MODEL_PROJ_DROLE = "progs/proj_drole.mdl";
+string MODEL_PROJ_DROLEGRN = "progs/proj_drolegrn.mdl";
+string MODEL_PROJ_GUGBOMB = "progs/proj_gugbomb.mdl";
+string MODEL_PROJ_GUGFRAG = "progs/proj_gugfrag.mdl";
+string MODEL_PROJ_GUGEXPL = "progs/proj_gugexp.spr";
 string MODEL_PROJ_LASER = "progs/proj_laz.mdl";
+string MODEL_PROJ_LASERGRN = "progs/proj_lazgrn.mdl";
+string MODEL_PROJ_LIGHTNING2 = "progs/proj_lightning2.mdl";
 string MODEL_PROJ_PLASMA = "progs/proj_plasma.mdl";
+string MODEL_PROJ_PLASMAGRN = "progs/proj_plasmagrn.mdl";
 string MODEL_PROJ_PGPLASMA = "progs/proj_pgplasma.mdl";
 string MODEL_PROJ_GAPLASMA = "progs/proj_gaplasma.mdl";
+string MODEL_PROJ_GAPLASMAGRN = "progs/proj_gaplasmagrn.mdl";
 string MODEL_PROJ_BOLT1 = "progs/proj_bolt1.mdl";
+string MODEL_PROJ_BOLT2 = "progs/proj_bolt2.mdl";
+string MODEL_PROJ_BOLT3 = "progs/proj_bolt3.mdl";
 string MODEL_PROJ_SWSKULL = "progs/proj_skullwiz.mdl";
 string MODEL_PROJ_SWSKULLP = "progs/proj_skullwizp.mdl";
 string MODEL_PROJ_SWBALL = "progs/proj_skullball.mdl";
 string MODEL_PROJ_GARGBALL = "progs/proj_gargball.mdl";
 string MODEL_PROJ_GARGOYLE = "progs/proj_gargoyle.mdl";
+string MODEL_PROJ_GARGBALLGRN = "progs/proj_gargballgrn.mdl";
+string MODEL_PROJ_GARGOYLEGRN = "progs/proj_gargoylegrn.mdl";
 string MODEL_PROJ_WTRAIL = "progs/proj_wraithtrail.mdl";
 string MODEL_PROJ_WBALL = "progs/proj_wraithball.mdl";
 string MODEL_PROJ_WBONE = "progs/proj_wraithbone.mdl";
@@ -1386,6 +1505,9 @@ string MODEL_PROJ_GROCK1 = "progs/proj_golemrock1.mdl";
 string MODEL_PROJ_GROCK2 = "progs/proj_golemrock2.mdl";
 string MODEL_PROJ_EIDO1 = "progs/proj_eidolonrock1.mdl";
 string MODEL_PROJ_GSHARD = "progs/proj_golemshard.mdl";
+string MODEL_PROJ_RAIND = "progs/xmas/proj_rdrocket.mdl";
+string MODEL_PROJ_ELF = "progs/xmas/proj_elfsnow.mdl";
+string MODEL_PROJ_SNOWBALL = "progs/xmas/proj_snowball.mdl";
 string MODEL_PROJ_CHTHON1 = "progs/proj_chthon1.mdl";
 string MODEL_PROJ_SHUB1 = "progs/proj_shub1.mdl";
 string MODEL_PROJ_SHUB2 = "progs/proj_shub2.mdl";

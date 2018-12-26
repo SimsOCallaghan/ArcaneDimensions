@@ -187,8 +187,9 @@ void() voreling_melee =
 	if (random() < 0.5) sound(self, CHAN_VOICE, "voreling/attackmunch.wav", TRUE, TRUE);
 	else sound(self, CHAN_VOICE, "voreling/attacktear.wav", TRUE, TRUE);
 
-	// Voreling bite is very weak
+	// Voreling bite (damage 1-9) is very weak
 	ldmg = (random() + random() + random()) * 3;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	
 	// Spawn some touch blood
@@ -571,6 +572,7 @@ void() setup_voreling =
 	self.meleeoffset = '20 0 0';		// Bite attack offset
 	self.attack_offset = '14 0 8';		// Used by purple voreling, at jaws
 	self.movespeed = 1;					// Can never be a turret
+	self.poisonous = FALSE;				// Use swamplings if wanting poison
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

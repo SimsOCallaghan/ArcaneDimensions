@@ -2,6 +2,7 @@
  MOD CUSTOM SETTINGS
 ======================================================================*/
 void() toggleautoaim;		// Toggle auto aim
+void() toggleprojsize;		// Toggle player projectile size
 void() togglezaware;		// Toggle Z aware monsters
 void() togglefootstep;		// Toggle footstep sound (player/monster)
 void() toggleliquiddmg;		// Toggle Monster Liquid damage
@@ -11,14 +12,21 @@ void() toggleupgradeaxe;	// Toggle Axe Upgrade (inventory only)
 void() toggleupgradessg;	// Toggle Shotgun Upgrade (inventory only)
 void() toggleupgradelg;		// Toggle Lightning Upgrade (inventory only)
 void() togglepixels;		// Toggle Texture modes
+
 void() togglecoopartifacts;	// Toggle COOP can drop artifacts
 void() togglecoopammoboxes;	// Toggle COOP ammo boxes to respawn
+void() togglecoopweapons;	// Toggle COOP weapons to respawn
+void() togglecoophealth;	// Toggle COOP health packs to respawn
+void() togglecooppowerups;	// Toggle COOP powerups to respawn
+
 void() toggleweather;		// Toggle weather systems
 void() toggledevhelpers;	// Toggle dev helpers (mark/arrows)
 
 void() display_configflag;	// Display config flag
 void() display_playinfo;	// Display Player information
 void() display_version;		// Display MOD information
+void() display_mapvar;		// Display Map Variables
+void() display_customkeys;	// Display Custom Key inventory
 void() CycleParticleDebug;	// Cycle particle debug messages
 
 void(float sigil_bit) givesigil;	// Testing only
@@ -44,7 +52,7 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.6\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.70\n");
 };
 
 /*======================================================================
@@ -65,6 +73,60 @@ void() display_playinfo =
 
 
 /*======================================================================
+ Prints which custom keys the player has in their inventory
+======================================================================*/
+void() display_customkeys =
+{
+	local string ckey_str1, ckey_str2, ckey_str3, ckey_str4;
+	local float ckey_count;
+	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	self.impulse = 0;
+	
+	// Check for any custom keys in player inventory
+	if (self.moditems & IT_CKEYALL) {
+		// Always reset key count
+		ckey_count = 0;
+		
+		if (self.moditems & IT_CKEY1) {
+			ckey_str1 = self.ckeyname1;
+			ckey_count = ckey_count + 1;
+		}
+		if (self.moditems & IT_CKEY2) {
+			if (ckey_count == 1) ckey_str2 = self.ckeyname2;
+			else ckey_str1 = self.ckeyname2;
+			ckey_count = ckey_count + 1;
+		}
+		if (self.moditems & IT_CKEY3) {
+			if (ckey_count == 2) ckey_str3 = self.ckeyname3;
+			else if (ckey_count == 1) ckey_str2 = self.ckeyname3;
+			else ckey_str1 = self.ckeyname3;
+			ckey_count = ckey_count + 1;
+		}
+		if (self.moditems & IT_CKEY4) {
+			if (ckey_count == 3) ckey_str4 = self.ckeyname4;
+			else if (ckey_count == 2) ckey_str3 = self.ckeyname4;
+			else if (ckey_count == 1) ckey_str2 = self.ckeyname4;
+			else ckey_str1 = self.ckeyname4;
+			ckey_count = ckey_count + 1;
+		}
+		
+		// if 4 keys are present, then squash the last two key names together
+		// The maximum amount of strings that centerprint can handle is 7
+		// A bit of shame, because only needed one more string!
+		if (ckey_count == 4)
+			centerprint7 (self, "-[ \bArcane Key Inventory\b ]-\nYou have the following\n\n", ckey_str1, "\n", ckey_str2, "\n", ckey_str3, ckey_str4);
+		else
+			// Space out title and keys (does not print key 4)
+			centerprint7 (self, "-[ \bArcane Key Inventory\b ]-\nYou have the following\n\n", ckey_str1, "\n", ckey_str2, "\n", ckey_str3, "\n");
+	}
+	else 
+		// Should always say the state of the inventory
+		centerprint(self, "-[ \bArcane Key Inventory\b ]-\n\nIs Empty!\n"); 
+};
+
+/*======================================================================
  ImpulseCommands
 ======================================================================*/
 void() ImpulseCommands =
@@ -75,6 +137,7 @@ void() ImpulseCommands =
 
 	// Only these MOD options can be changed via the console
 	else if (self.impulse == 100) toggleautoaim();		// Toggle auto aim
+	else if (self.impulse == 105) toggleprojsize();		// Toggle player proj size
 	else if (self.impulse == 110) togglezaware();		// Toggle Z aware monsters
 	else if (self.impulse == 115) togglepixels();		// Toggle texture modes
 	else if (self.impulse == 120) togglefootstep();		// Toggle footstep sound
@@ -84,15 +147,22 @@ void() ImpulseCommands =
 	else if (self.impulse == 140) display_version();	// Display MOD config flag
 	else if (self.impulse == 142) display_playinfo();	// Display Player information
 	else if (self.impulse == 145) StartIntermissionCamera();
+
 	else if (self.impulse == 150) togglecoopartifacts();// Toggle COOP can drop artifacts
-	else if (self.impulse == 155) togglecoopammoboxes();// Toggle COOP ammo boxes to respawn
+	else if (self.impulse == 152) togglecoopweapons();	// Toggle COOP weapons to respawn
+	else if (self.impulse == 154) togglecoophealth();	// Toggle COOP health to respawn
+	else if (self.impulse == 156) togglecoopammoboxes();// Toggle COOP ammo boxes to respawn
+	else if (self.impulse == 158) togglecooppowerups();	// Toggle COOP powerups to respawn
+
 	else if (self.impulse == 160) toggleweather();		// Toggle Weather Systems
+	else if (self.impulse == 175) display_customkeys();	// Display Custom Key inventory
 	
 	// Only works developer only)
 	else if (self.impulse == 200) toggleupgradeaxe();	// Toggle Axe Upgrade
 	else if (self.impulse == 205) toggleupgradessg();	// Toggle Shotgun Upgrade
 	else if (self.impulse == 210) toggleupgradelg();	// Toggle Lightning Upgrade
 	else if (self.impulse == 220) display_configflag();	// Display MOD config flag
+	else if (self.impulse == 225) display_mapvar();		// Display all map variables
 	else if (self.impulse == 230) toggledevhelpers();	// Toggle Dev Helpers (mark/arrow)
 	else if (self.impulse == 235) CycleParticleDebug();	// Cycle particle debug
 
@@ -152,7 +222,6 @@ void(float regbitflag, float worldvalue) update_worldspawn =
 void() sycn_worldspawn =
 {
 	update_worldspawn(SVR_ITEMOFFSET, self.no_item_offset);
-	update_worldspawn(SVR_ITEMROTATE, self.no_item_rotate);
 	update_worldspawn(SVR_UPDAXE, self.upgrade_axe);
 	update_worldspawn(SVR_UPDSSG, self.upgrade_ssg);
 	update_worldspawn(SVR_UPDLG, self.upgrade_lg);
@@ -263,6 +332,8 @@ void() display_configflag =
 	// Particle system
 	if (query_configflag(SVR_PARTICLES)) dprint("+ Particle System enabled\n");
 	else dprint("- Particle System disabled\n");
+	if (query_configflag(SVR_SPRPARTON) || world.sprite_particles == TRUE) 
+		dprint("* Sprite/Dot particles ONLY\n");
 	if (query_configflag(SVR_WEATHER)) dprint("- Weather System disabled\n");
 	else dprint("+ Weather System enabled\n");
 	// All new MOD weapons
@@ -291,12 +362,13 @@ void() display_configflag =
 	if (world.no_sgcasing > 0) dprint("W SG Casing Disabled on worldspawn\n");
 	else if (query_configflag(SVR_SHOTGCASE)) dprint("- Shotgun casing disabled\n");
 	else dprint("+ Shotgun casing enabled\n");
+	if (playerprojsize == 0) dprint("+ Large Projectile Collision\n");
+	else dprint("- Small Projectile Collision\n");
 
 	// Items updates; origin points and random rotation
 	if (query_configflag(SVR_ITEMOFFSET)) dprint("+ All items use center origin\n");
 	else dprint("- All items use corner origin\n");
-	if (query_configflag(SVR_ITEMROTATE)) dprint("- All items use entity angle key\n");
-	else dprint("+ All items are randomly rotated\n");
+	dprint("+ All items are randomly rotated\n");
 
 	// General MOD settings
 	if (autoaim_cvar >= 1) dprint("+ Player weapon autoaim disabled\n");
@@ -344,6 +416,18 @@ void() display_configflag =
 		if (ext_dprain) dprint("RAIN ");
 		if (ext_dpsnow) dprint("SNOW");
 		dprint(")\n");
+	}
+
+	// Show the coop respawn options
+	if (coop > 0) {
+		if (coop_weapons == FALSE) dprint("+ COOP weapons respawn TRUE\n");
+		else dprint("- COOP weapons respawn FALSE\n");
+		if (coop_ammoboxes == FALSE) dprint("- COOP ammo boxes respawn FALSE\n");
+		else dprint("+ COOP ammo boxes respawn TRUE\n");
+		if (coop_health == FALSE) dprint("- COOP health packs respawn FALSE\n");
+		else dprint("+ COOP health packs respawn TRUE\n");
+		if (coop_powerups == FALSE) dprint("- COOP powerups respawn FALSE\n");
+		else dprint("+ COOP powerups respawn TRUE\n");
 	}
 	
 	dprint("--------------------------------------\n");
@@ -400,6 +484,23 @@ void() toggleautoaim =
 	sprint(self, "\b[Impulse]\b Auto aim state ("); 
 	if (autoaim_cvar < 1) sprint(self, "ON)\n");
 	else sprint(self, "OFF)\n");
+};
+
+//----------------------------------------------------------------------
+void() toggleprojsize = 
+{
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	
+	self.impulse = 0;
+	
+	// Toggle the state of the global variable
+	if (playerprojsize == 1) playerprojsize = 0;
+	else playerprojsize = 1;
+	
+	sprint(self, "\b[Impulse]\b Player proj size ("); 
+	if (playerprojsize == 1) sprint(self, "SMALL)\n");
+	else sprint(self, "LARGE)\n");
 };
 
 //----------------------------------------------------------------------
@@ -511,16 +612,42 @@ void() togglecoopartifacts =
 {	
 	// Default return conditions (must be player)
 	if ( !(self.flags & FL_CLIENT) ) return;
+	if (coop == FALSE) {
+		sprint(self,"\b[IMPULSE]\b Only works when COOP active!\n");
+		return;
+	}
 	
 	self.impulse = 0;
 	sprint(self, "\b[SETTINGS]\b COOP Drop Artifacts ("); 
 	if (coop_artifacts == TRUE) {
 		coop_artifacts = FALSE;
-		sprint(self, "FALSE)\n");
+		sprint(self, "OFF)\n");
 	}
 	else {
 		coop_artifacts = TRUE;
-		sprint(self, "TRUE)\n");
+		sprint(self, "ON)\n");
+	}
+};
+
+//----------------------------------------------------------------------
+void() togglecoopweapons =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	if (coop == FALSE) {
+		sprint(self,"\b[IMPULSE]\b Only works when COOP active!\n");
+		return;
+	}
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Weapons Respawn ("); 
+	if (coop_weapons == TRUE) {
+		coop_weapons = FALSE;
+		sprint(self, "ON)\n");
+	}
+	else {
+		coop_weapons = TRUE;
+		sprint(self, "OFF)\n");
 	}
 };
 
@@ -529,16 +656,64 @@ void() togglecoopammoboxes =
 {	
 	// Default return conditions (must be player)
 	if ( !(self.flags & FL_CLIENT) ) return;
+	if (coop == FALSE) {
+		sprint(self,"\b[IMPULSE]\b Only works when COOP active!\n");
+		return;
+	}
 	
 	self.impulse = 0;
 	sprint(self, "\b[SETTINGS]\b COOP Ammo Boxes Respawn ("); 
 	if (coop_ammoboxes == TRUE) {
 		coop_ammoboxes = FALSE;
-		sprint(self, "FALSE)\n");
+		sprint(self, "OFF)\n");
 	}
 	else {
 		coop_ammoboxes = TRUE;
-		sprint(self, "TRUE)\n");
+		sprint(self, "ON)\n");
+	}
+};
+
+//----------------------------------------------------------------------
+void() togglecoophealth =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	if (coop == FALSE) {
+		sprint(self,"\b[IMPULSE]\b Only works when COOP active!\n");
+		return;
+	}
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Health Packs Respawn ("); 
+	if (coop_health == TRUE) {
+		coop_health = FALSE;
+		sprint(self, "OFF)\n");
+	}
+	else {
+		coop_health = TRUE;
+		sprint(self, "ON)\n");
+	}
+};
+
+//----------------------------------------------------------------------
+void() togglecooppowerups =
+{	
+	// Default return conditions (must be player)
+	if ( !(self.flags & FL_CLIENT) ) return;
+	if (coop == FALSE) {
+		sprint(self,"\b[IMPULSE]\b Only works when COOP active!\n");
+		return;
+	}
+	
+	self.impulse = 0;
+	sprint(self, "\b[SETTINGS]\b COOP Powerups Respawn ("); 
+	if (coop_powerups == TRUE) {
+		coop_powerups = FALSE;
+		sprint(self, "OFF)\n");
+	}
+	else {
+		coop_powerups = TRUE;
+		sprint(self, "ON)\n");
 	}
 };
 

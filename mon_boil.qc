@@ -251,6 +251,8 @@ void() boil_explode = {
 						if (CanDamage (self.enemytarget, self))
 							// Pass on self.enemy so death triggers fire correctly
 							T_Damage (self.enemytarget, self, self.enemy, self.dmg, DAMARMOR);
+							// make sure to check for poisonous and apply debuff
+							if (self.dmg > 0 && self.poisonous == TRUE) PoisonDeBuff(self.enemytarget);
 					}
 				}
 			}
@@ -293,12 +295,24 @@ void() boil_explode = {
 	}
 	*/
 	
-	// Show classic grenade explosion effect
-	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-	WriteByte (MSG_BROADCAST, TE_EXPLOSION);
-	WriteCoord (MSG_BROADCAST, self.origin_x);
-	WriteCoord (MSG_BROADCAST, self.origin_y);
-	WriteCoord (MSG_BROADCAST, self.origin_z);
+	// Switch explosions effect based on poison flag
+	if (self.poisonous) {
+		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+		WriteByte (MSG_BROADCAST, TE_EXPLOSION2);
+		WriteCoord (MSG_BROADCAST, self.origin_x);
+		WriteCoord (MSG_BROADCAST, self.origin_y);
+		WriteCoord (MSG_BROADCAST, self.origin_z);
+		WriteByte (MSG_BROADCAST, 51);
+		WriteByte (MSG_BROADCAST, 8);
+	}
+	else {
+		// Show classic grenade explosion effect
+		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+		WriteByte (MSG_BROADCAST, TE_EXPLOSION);
+		WriteCoord (MSG_BROADCAST, self.origin_x);
+		WriteCoord (MSG_BROADCAST, self.origin_y);
+		WriteCoord (MSG_BROADCAST, self.origin_z);
+	}
 };
 
 //----------------------------------------------------------------------
@@ -339,7 +353,11 @@ void() monster_boil =
 	precache_sound ("zombie/boil_windup.wav");
 	precache_sound ("zombie/boil_explode.wav");
 
-	precache_poisongibs();				// precache gibs
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
 	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
@@ -353,7 +371,6 @@ void() monster_boil =
 	self.blockudeath = TRUE;			// No humanoid death sound
 	if (self.death_dmg < 1) self.death_dmg = DAMAGE_BOIL;
 	if (self.infightextra < 1) self.infightextra = 16;
-	if (self.poisonous) self.gibtype = GIBTYPE_POISON;
 	self.attack_instant = 1;			// Start moving right away
 	
 	// Setup timer for flesh gib squirting from body

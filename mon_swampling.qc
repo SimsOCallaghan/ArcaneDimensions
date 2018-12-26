@@ -190,8 +190,9 @@ void() swampling_melee =
 	// Check for poisonous attribute (new poison version)
 	if (self.poisonous) PoisonDeBuff(self.enemy);
 
-	// swampling bite is very weak
+	// swampling bite (damage 1-9) is very weak
 	ldmg = (random() + random() + random()) * 3;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	
 	// Spawn some touch blood

@@ -152,7 +152,7 @@ void() trigger_spawn_bubbles =
 };
 
 /*======================================================================
-/*QUAKED trigger_multiple (0.5 0 0.5) ? NOTOUCH x x DEVMODE MODCHECK MONSTERS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+/*QUAKED trigger_multiple (0.5 0 0.5) ? NOTOUCH x DEVMODE x MODCHECK MONSTERS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Variable sized bmodel that uses multiple times
 ------- KEYS --------
 targetname : trigger entity (works with entity state system)
@@ -162,7 +162,7 @@ upgrade_axe : = 1 will only trigger if axe upgrade active on server
 upgrade_lg  : = 1 will only trigger if lightning gun upgrade active on server
 health  : Can be damaged instead of touched
 wait    : time between re-triggering
-delay : delay before firing (after being triggered)
+delay   : delay before firing (after being triggered)
 angle   : Facing Direction for trigger to work, use "360" for angle 0.
 sounds  : 1=Secret,2=talk(def),3=switch,4=silent,5=custom,6=secret2
 noise   : custom sound to play when triggered
@@ -179,6 +179,8 @@ Variable sized bmodel that uses multiple times
 ======================================================================*/
 void() trigger_multiple =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	if (self.spawnflags & TRIG_MODCHECK) { remove(self); return; }
 	trigger_bmodel_sounds();			// Precache any sounds
 	self.classtype = CT_TRIGMULTI;
@@ -219,6 +221,8 @@ Variable sized bmodel that uses once
 ======================================================================*/
 void() trigger_once =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	if (self.spawnflags & TRIG_MODCHECK) { remove(self); return; }
 	trigger_bmodel_sounds();			// Precache any sounds
 	self.classtype = CT_TRIGONCE;
@@ -261,6 +265,8 @@ Update map secret counter
 ======================================================================*/
 void() trigger_secret =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	if (self.sounds == 0) self.sounds = 1;
 	trigger_bmodel_sounds();			// Precache any sounds
 	self.classtype = CT_TRIGSECRET;
@@ -466,6 +472,8 @@ void() trigger_teleport_touch =
 //----------------------------------------------------------------------
 void() trigger_teleport =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// Always pre-cache telporter teleporter sound
 	if (self.noise == "") self.noise = "ambience/hum1.wav";
 	precache_sound (self.noise);
@@ -569,6 +577,10 @@ void() trigger_changelevel_fire =
 
 	self.attack_finished = LARGE_TIMER;
 
+	// Check for map variables on exit
+	if (!CheckZeroVector(self.mapvar_update))
+		mapvar_range(self.mapvar_update);
+	
 	// Reset player inventory back to ID default (shotgun+25shells)
 	if (self.spawnflags & TRIG_CMAPRESETINV) {
 		dprint("\b[CHANGELVL]\b Resetting client inventory!\n"); 
@@ -629,6 +641,8 @@ void() changelevel_touch = { trigger_changelevel_fire();};
 //----------------------------------------------------------------------
 void() trigger_changelevel =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGLEVEL;
 	InitTrigger ();
 	// Spawnflag 1 is used for something else (notouch duplicate)
@@ -687,6 +701,8 @@ void() trigger_setskill_fire =
 //----------------------------------------------------------------------
 void() trigger_setskill =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGSKILLS;
 	InitTrigger ();
 	
@@ -771,6 +787,8 @@ void() trigger_rune_fire =
 //----------------------------------------------------------------------
 void() trigger_rune =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGRUNES;
 	// Spawnflag 1 is used for something else (notouch duplicate)
 	self.spawnflags = self.spawnflags | TRIG_ALWAYTOUCH;
@@ -858,6 +876,8 @@ void() trigger_push_touch = { self.bmodel_act = other; trigger_push_fire(); }
 //----------------------------------------------------------------------
 void() trigger_push =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGPUSH;
 	InitTrigger ();
 	// Spawnflag 1 is used for something else (notouch duplicate)
@@ -932,6 +952,8 @@ void() trigger_ladder_fire =
 //----------------------------------------------------------------------
 void() trigger_ladder =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// Default = wood
 	if (!self.sounds) self.sounds = 2;
 	if (self.sounds == 1) {				// Metal
@@ -979,6 +1001,104 @@ void() trigger_ladder =
 
 	// Setup Entity State functionality
 	self.estate_fire = trigger_ladder_fire;
+	trigger_bmodel_setup();
+};
+
+/*======================================================================
+/*QUAKED trigger_giveitems (0.5 0 0.5) ? NOTOUCH x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+Variable sized bmodel used to give items to player
+The target items only work if delay spawned spawnflag is set
+The pickup sound can be turned off by adding sounds=4 to item
+The target items will not respawn or work more than once
+-------- KEYS --------
+targetname : trigger entity (works with entity state system)
+target  : Points to all items to give to the player
+wait    : (def) -1 = will only fire targets once
+angle   : Facing Direction for trigger to work, use "360" for angle 0.
+sounds  : 1=Secret,2=talk(def),3=switch,4=silent,5=custom,6=secret2
+noise   : custom sound to play when triggered
+message : message to display when triggered
+-------- SPAWNFLAGS --------
+NOTOUCH  : can only be triggered via other entities
+STARTOFF : Requires trigger to activate
+-------- NOTES --------
+Variable sized bmodel used to give items to activator
+The target items only work if delay spawned spawnflag is set
+The pickup sound can be turned off by adding sounds=4 to item
+The target items will not respawn or work more than once
+
+======================================================================*/
+void() trigger_giveitem_fire =
+{
+	local entity stemp;
+
+	// Is the trigger blocked? (trigger_once)
+	if (self.attack_finished > time) return;
+	// Activator can only be the player
+	if (!(self.bmodel_act.flags & FL_CLIENT)) return;
+	if (self.bmodel_act.health < 1) return;
+	if (self.target == "") return;
+
+	// Save for later and reset activator
+	stemp = self; activator = self.bmodel_act;
+
+	// Play the sound ON the activator and display message
+	if (self.noise != "") sound (activator, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+	if (self.message != "") centerprint (activator, self.message);
+	
+	// Search entity list for targets
+	self.enemy = find (world, targetname, self.target);
+	
+	while(self.enemy) {
+		// This only works with items
+		if (self.enemy.flags & FL_ITEM) {
+			// Only works with items that start off
+			if (self.enemy.spawnflags & ENT_STARTOFF) {
+				if (self.enemy.touch2 != SUB_Null) {
+					// Switch to item for touch function
+					other = self.bmodel_act;
+					activator = self.bmodel_act;
+					self = self.enemy; 
+					// make sure items never respawn and silent pickup
+					self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
+					self.respawn_time = -1;
+					self.respawn_trig = FALSE;
+					// item should always be floating (no drop to floor functions)
+					self.spawnflags = self.spawnflags | ITEM_FLOATING;
+					// give trigger sound overrides all items
+					if (stemp.sounds != 4) self.noise = SOUND_EMPTY;
+					// Use original touch function
+					self.touch2 ();
+					self = stemp;
+					
+				}
+			}
+		}
+		// Are there anymore targets left in the list?
+		self.enemy = find (self.enemy, targetname, self.target);
+	}
+	
+	// check for TRIGGER_ONCE functionality
+	if (self.wait < 0) self.attack_finished = LARGE_TIMER;
+};
+
+//----------------------------------------------------------------------
+void() trigger_giveitems =
+{
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
+	if (self.sounds == 0) self.sounds = 4;	// Default = silence
+	trigger_bmodel_sounds();				// Precache any sounds
+	self.classtype = CT_TRIGGIVEITEM;
+	InitTrigger ();
+	
+	if (self.wait == 0) self.wait = -1;		// Default = trigger once
+	
+	// Cannot have trigger give items touched by monsters
+	self.spawnflags = self.spawnflags - (self.spawnflags & TRIG_MONSTERS);
+
+	// Setup Entity State functionality
+	self.estate_fire = trigger_giveitem_fire;
 	trigger_bmodel_setup();
 };
 
@@ -1067,6 +1187,8 @@ void() trigger_fog_waitforcontrol =
 //----------------------------------------------------------------------
 void() trigger_fog =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGFOG;
 	InitTrigger ();
 
@@ -1139,6 +1261,8 @@ void() trigger_monsternojump_fire =
 //----------------------------------------------------------------------
 void() trigger_monsternojump =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGNOJUMP;
 	if (!self.delay) self.delay = 0.5;
 	if (!self.waitmin) self.waitmin = 0.1;
@@ -1294,6 +1418,8 @@ void() trigger_monsterjump_fire =
 //----------------------------------------------------------------------
 void() trigger_monsterjump =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGMONJUMP;
 	if (!self.speed) self.speed = 200;
 	if (!self.height) self.height = 200;
@@ -1375,6 +1501,8 @@ void() trigger_monsterturret_fire =
 //----------------------------------------------------------------------
 void() trigger_monsterturret =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGMONTURRET;
 	if (self.count < 0) self.count = -1;
 	else if (self.count == 0 || self.count > 1) self.count = 0.25;
@@ -1455,6 +1583,8 @@ void() trigger_hurt_on =
 //----------------------------------------------------------------------
 void() trigger_hurt =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	if (self.spawnflags & TRIG_MODCHECK) { remove(self); return; }
 	self.classtype = CT_TRIGHURT;
 	InitTrigger ();
@@ -1576,8 +1706,10 @@ void() trigger_heal_reset =
 //----------------------------------------------------------------------
 void() trigger_heal =
 {
-	InitTrigger ();
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGHEAL;
+	InitTrigger ();
 
 	// Setup default healing sound
 	if (self.sounds == 2) self.noise = SOUND_HEAL25;
@@ -1727,6 +1859,8 @@ void() trigger_tsound_syncalpha =
 //----------------------------------------------------------------------
 void() trigger_touchsound =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGTSOUND;
 	self.mdl = self.model;
 	InitTrigger ();
@@ -1868,6 +2002,8 @@ void() trigger_void_touch =
 //----------------------------------------------------------------------
 void() trigger_void =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.classtype = CT_TRIGVOID;
 	InitTrigger ();
 	setsize (self, self.bbmins, self.bbmaxs);

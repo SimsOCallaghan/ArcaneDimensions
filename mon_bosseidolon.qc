@@ -338,6 +338,26 @@ void() eidolon_create_attachment =
 };
 
 //----------------------------------------------------------------------
+void() eidolon_setup_attachment = 
+{
+	// Is monster dead or dying?
+	if (self.health < 1) return;
+
+	// Check if attachment has been setup yet
+	if (!self.attachment) eidolon_create_attachment();
+
+	// Move attachment into place ready for use
+	self.attachment.movetype = MOVETYPE_NONE;
+	self.attachment.solid = SOLID_NOT;
+	setmodel(self.attachment, MODEL_EMPTY);
+	setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
+	setorigin(self.attachment, self.origin);
+	// Using empty model, so reset angle, frame and skin.
+	self.attachment.angles = self.angles;
+	self.attachment.frame = self.attachment.skin = 0;
+};
+
+//----------------------------------------------------------------------
 void() eidolon_finish_attachment =
 {
 	if (self.attachment) {
@@ -410,12 +430,11 @@ void(vector rockofs, float rockframe) Setup_attackA =
 	// Frame 0 is start of the sequence (move everything into place)
 	if (rockframe == 0) {
 		self.attachment.state = STATE_ON;
-		setorigin(self.attachment, self.origin);
-		setmodel(self.attachment, self.attachment.mdl);
-		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment.movetype = MOVETYPE_NONE;
 		self.attachment.solid = SOLID_NOT;
-		self.attachment.skin = 0;
+
+		setmodel(self.attachment, self.attachment.mdl);
+		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 
 		// Start throwing rock sound
 		sound (self, CHAN_WEAPON, "eidolon/attacka.wav", 1, ATTN_NORM);
@@ -449,7 +468,8 @@ void() eidolon_attackA2 = {
 	if (self.frame < $spell14) ai_face();
 	
 	// Check the state of the projectile (grow/fire)
-	if (self.frame == $spell4) Setup_attackA('60 18 64',0);
+	if (self.frame == $spell3) eidolon_setup_attachment();
+	else if (self.frame == $spell4) Setup_attackA('60 18 64',0);
 	else if (self.frame == $spell5) Setup_attackA('62 18 68',1);
 	else if (self.frame == $spell6) Setup_attackA('64 18 72',2);
 	else if (self.frame == $spell7) Setup_attackA('68 18 78',3);
@@ -550,11 +570,11 @@ void(vector rockofs, float rockframe) Setup_attackE =
 	// Frame 0 is start of the sequence (move everything into place)
 	if (rockframe == 0) {
 		self.attachment.state = STATE_ON;
+		self.attachment.movetype = MOVETYPE_NONE;
+		self.attachment.solid = SOLID_NOT;
 		setorigin(self.attachment, self.origin);
 		setmodel(self.attachment, self.attachment.mdl);
 		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
-		self.attachment.movetype = MOVETYPE_NONE;
-		self.attachment.solid = SOLID_NOT;
 		self.attachment.skin = 1;
 
 		// Start long growl
@@ -915,6 +935,7 @@ void() eidolon_start =
 	// Setup Ammo Resistance
 	self.resist_shells = self.resist_cells = 0;
 	self.resist_nails = self.resist_rockets = 0.75;
+	self.reflectnails = TRUE;		// Reflect nail projectiles
 	
 	//Resist_CheckRange(self);		// Double check values
 	Resist_Save(self);				// Save for Later
@@ -1024,6 +1045,8 @@ void() monster_eidolon =
 	self.bbmaxs = '32 32 128';
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+	self.poisonous = FALSE;			// Cannot be poisonous
+
 	self.health = self.max_health = MEGADEATH;
 	self.pain_finished = time + LARGE_TIMER;
 	self.takedamage = DAMAGE_NO;	// Immune to damage

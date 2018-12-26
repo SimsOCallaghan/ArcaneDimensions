@@ -638,7 +638,7 @@ void() monster_dcrossbow =
 	if (deathmatch) { remove(self); return; }
 
 	self.mdl = "progs/mon_dcrossbow.mdl";			// crossbow guy
-	self.headmdl = "progs/h_dguard.mdl";
+	self.headmdl = "progs/h_dcrossbow.mdl";
 	self.gib1mdl = "progs/w_dcrossbow.mdl";			// Unique weapon
 	self.gib2mdl = "progs/gib_knfoot_l.mdl";		// left foot
 	self.gib3mdl = "progs/gib_knfoot_r.mdl";		// right foot
@@ -677,7 +677,15 @@ void() monster_dcrossbow =
 
 	self.sight_sound = "weapons/crossbow_rdy.wav";
 	precache_sound (self.sight_sound);
-	
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_BOLT2);	// Green poison bolt
+		self.skin = self.exactskin = 1;		// Greener Green+++ Skin!?!
+	}
+		
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;

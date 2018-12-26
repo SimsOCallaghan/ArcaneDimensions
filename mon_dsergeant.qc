@@ -581,6 +581,13 @@ void() monster_dsergeant =
 	precache_sound ("dknight/dfury_grunt4.wav");
 	precache_sound ("dknight/dfury_leap.wav");
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_SHALGRN);	// Green voreball
+	}
+
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;

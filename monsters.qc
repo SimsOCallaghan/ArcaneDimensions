@@ -180,16 +180,24 @@ void() monster_sightsound =
 	if (self.sight_timeout < time) {
 		self.sight_timeout = time + MON_SIGHTSOUND;		// Use pre-defined reset values
 	
-		// ID code - A bit excessive to have four sight sounds for the enforcer and 
-		// only one for every other monster type! ... somebody sure had a favourite!
-		if (self.classtype == CT_MONENFORCER) {
-			rsnd = random();			
-			if (rsnd < 0.25) sound (self, CHAN_BODY, self.sight_sound, 1, ATTN_NORM);
-			else if (rsnd < 0.5) sound (self, CHAN_BODY, "enforcer/sight2.wav", 1, ATTN_NORM);
-			else if (rsnd < 0.75) sound (self, CHAN_BODY, "enforcer/sight3.wav", 1, ATTN_NORM);
-			else sound (self, CHAN_BODY, "enforcer/sight4.wav", 1, ATTN_NORM);
+		rsnd = random();
+		// The id enforcer has four sight sounds, which is a bit excessive
+		// Check through sight strings to find out quantity
+		if (self.sight_count == 2) {
+			if (rsnd < 0.5) sound (self, CHAN_BODY, self.sight_sound, 1, ATTN_NORM);
+			else sound (self, CHAN_BODY, self.sight_sound2, 1, ATTN_NORM);
 		}
-
+		else if (self.sight_count == 3) {
+			if (rsnd < 0.3) sound (self, CHAN_BODY, self.sight_sound, 1, ATTN_NORM);
+			else if (rsnd < 0.6) sound (self, CHAN_BODY, self.sight_sound2, 1, ATTN_NORM);
+			else sound (self, CHAN_BODY, self.sight_sound3, 1, ATTN_NORM);
+		}
+		else if (self.sight_count == 4) {
+			if (rsnd < 0.25) sound (self, CHAN_BODY, self.sight_sound, 1, ATTN_NORM);
+			else if (rsnd < 0.5) sound (self, CHAN_BODY, self.sight_sound2, 1, ATTN_NORM);
+			else if (rsnd < 0.75) sound (self, CHAN_BODY, self.sight_sound3, 1, ATTN_NORM);
+			else sound (self, CHAN_BODY, self.sight_sound4, 1, ATTN_NORM);
+		}
 		// setup each monster with unique sight sounds (easier and quicker)
 		else sound (self, CHAN_BODY, self.sight_sound, 1, ATTN_NORM);
 	}
@@ -652,6 +660,14 @@ void() monster_spawn =
 	self.skin = self.skin_override;				// Restore any skins
 	self.frame = self.frame_override;			// Restore any frames
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
+
+	// Check for delay spawn monster count
+	if (self.delaymonstercount) {
+		// Reset both monster count conditions
+		self.nomonstercount = self.delaymonstercount = 0;
+		total_monsters = total_monsters + 1;
+		update_hud_totals(HUD_MONSTERS);
+	}
 	
 	// Restore any effect flags settings (various dlight glows)
 	if (self.savedeffects > 0) self.effects = self.savedeffects;
@@ -742,11 +758,13 @@ void() monster_spawn =
 	}	
 	
 	//----------------------------------------------------------------------
-	// Perched Gargoyles have special idle animation (sitting)
+	// Perched Gargoyles/Gaunt have special idle animation (sitting)
 	// and need to fly up before resuming any normal behaviour 
 	// (most think functions are intercepted)
 	//----------------------------------------------------------------------
-	if (self.classtype == CT_MONGARGOYLE && self.spawnflags & MON_GARGOYLE_PERCH) {
+	if (self.classtype == CT_MONGARGOYLE && self.spawnflags & MON_GARGOYLE_PERCH ||
+		self.classtype == CT_MONGAUNT && self.spawnflags & MON_GAUNT_PERCH ) 
+	{
 		self.flags = self.flags | FL_FLY;	// Stop any ground checks
 		self.th_stand();
 		return;
@@ -1011,11 +1029,17 @@ void() monster_start =
 	else {
 		// Allow mappers to spawn monsters that don't affect monster count
 		// I know this can be a dangerous if used incorrectly, but good for statues
-		if (!self.nomonstercount) total_monsters = total_monsters + 1;
-		else {
-			dprint("\b[MONSTER]\b ("); dprint(self.targetname);
-			dprint(") - no monster count\n");
+		// delaymonstercount = update count on spawn instead of death
+		if (self.nomonstercount > 0 || self.delaymonstercount > 0)
+		{
+			if (developer > 1) {
+				dprint("\b[MONSTER]\b ("); dprint(self.targetname);
+				dprint(") - no monster count\n");
+			}
 		}
+		// Default state - update monster total
+		// HUD update done with client setup
+		else total_monsters = total_monsters + 1;
 	}
 	
 	//----------------------------------------------------------------------

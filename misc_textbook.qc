@@ -527,6 +527,7 @@ void() misc_textbook =
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
 	self.classtype = CT_STORYBOOK;
+
 	// Setup large bounding box for touch trigger
 	if (CheckZeroVector(self.pos1)) self.pos1 = '-48 -48 -32';
 	if (CheckZeroVector(self.pos2)) self.pos2 = '48 48 32';

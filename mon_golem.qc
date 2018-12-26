@@ -664,6 +664,7 @@ void() monster_golem =
 	self.no_liquiddmg = TRUE;		// Immune to slime/lava
 	self.meleerange = MONAI_MELEEGOLEM;
 	self.attack_offset = '10 0 30';		// Rock storm
+	self.poisonous = FALSE;				// Stone is not poisonous
 	
 	self.th_checkattack = GolemCheckAttack;
 	self.th_die = golem_die;
@@ -671,6 +672,7 @@ void() monster_golem =
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;
 	self.resist_rockets = self.resist_cells = 0;
+	self.reflectnails = TRUE;		// Reflect nail projectiles
 
 	//----------------------------------------------------------------------
 	// Detect statues and setup different parameters

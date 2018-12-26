@@ -60,6 +60,39 @@ vector(entity bmodel_ent) bmodel_origin =
 	return vorigin;
 };
 
+//======================================================================
+// Check for bmodel errors, model key empty (can crash engine)
+//----------------------------------------------------------------------
+float() check_bmodel_keys =
+{
+	if (self.model == "") {
+		// this error can be fatal for most engines, show warning
+		dprint ("\b[BMODEL]\b "); dprint (self.classname);
+		dprint (" ("); dprint (self.targetname);
+		dprint (") missing MODEL key!\n");
+		
+		self.classtype = CT_DEVMARKER;		// Useless entity
+		self.movetype = MOVETYPE_NONE;		// Stationary
+		self.solid = SOLID_NOT;				// no world interaction
+		
+		// If developer active show yellow diamond
+		if (developer > 0) setmodel(self, MODEL_BROKEN);
+		else setmodel(self,"");
+		
+		// Make sure no world interaction
+		setsize (self, VEC_ORIGIN, VEC_ORIGIN);
+		
+		// Randomly place debug diamond above 0,0,0
+		self.pos1 = '0 0 0';
+		self.pos1_z = random()*64;
+		setorigin(self, self.pos1);
+		
+		// Do nothing with this entity
+		return TRUE;
+	}
+	else return FALSE;
+};
+
 //----------------------------------------------------------------------
 // Cannot have multiple upgrade restrictions on monster/items
 //----------------------------------------------------------------------

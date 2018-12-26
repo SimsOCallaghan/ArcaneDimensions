@@ -4,6 +4,9 @@
 entity	lastspawn;					// client.qc (SelectSpawnPoint)
 
 void() InitBodyQue;
+void() pendulum_setuparray;
+void() mapvar_setuparray;
+
 //----------------------------------------------------------------------
 void() main =
 {
@@ -203,7 +206,6 @@ water_alpha : Water Alpha, default - 1.00
 particlemax : Amount of ACTIVE particles per map
 
 no_item_offset  : All ammo/heal items use central point rotation
-no_item_rotate  : No random rotated for all items
 no_zaware       : Switch OFF zaware monster attacks
 no_sgprojectile : Switches OFF ALL shotgun projectiles
 no_sgcasing     : Switches OFF ALL shotgun casings
@@ -211,6 +213,7 @@ no_liquiddmg    : Switch OFF liquid (slime/lava) monster damage
 knight_defskin  : Default skin (0-3) type for new knight model
 bodyflrcheck    : All monster dead body check floor for gravity
 bodyfadeaway    : All monster dead bodies fade away
+sprite_particles: Switch all custom particles to sprites (builtin excluded)
 
 upgrade_axe     : Upgrade Axe -1=disable, 1=enable
 upgrade_ssg     : Upgrade Super Shotgun -1=disable, 1=enable
@@ -394,13 +397,16 @@ void() worldspawn =
 	precache_model ("progs/bolt2.mdl");		// for lightning gun
 	precache_model ("progs/bolt3.mdl");		// for boss shock
 	precache_model (MODEL_PROJ_PGPLASMA);	// Plasma bolt for PG
+	precache_model (MODEL_PROJ_LIGHTNING2);	// reflected lightning
 	//	precache_model ("progs/lavaball.mdl");	// for testing
 	
 	precache_model (MODEL_PROJ_SHELLC);		// Launch_ShellCasing - projectiles.qc
 	precache_model (MODEL_PROJ_DIAM2);		// Projectile bullets
 	precache_model (MODEL_PROJ_NG);
+	precache_model (MODEL_PROJ_NGRED);		// Reflected nails
 	precache_model (MODEL_PROJ_SNG);
 	precache_model (MODEL_PROJ_GRENADE);
+	// precache_model (MODEL_PROJ_GRENADEGRN);	// Poisonous Grenade
 	precache_model (MODEL_PROJ_ROCKET);
 	precache_model (MODEL_BACKPACK);		// DropBackpack - items.qc
 	
@@ -569,6 +575,9 @@ void() worldspawn =
 	// Default is auto aim OFF
 	autoaim_cvar = 1;
 	
+	// Check for any override on player projectiles
+	playerprojsize = world.no_bigprojectiles;
+	
 	//----------------------------------------------------------------------
 	// Check for any custom gravity settings or ziggy secret map
 	if (!self.gravity) map_gravity = DEF_GRAVITY;
@@ -599,8 +608,10 @@ void() worldspawn =
 	if (query_configflag(SVR_PARTICLES) == SVR_PARTICLES) {
 		if (self.particlemax > 0) part_max = self.particlemax;
 		else part_max = PARTICLE_MAXENTS;
-		// DP/FTE setup uses engine particles
-		if (engine == ENG_DPEXT) part_max = part_max * 0.5;	
+		// DP/FTE setup requires less entities for sprite particles
+		if (engine == ENG_DPEXT && query_configflag(SVR_SPRPARTON) == FALSE
+			&& self.sprite_particles == FALSE)
+			part_max = part_max * 0.5;
 		dprint("\b[WORLD]\b Max particles (");
 		dprint(ftos(part_max)); dprint(")\n");
 		setup_particlechain();		// Setup intial particle chain
@@ -609,6 +620,8 @@ void() worldspawn =
 	//----------------------------------------------------------------------
 	dprint("\b[WORLD]\b Setup Pendulum vector array\n");
 	pendulum_setuparray();
+	dprint("\b[WORLD]\b Setup Map Var bitflag array\n");	
+	mapvar_setuparray();
 
 	//----------------------------------------------------------------------
 	// Original id levels

@@ -32,6 +32,7 @@ $frame death1 death2 death3 death4 death5 death6
 $frame death7 death8 death9 death10 death11
 
 void() sham_swingr1;
+void() sham_reset_attachment;
 
 //======================================================================
 void() sham_stand1	=[	$stand1,	sham_stand2	] {ai_stand();};
@@ -67,7 +68,14 @@ void() sham_walk11	=[ $walk11, sham_walk12] {ai_walk(7);};
 void() sham_walk12	=[ $walk12, sham_walk1 ] {ai_walk(7);};
 
 //======================================================================
-void() sham_run1 =[ $run1, sham_run2 ] {monster_idle_sound(); ai_run(20);};
+void() sham_run1 =[ $run1, sham_run2 ] {
+	// This attachment reset should not be here!?!
+	// Animation states (like range) can be interrupted
+	// and everything always comes back to the run loop
+	sham_reset_attachment();
+	monster_idle_sound();
+	ai_run(20);
+};
 void() sham_run2 =[ $run2, sham_run3 ] {monster_footstep(FALSE); ai_run(24);};
 void() sham_run3 =[ $run3, sham_run4 ] {ai_run(20);};
 void() sham_run4 =[ $run4, sham_run5 ] {ai_run(20);};
@@ -88,6 +96,7 @@ void(float melee_attack, float side) sham_meleeattack =
 	local float ldmg, dmg_multiplier;
 	
 	if (!self.enemy) return;					// Something to fight?
+	if (self.health < 1) return;				// Shambler alive?
 	ai_damagebreakable(40);						// Damage any breakables
 	if (!ai_checkmelee(MONAI_MELEESHAM)) return;// Too far away
 	dmg_multiplier = 1;
@@ -107,8 +116,12 @@ void(float melee_attack, float side) sham_meleeattack =
 	// Also if this damage is enough to kill in a single blow, gib for effect
 	if (melee_attack == SHAM_MSMASH) {
 		sound (self, CHAN_VOICE, self.meleehitsound, 1, ATTN_NORM);
+		// Do double damage to other monsters (overhead smash attack only)
 		if (self.enemy.flags & FL_MONSTER) dmg_multiplier = dmg_multiplier * 2;
+		// Damage 1-120
 		ldmg = (random() + random() + random()) * (40*dmg_multiplier);
+		if (ldmg < 1) ldmg = 1;
+		// Make sure of impressive gib death
 		if (self.enemy.health < ldmg) ldmg = ldmg*3;
 		T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	
@@ -119,7 +132,9 @@ void(float melee_attack, float side) sham_meleeattack =
 	// Shambler side swipe (left/right and half damage)
 	else if (melee_attack == SHAM_MCLAW) {
 		sound (self, CHAN_VOICE, self.meleehitsound, 1, ATTN_NORM);
+		// Damage 1-60
 		ldmg = (random() + random() + random()) * 20;
+		if (ldmg < 1) ldmg = 1;
 		T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 		SpawnMeatSpray (self, self.enemy, side);
 	}
@@ -152,7 +167,11 @@ void() sham_swingl7 =[      $swingl7,      sham_swingl8   ] {ai_charge(5); sham_
 void() sham_swingl8 =[      $swingl8,      sham_swingl9   ] {ai_charge(4);};
 void() sham_swingl9 =[      $swingl9,      sham_run1  ] { ai_charge(8);
 	if (ai_checkmelee(MONAI_MELEESHAM)) {
-		if (self.enemy && self.enemy.health > 1) self.think = sham_swingr1;
+		if (self.enemy && self.enemy.health > 1) {
+			// Done one claw swing, go for the smash if a zombie
+			if (self.enemy.classgroup == CG_ZOMBIE) self.think = sham_smash1;
+			else self.think = sham_swingr1;
+		}
 	}
 };
 
@@ -168,13 +187,19 @@ void() sham_swingr7 =[      $swingr7,      sham_swingr8   ] {ai_charge(6); sham_
 void() sham_swingr8 =[      $swingr8,      sham_swingr9   ] {ai_charge(3);};
 void() sham_swingr9 =[      $swingr9,      sham_run1  ] { ai_charge(10);
 	if (ai_checkmelee(MONAI_MELEESHAM)) {
-		if (self.enemy && self.enemy.health > 1) self.think = sham_swingl1;
+		if (self.enemy && self.enemy.health > 1) {
+			// Done one claw swing, go for the smash if a zombie
+			if (self.enemy.classgroup == CG_ZOMBIE) self.think = sham_smash1;
+			else self.think = sham_swingl1;
+		}
 	}
 };
 
 //----------------------------------------------------------------------
 void() sham_melee =
 {
+	// Make sure lightning attachment is hidden
+	sham_reset_attachment();
 	// If infighting and enemy is low on health, go for smash!
 	if (self.enemy.flags & FL_MONSTER && self.enemy.health < 40) sham_smash1 ();
 	else {
@@ -194,22 +219,50 @@ void() sham_create_attachment =
 	// Are the attachments setup yet?
 	if (!self.attachment) {
 		self.attachment = spawn();
-		self.attachment.owner = self;
+		//self.attachment.owner = self;
 		self.attachment.classtype = CT_ATTACHMENT;
 		self.attachment.alpha = 0.85;
+		self.attachment.state = FALSE;
 	}
 };
 
 //----------------------------------------------------------------------
-void() sham_finish_attachment =
+void() sham_reset_attachment =
 {
-	if (self.attachment) setmodel(self.attachment, "");
+	if (self.attachment) {
+		if (self.attachment.state) {
+			// Move attachment into place ready for use
+			self.attachment.movetype = MOVETYPE_NONE;
+			self.attachment.solid = SOLID_NOT;
+			self.attachment.frame = 0;
+			self.attachment.skin = 0;
+			setmodel(self.attachment, "");
+			setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
+			setorigin(self.attachment, self.origin);
+			// Using empty model, so reset angle, frame and skin.
+			self.attachment.angles = self.angles;
+			self.attachment.state = FALSE;
+		}
+	}
+};
+
+//----------------------------------------------------------------------
+void() sham_setup_attachment =
+{
+	if (self.attachment) {
+		self.attachment.movetype = MOVETYPE_NONE;
+		self.attachment.solid = SOLID_NOT;
+		setmodel(self.attachment, MODEL_PROJ_SHAMLIT);
+		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
+		self.attachment.state = TRUE;
+	}
 };
 
 //----------------------------------------------------------------------
 void() sham_remove_attachment =
 {
 	if (self.attachment) {
+		self.attachment.state = FALSE;
 		self.attachment.think = SUB_Remove;
 		self.attachment.nextthink = time + 0.1;
 	}
@@ -225,15 +278,19 @@ void() sham_lightning =
 	
 	ai_face ();
 	self.effects = self.effects | EF_MUZZLEFLASH;
-	sham_finish_attachment();
+	sham_reset_attachment();
 
 	makevectors(self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
 	dir = self.enemy.origin + '0 0 16' - org;
 	dir = normalize (dir);
 
+	// Check if the shambler can fire further than default
+	if (self.attack_sniper == TRUE)
+		self.enemydist = range_distance(self.enemy, FALSE);
+	else self.enemydist = MONAI_SHAMRANGE;
 	// Trace direct line of lightning infront of shambler
-	traceline (org, self.origin + dir*MONAI_SHAMRANGE, TRUE, self);
+	traceline (org, self.origin + dir*self.enemydist, TRUE, self);
 
 	// Display lightning model segments
 	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
@@ -259,19 +316,14 @@ void(vector leftofs, vector rightofs, float litframe) sham_casting =
 {
 	local vector org, dir;
 	local float litpoint;
+	
 	if (self.health < 1) return;
 
 	// Check if attachment has been setup yet
 	if (!self.attachment) sham_create_attachment();
 
 	// Frame 0 is start of the sequence (move everything into place)
-	if (litframe == 0) {
-		setorigin(self.attachment, self.origin);
-		setmodel(self.attachment, MODEL_PROJ_SHAMLIT);
-		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
-		self.attachment.movetype = MOVETYPE_NONE;
-		self.attachment.solid = SOLID_NOT;
-	}
+	if (litframe == 0) sham_setup_attachment();
 
 	// Turn toward enemy
 	ai_face();
@@ -295,7 +347,7 @@ void(vector leftofs, vector rightofs, float litframe) sham_casting =
 };
 
 //----------------------------------------------------------------------
-void() sham_magic1 =[ $magic1, sham_magic2 ] {ai_face();
+void() sham_magic1 =[ $magic1, sham_magic2 ] {ai_face();sham_reset_attachment();
 	sound (self, CHAN_WEAPON, "shambler/sattck1.wav", 1, ATTN_NORM);};
 void() sham_magic2 =[ $magic2, sham_magic3 ] {
 	sham_casting('0 43 61','16 -4 75',0);};
@@ -316,18 +368,18 @@ void() sham_magic11=[ $magic11,sham_magic12 ] {
 void() sham_magic12 =[ $magic12, sham_run1] {};
 
 //============================================================================
-void() sham_pain1       =[      $pain1, sham_pain2      ] {};
-void() sham_pain2       =[      $pain2, sham_pain3      ] {};
-void() sham_pain3       =[      $pain3, sham_pain4      ] {};
-void() sham_pain4       =[      $pain4, sham_pain5      ] {};
-void() sham_pain5       =[      $pain5, sham_pain6      ] {};
-void() sham_pain6       =[      $pain6, sham_run1      ] {};
+void() sham_pain1 =[$pain1, sham_pain2] {};
+void() sham_pain2 =[$pain2, sham_pain3] {};
+void() sham_pain3 =[$pain3, sham_pain4] {};
+void() sham_pain4 =[$pain4, sham_pain5] {};
+void() sham_pain5 =[$pain5, sham_pain6] {};
+void() sham_pain6 =[$pain6, sham_run1] {};
 
 //----------------------------------------------------------------------
-void(entity inflictor, entity attacker, float damage)	sham_pain =
+void(entity inflictor, entity attacker, float damage) sham_pain =
 {
-	// Finish with all attachments
-	sham_finish_attachment();
+	// Reset lightning attachment
+	sham_reset_attachment();
 
 	// Check all pain conditions and set up what to do next
 	monster_pain_check(attacker, damage);
@@ -363,7 +415,7 @@ void() sham_death11 =[ $death11, sham_death11 ] {monster_deadbody_check();};
 void() sham_die =
 {
 	// Finish and remove all attachments
-	sham_finish_attachment();
+	sham_reset_attachment();
 	sham_remove_attachment();
 
 	// Pre-check routine to tidy up extra entities
@@ -462,11 +514,11 @@ void() monster_shambler =
 	self.sight_sound = "shambler/ssight.wav";
 	precache_sound (self.sight_sound);
 	
-	// Precache extra green small gibs
+	// Check for poisonous entity flag
 	if (self.poisonous) {
-		precache_poisongibs();
-		self.gibtype = GIBTYPE_POISON;
-		self.exactskin = 1;
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		self.exactskin = 1;				// New green skin
 	}
 	
 	self.solid = SOLID_NOT;				// No interaction with world

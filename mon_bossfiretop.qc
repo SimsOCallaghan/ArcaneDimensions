@@ -349,6 +349,7 @@ void() monster_firetopboss =
 	self.bbmaxs = '128 128 256';
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+	self.poisonous = FALSE;			// Cannot be poisonous
 
 	self.health = self.max_health = MEGADEATH;
 	self.takedamage = DAMAGE_NO;
@@ -356,7 +357,7 @@ void() monster_firetopboss =
 	self.classgroup = CG_BOSS;
 	self.infightextra = 8;
 	self.pain_ignore = 1;
-	self.yaw_speed = 20;
+	self.yaw_speed = 20;			// Fast turner
 
 	// Always reset Ammo Resistance to be consistent
 	// The shamblers infront of the boss are suppose to be killed

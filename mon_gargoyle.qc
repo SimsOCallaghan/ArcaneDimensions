@@ -123,7 +123,8 @@ void(float fbframe, vector fbofs) garg_fbupdate =
 		self.attachment = spawn();
 		self.attachment.owner = self;
 		self.attachment.classtype = CT_ATTACHMENT;
-		self.attachment.mdl = MODEL_PROJ_GARGBALL;
+		if (self.poisonous) self.attachment.mdl = MODEL_PROJ_GARGBALLGRN;
+		else self.attachment.mdl = MODEL_PROJ_GARGBALL;
 		self.attachment.alpha = 0.85;
 	}
 	
@@ -214,14 +215,10 @@ void() gargoyle_wakeup =
 	// Only call wakeup function once
 	self.th_walk = self.th_run = SUB_Null;
 
-	// No longer need statue spawnflag, remove it
-	if (self.spawnflags & MON_STATUE) 
-		self.spawnflags = self.spawnflags - MON_STATUE;
+	// No longer need statue spawnflags, remove them
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_STATUE);
+	self.spawnflags = self.spawnflags - (self.spawnflags & MON_GARGOYLE_PERCH);
 	
-	// No longer need perch spawnflag, remove it
-	if (self.spawnflags & MON_GARGOYLE_PERCH) 
-		self.spawnflags = self.spawnflags - MON_GARGOYLE_PERCH;
-
 	// Allow gargoyle to fly up, no more ground checks
 	if (!(self.flags & FL_FLY)) self.flags = self.flags | FL_FLY;
 	self.movetype = MOVETYPE_STEP;
@@ -348,10 +345,14 @@ void() garg_die =
 			self.gibondeath = TRUE;
 			SpawnProjectileSmoke(self.origin, 200, 50, 150);
 			SpawnProjectileSmoke(self.origin, 200, 50, 150);
-			particle_explode(self.origin-'0 0 16', 50+random()*50, 2, PARTICLE_BURST_FIRE, PARTICLE_BURST_UPWARD);
+			if (self.poisonous) self.lip = PARTICLE_BURST_GREEN;
+			else self.lip = PARTICLE_BURST_FIRE;
+			particle_explode(self.origin-'0 0 16', 50+random()*50, 2, self.lip, PARTICLE_BURST_UPWARD);
 			makevectors(self.angles);
 			self.oldorigin = self.origin + v_forward*8;
-			SpawnExplosion(EXPLODE_BIG, self.oldorigin, SOUND_REXP3);
+			if (self.poisonous) self.lip = EXPLODE_POISON_BIG;
+			else self.lip = EXPLODE_BIG;
+			SpawnExplosion(self.lip, self.oldorigin, SOUND_REXP3);
 		}
 		// make sure any fireball is hidden
 		garg_fbfinish();
@@ -421,6 +422,14 @@ void() monster_gargoyle =
 	self.sight_sound = "gargoyle/sight1.wav";
 	precache_sound (self.sight_sound);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_GARGBALLGRN);	// Ball growing 8 frames
+		precache_model (MODEL_PROJ_GARGOYLEGRN);	// acid/smoke wiz projectile
+	}
+	
 	// Cache gargoyle is a special class used for precache only
 	if (self.classtype != CT_CACHEGARGOYLE) setup_gargoyle();
 };
@@ -428,6 +437,7 @@ void() monster_gargoyle =
 //----------------------------------------------------------------------------
 void() monster_minotaurminion = { 
 	self.classtype = CT_CACHEGARGOYLE; 
+	self.poisonous = TRUE;	// Cache poison stuff for minotaur spawns
 	monster_gargoyle();
 };
 
@@ -446,7 +456,7 @@ void() setup_gargoyle =
 	self.gibbed = FALSE;				// no falling apart
 	self.pain_flinch = 70;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
-	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.attack_offset = '16 28 22';	// fireball start location
 	
 	// Always reset Ammo Resistance to be consistent
@@ -486,6 +496,7 @@ void() setup_gargoyle =
 		precache_sound (self.idle_sound2);
 		
 		self.spawnstatue = TRUE;			// Start as a statue
+		self.poisonous = FALSE;				// Cannot be status + poison
 		self.th_stand = gargoyle_statue;	// Stone idle pose
 		self.think1 = gargoyle_wakeup;		// Wakeup statue angry at player
 		self.skin = 1;						// Stone like skin
@@ -541,6 +552,12 @@ void(vector minion_org, entity minion_targ) minion_gargoyle =
 	minion.classgroup = CG_DEMON;			// Don't turn on master
 	minion.minion_active = TRUE;			// Minion flag
 	minion.bodyfadeaway = TRUE;				// Get rid of body
+	
+	// Check for poison gibs being cached first
+	if (gibpoison && self.poisonous == TRUE) {
+		minion.poisonous = self.poisonous;	// carry over from host spawner 
+		minion.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
 	
 	// Adopt parameters from host spawner
 	minion.infightextra = self.infightextra;

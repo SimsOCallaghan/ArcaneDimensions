@@ -166,6 +166,7 @@ void() dog_bite =
 
 	if (!self.enemy) return;
 	if (self.health < 1) return;
+	
 	ai_charge(10);								// Get closer for extra bite
 	ai_damagebreakable(10);						// Damage any breakables
 	if (!ai_checkmelee(MONAI_MELEEDOG)) return;	// Too far away
@@ -173,10 +174,14 @@ void() dog_bite =
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
 	
-	// Dog bite is nasty damage
+	// Dog bite is nasty damage (1-24)
 	ldmg = (random() + random() + random()) * 8;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	
+	// Check for poisonous attribute (new poison version)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+
 	// Spawn some blood from mouth
 	spawn_touchblood (self, self.enemy, ldmg*3);
 };
@@ -218,6 +223,9 @@ void() Dog_JumpTouch =
 			T_Damage (other, self, self, ldmg, DAMARMOR);	
 			// Spawn some touch blood (no explicit direction)
 			spawn_touchblood (self.enemy, self.enemy, ldmg*3);
+
+			// Check for poisonous attribute (new poison version)
+			if (self.poisonous) PoisonDeBuff(self.enemy);
 		}
 	}
 
@@ -372,6 +380,12 @@ void() monster_dog =
 
 	self.sight_sound = "dog/dsight.wav";
 	precache_sound (self.sight_sound);
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
 
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement

@@ -81,6 +81,8 @@ void() fred_walk16 = [ $run16, fred_walk1 ] {ai_walk(16);};
 void(vector weapofs) fred_fireweapon =
 {
 	local vector org, dir, vec;
+	
+	// Check for death?
 	if (self.health < 1) return;
 
 	// Lit up that barrel
@@ -260,8 +262,13 @@ void(float side) fred_blade =
 	// Can the target bleed? - generate blood
 	if (!CanDamage (self.enemy, self)) return;
 	
+	// Check for poisonous attribute (new poison version)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+
 	sound (self, CHAN_WEAPON, "freddie/mangle.wav", 1, ATTN_NORM);
-	ldmg = (random() + random() + random()) * 20;
+	// 1-45 (3x15) damage
+	ldmg = (random() + random() + random()) * 15;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	SpawnMeatSpray (self, self.enemy, side);
 	SpawnMeatSpray (self, self.enemy, side);
@@ -517,6 +524,7 @@ void() monster_freddie =
 	self.pain_timeout = 2;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.attack_offset = '0 0 0';		// Run + Gun vector
+	self.poisonous = FALSE;				// Robots are not poisonous
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

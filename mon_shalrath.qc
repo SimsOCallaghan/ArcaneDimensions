@@ -61,9 +61,28 @@ void() shalrath_create_attachment =
 		self.attachment = spawn();
 		self.attachment.owner = self;
 		self.attachment.classtype = CT_ATTACHMENT;
-		self.attachment.mdl = MODEL_PROJ_SBALL;
 		self.attachment.alpha = 0.85;
 	}
+};
+
+//----------------------------------------------------------------------
+void() shalrath_setup_attachment = 
+{
+	// Is monster dead or dying?
+	if (self.health < 1) return;
+
+	// Check if attachment has been setup yet
+	if (!self.attachment) shalrath_create_attachment();
+
+	// Move attachment into place ready for use
+	self.attachment.movetype = MOVETYPE_NONE;
+	self.attachment.solid = SOLID_NOT;
+	setmodel(self.attachment, MODEL_EMPTY);
+	setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
+	setorigin(self.attachment, self.origin);
+	// Using empty model, so reset angle, frame and skin.
+	self.attachment.angles = self.angles;
+	self.attachment.frame = self.attachment.skin = 0;
 };
 
 //----------------------------------------------------------------------
@@ -111,11 +130,13 @@ void(vector hmofs, float hmframe) Setup_ShalHome =
 	// Frame 0 is start of the sequence (move everything into place)
 	if (hmframe == 0) {
 		self.attachment.state = STATE_ON;
-		setorigin(self.attachment, self.origin);
-		setmodel(self.attachment, MODEL_PROJ_SHOME);
-		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment.movetype = MOVETYPE_NONE;
 		self.attachment.solid = SOLID_NOT;
+
+		// Switch models if poisonous
+		if (self.poisonous) setmodel(self.attachment, MODEL_PROJ_SHOMEGRN);
+		else setmodel(self.attachment, MODEL_PROJ_SHOME);
+		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 	}
 	// Double check for pain interruption
 	else if (self.attachment.state == STATE_OFF) return;
@@ -332,6 +353,14 @@ void() monster_shalrath =
 	
 	self.sight_sound = "shalrath/sight.wav";
 	precache_sound (self.sight_sound);
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_SHALGRN);	// Green voreball
+		precache_model (MODEL_PROJ_SHOMEGRN);	// Expanding voreball
+	}
 
 	self.solid = SOLID_NOT;			// No interaction with world
 	self.movetype = MOVETYPE_NONE;	// Static item, no movement

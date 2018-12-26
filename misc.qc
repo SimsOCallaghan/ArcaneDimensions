@@ -7,12 +7,14 @@ float MISC_FBALLSLIME = 32;		// Slime green fire ball
 float MISC_DRIPSILENT = 2;		// misc_drip has no sound on splash
 float MISC_DRIPBLOOD = 16;		// blood red drips
 float MISC_DRIPSLIME = 32;		// slime green drips
-float MISC_SMOKENODPMDL = 2;	// Do not draw smoke model
+float MISC_SMOKENODPMDL = 2;	// Do not draw smoke model in DP
 float MISC_SMOKENODPFX = 4;		// Do not produce any DP smoke effects
+float MISC_SMOKENOQSMDL = 8;	// Do not draw smoke model in QS
 float MISC_SPARKBLUE = 2;		// misc_spark produces Blue sparks
 float MISC_SPARKPALE = 4;		// misc_spark produces Pale Yellow sparks
 float MISC_SPARKRED = 8;		// misc_spark produces Red sparks
 float MISC_COLLISION = 2;		// misc_model has collision enabled
+float MISC_MOVEMENT = 4;		// misc_model can be moved around
 float MISC_SHAKEVIEWONLY = 2;	// No velocity movement
 
 float MISC_EXPLBOX_MAX = 5;		// Maximum amount of skins available
@@ -218,8 +220,7 @@ void() misc_explobox_setup =
 		}
 
 		// Setting the angle key in the editor to UP/DOWN = random rotation	
-		if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-			self.angles_y = rint(random()*359);
+		if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 		// Temporarily enable model/bbox for collision test
 		// Finalize box location (check drop to floor)
@@ -271,6 +272,8 @@ void() misc_explobox2 =
 //----------------------------------------------------------------------
 void () func_explobox =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	self.mdl = self.model;					// Brushwork version
 	self.bsporigin = TRUE;					// bmodel object
 	self.angles = '0 0 0';					// Make sure no angle twist
@@ -375,6 +378,7 @@ void() misc_fireball =
 sprite based bubble that floats upward
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
+style   : 1-15 (grey,brown1,blue1,green1,red1,brown2,pinkyel,brown3,purp1,purp2,brown4,green2,yellow,blue2,red2)
 -------- SPAWNFLAGS --------
 STARTOFF : Always Starts off and waits for trigger
 -------- NOTES --------
@@ -492,6 +496,9 @@ void() air_bubbles =
 	
 	self.mdl = SBUBBLE_DROWN;
 	precache_model (self.mdl);
+	
+	// Allow for custom bubble sprites
+	if (self.style > 0) trigger_setup_bubbles();
 
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
@@ -726,7 +733,26 @@ void() misc_drip =
 void() fx_drip = { misc_drip(); };
 
 //======================================================================
-/*QUAKED misc_smoke (.5 .5 .75) (-8 -8 -8) (8 8 192) x NODPMDL NODPFX x x x STARTOFF x
+/*QUAKED misc_steam (.5 .5 .75) (-8 -8 -8) (8 8 8) x x x x x x STARTOFF x
+Steam/Smoke particles
+-------- KEYS --------
+targetname : toggle state (use trigger ent for exact state)
+target     : targeting entity used for custom direction
+angles     : 'pitch roll yaw' up/down, angle, tilt left/right 
+wait       : time between generation of smoke particles (def=0.1, min=0.01)
+delay      : random amount of time delay ( time = wait + delay x random() )
+height     : Percentage of velocity distance travelled (def=1, range=0-1+)
+-------- SPAWNFLAGS --------
+STARTOFF   : Always Starts off and waits for trigger
+-------- NOTES --------
+Steam/Smoke particles
+
+======================================================================*/
+
+
+
+//======================================================================
+/*QUAKED misc_smoke (.5 .5 .75) (-8 -8 -8) (8 8 192) x NODPMDL NODPFX NOQSMDL x x STARTOFF x
 Smoke model (+DP only smoke effect)
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
@@ -740,11 +766,10 @@ height     : Percentage of velocity distance travelled (def=1, range=0-1+)
 -------- SPAWNFLAGS --------
 NODPMDL    : Do not draw smoke model in DP engine
 NODPFX     : Do not draw DP smoke particle effect
+NOQSMDL    : Do not draw smoke model in QS/Fitz engines
 STARTOFF   : Always Starts off and waits for trigger
 -------- NOTES --------
 Smoke model, +DP only smoke effect (wait/delay/height DP only)
-angles = 'pitch roll yaw' up/down, angle, tilt left/right 
-up/left = negative value, down/right = positive value
 
 ======================================================================*/
 void() misc_smoke_model = 
@@ -857,6 +882,10 @@ void() misc_smoke =
 			else self.part_emitter = spawn_pemitter(self, self, self.part_active, PARTICLE_START_ON);
 		}
 	}
+	else {
+		// Check for QS model exception
+		if (self.spawnflags & MISC_SMOKENOQSMDL) self.mdl = "";
+	}
 	
 	// Setup target and delay starting model animation
 	self.nextthink = time + 0.1 + (rint(random()*10) * 0.1);
@@ -966,7 +995,7 @@ void() misc_spark_spawn =
 		loopvar = loopvar - 1;
 	}
 	// Play any spark sound and switch ON any target lights
-	if (self.noise != "") sound (self, CHAN_VOICE, self.noise, 1, ATTN_STATIC);
+	if (self.noise != "") sound (self, CHAN_VOICE, self.noise, self.volume, self.distance);
 	
 	// Is there any target(s) to switch on
 	if (self.target) {
@@ -999,6 +1028,10 @@ void() misc_spark =
 	precache_model (self.mdl);
 	if (self.sounds == 1) self.noise = "misc/spark.wav";
 	if (self.noise != "") precache_sound (self.noise);
+	
+	// Allow for volume/atten to be customized
+	if (self.distance < 0.1 || self.distance > ATTN_STATIC) self.distance = ATTN_STATIC;
+	if (self.volume < 0.1 || self.volume > 1) self.volume = 1;
 	
 	self.classtype = CT_MISCSPARK;
 	self.classgroup = CG_MISCENT;
@@ -1169,6 +1202,17 @@ void() misc_model_loop =
 //----------------------------------------------------------------------
 void() misc_model_on =
 {
+	// Check if there is any spawn/on delay setup
+	// Useful for delay spawning models on to platform/doors
+	if (self.delay > 0) {
+		// Feed back into this function
+		self.think = misc_model_on;
+		self.nextthink = time + self.delay;
+		// The delay only works once
+		self.delay = 0;
+		return;
+	}
+	
 	self.estate = ESTATE_ON;
 
 	setmodel (self, self.mdl);
@@ -1180,6 +1224,25 @@ void() misc_model_on =
 	else setsize (self, VEC_ORIGIN, VEC_ORIGIN);
 	setorigin(self, self.oldorigin + self.view_ofs);
 
+	if (self.spawnflags & MISC_MOVEMENT) {
+		// Turn misc model into an item (can work with plats/doors)
+		self.movetype = MOVETYPE_TOSS;
+		self.solid = SOLID_TRIGGER;
+		setsize (self, VEC_ORIGIN, VEC_ORIGIN);
+		self.velocity = '0 0 0';
+		// Make sure the misc model starts on the ground
+		self.origin_z = self.origin_z + 6;
+		if (!droptofloor()) {
+			dprint ("\n\b[Model]\b "); dprint (self.mdl);
+			dprint (" stuck at ("); dprint (vtos(self.origin)); dprint (")\n");
+			spawn_marker(self.origin, SPNMARK_YELLOW);
+			remove(self);
+			return;
+		} 
+		// Make sure no touch function is active
+		self.touch = SUB_Null;
+	}
+	
 	// Setup skin number (range or exact)	
 	self.skin = self.pos2_z;
 	// Exact frame number
@@ -1272,8 +1335,12 @@ void() misc_model =
 	}
 
 	// Setup random rotation
-	if (self.ideal_yaw > 0 && query_configflag(SVR_ITEMROTATE) == FALSE ) 
-		self.angles_y = rint(random()*359);
+	if (self.ideal_yaw > 0) self.angles_y = rint(random()*359);
+
+	// Cannot have static and movement at the same time!
+	if (self.spawnflags & MISC_MOVEMENT) {
+		self.spawnflags = self.spawnflags - (self.spawnflags & ENT_SPNSTATIC);
+	}
 	
 	// Check for static entity option first
 	if (self.spawnflags & ENT_SPNSTATIC) misc_model_on();
@@ -1526,6 +1593,7 @@ targetname : toggle state (use trigger ent for exact state)
 target  : destination of effect (self -> target)
 wait    : time between firing of effect (def=0)
 delay   : random time between firing of effect (def=0s)
+sounds  : = 4 silent (no default additional sounds)
 count   : type of effect to fire
           0=TE_SPIKE (def), 1=TE_SUPERSPIKE, 2=TE_GUNSHOT, 
 		  3=TE_EXPLOSION (sprites), 4=TE_TAREXPLOSION (purple ver)
@@ -1578,31 +1646,34 @@ void() misc_builtineffects_fire =
 	WriteCoord (MSG_BROADCAST, self.pos2_y);
 	WriteCoord (MSG_BROADCAST, self.pos2_z);
 
-	// The effect sounds have to come after the write commands
-	// otherwise the engine will get confused and think the protocol
-	// has changed, there is an exact format for effects
-	if (self.count == TE_TELEPORT) {
-		self.lip = rint(random()*5);
-		if (self.lip == 0) sound (self.movetarget, CHAN_VOICE, "misc/r_tele1.wav", 1, ATTN_NORM);
-		else if (self.lip == 1) sound (self.movetarget, CHAN_VOICE, "misc/r_tele2.wav", 1, ATTN_NORM);
-		else if (self.lip == 2) sound (self.movetarget, CHAN_VOICE, "misc/r_tele3.wav", 1, ATTN_NORM);
-		else if (self.lip == 3) sound (self.movetarget, CHAN_VOICE, "misc/r_tele4.wav", 1, ATTN_NORM);
-		else sound (self.movetarget, CHAN_VOICE, "misc/r_tele5.wav", 1, ATTN_NORM);
-	}	
-	else if (self.count == TE_LIGHTNING1 || self.count == TE_LIGHTNING2 || 
-		self.count == TE_LIGHTNING3) {
-		// Play lightning sound (LG weapon hit)
-		// Stop the sound constantly playing
-		if (self.waitmin < time) {
-			sound (self.movetarget, CHAN_WEAPON, "weapons/lhit.wav", 1, ATTN_NORM);
-			self.waitmin = time + 0.6;
+	// Using the standard for triggers (4 == no extra sound)
+	if (self.sounds != 4) {
+		// The effect sounds have to come after the write commands
+		// otherwise the engine will get confused and think the protocol
+		// has changed, there is an exact format for effects
+		if (self.count == TE_TELEPORT) {
+			self.lip = rint(random()*5);
+			if (self.lip == 0) sound (self.movetarget, CHAN_VOICE, "misc/r_tele1.wav", 1, ATTN_NORM);
+			else if (self.lip == 1) sound (self.movetarget, CHAN_VOICE, "misc/r_tele2.wav", 1, ATTN_NORM);
+			else if (self.lip == 2) sound (self.movetarget, CHAN_VOICE, "misc/r_tele3.wav", 1, ATTN_NORM);
+			else if (self.lip == 3) sound (self.movetarget, CHAN_VOICE, "misc/r_tele4.wav", 1, ATTN_NORM);
+			else sound (self.movetarget, CHAN_VOICE, "misc/r_tele5.wav", 1, ATTN_NORM);
+		}	
+		else if (self.count == TE_LIGHTNING1 || self.count == TE_LIGHTNING2 || 
+			self.count == TE_LIGHTNING3) {
+			// Play lightning sound (LG weapon hit)
+			// Stop the sound constantly playing
+			if (self.waitmin < time) {
+				sound (self.movetarget, CHAN_WEAPON, "weapons/lhit.wav", 1, ATTN_NORM);
+				self.waitmin = time + 0.6;
+			}
 		}
+		else if (self.count == TE_LAVASPLASH) 
+			sound (self.movetarget, CHAN_BODY, "boss1/out1.wav", 1, ATTN_NORM);
+		else if (self.count == TE_EXPLOSION || self.count == TE_TAREXPLOSION)
+			// Play original explosion sound
+			sound(self.movetarget, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
 	}
-	else if (self.count == TE_LAVASPLASH) 
-		sound (self.movetarget, CHAN_BODY, "boss1/out1.wav", 1, ATTN_NORM);
-	else if (self.count == TE_EXPLOSION || self.count == TE_TAREXPLOSION)
-		// Play original explosion sound
-		sound(self.movetarget, CHAN_WEAPON, SOUND_REXP3, 1, ATTN_NORM);
 
 	// Continuous mode?
 	if (self.wait > 0) {

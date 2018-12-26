@@ -206,6 +206,8 @@ void() func_plat_blocked =
 //----------------------------------------------------------------------
 void() func_plat =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+	
 	// default sound = medieval
 	if (self.sounds == 0) self.sounds = 2;
 

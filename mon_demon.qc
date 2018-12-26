@@ -276,6 +276,7 @@ void() monster_demon1 =
 	// Randomly swap in demon claws instead of legs
 	if (random() < 0.5) self.gib1mdl = self.gib4mdl;
 	if (random() < 0.5) self.gib2mdl = self.gib5mdl;
+	self.gib4mdl = ""; self.gib5mdl = "";
 
 	self.idle_sound = "demon/idle1.wav";
 	precache_sound (self.idle_sound);
@@ -292,10 +293,10 @@ void() monster_demon1 =
 	self.sight_sound = "demon/sight2.wav";
 	precache_sound (self.sight_sound);
 
-	// Precache extra green small gibs
+	// Check for poisonous entity flag
 	if (self.poisonous) {
-		precache_poisongibs();
-		self.gibtype = GIBTYPE_POISON;
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
 		self.exactskin = 1;
 		self.gib1skin = self.gib2skin = self.gib3skin = 1;
 	}

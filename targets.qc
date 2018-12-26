@@ -128,6 +128,8 @@ count   : number of triggers needed to fire own target, (def=2)
 delay   : time delay to fire final trigger event
 sounds  : 0=silent,1=Secret,2=talk,3=switch,5=custom,6=secret2
 noise   : custom sound to play when complete
+message : message to display before counting begins (use wait for pause time)
+wait    : time to pause before starting to count (def=2s)
 -------- SPAWNFLAGS --------
 NOMESSAGE : disables count display
 EXACTNO : display exact number when counting down
@@ -147,6 +149,16 @@ void() trigger_counter_reset =
 void() trigger_counter_use =
 {
 	if (self.estate & ESTATE_BLOCK) return;
+	
+	// Check for any pre-count messages
+	if (self.message != "") {
+		centerprint (activator, self.message);
+		self.message = "";
+		self.nextthink = time + self.wait;
+		self.think = self.estate_use;
+		return;
+	}
+	
 	self.count = self.count - 1;
 	if (self.count < 0) return;
 		
@@ -202,6 +214,7 @@ void() trigger_counter =
 	trigger_bmodel_sounds();			// Precache any sounds
 	if (!self.count) self.count = 2;	// default count
 	self.height = self.count;			// Save for later, reset
+	if (self.wait <= 0) self.wait = 2;	// Default pre-message time
 	self.classtype = CT_TRIGCOUNT;
 
 	// Check for firing conditions (nightmare, coop)

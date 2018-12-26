@@ -298,7 +298,9 @@ void() seek_punch =
 
 	// Melee hit sound
 	sound (self, CHAN_WEAPON, "seeker/punch1.wav", 1, ATTN_NORM);
+	// Damage 1-60
 	ldmg = (random() + random() + random()) * 20;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	SpawnMeatSpray (self, self.enemy, -150);
 	SpawnMeatSpray (self, self.enemy, -150);
@@ -351,7 +353,7 @@ void(vector leftofs, vector rightofs) seek_attack =
 			if (self.weaponstate == TRUE) {
 				if (skill > SKILL_NORMAL) {
 					sound (self, CHAN_WEAPON, SOUND_PLASMA_FIRE, 1, ATTN_NORM);
-					launch_plasma(org, dir, CT_PROJ_PLASMA, self.attack_speed);
+					launch_plasma(org, dir, CT_MONSEEKER, self.attack_speed);
 				}
 				else {
 					sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);	
@@ -759,6 +761,7 @@ void() monster_seeker =
 	if (self.death_dmg < 1) self.death_dmg = DAMAGE_SEEKER;
 	self.bouncegrenade = TRUE;			// Grenades bounce
 	self.bleedcolour = MON_BCOLOR_WHITE;	// Grey dust
+	self.poisonous = FALSE;				// Robots are not poisonous
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

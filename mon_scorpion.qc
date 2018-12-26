@@ -93,8 +93,9 @@ void(float side) pinch_melee =
 	else sound(self, CHAN_WEAPON, "scorpion/clawattack2.wav", TRUE, TRUE);
 	self.meleeattack = 1 - self.meleeattack;
 
-	// Scorpion claw
+	// Scorpion claw = 1-12 Damage
 	ldmg = (random() + random() + random()) * 4;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	SpawnMeatSpray (self, self.enemy, side);
 };
@@ -447,6 +448,7 @@ void() setup_scorpion =
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '32 0 10';		// Claw attack offset
 	self.attack_offset = '32 8 14';		// Nail attack offset
+	self.poisonous = FALSE;				// Scorpions have bleeding debuff
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -511,7 +513,7 @@ void(vector minion_org, entity minion_targ) minion_scorpion =
 	minion.spawnflags = 0;
 	
 	minion.mdl = "progs/mon_scorpion.mdl";
-	minion.headmdl = "progs/h_scorpion.mdl";		// Front Jaws
+	minion.headmdl = "progs/h_scorpion.mdl";	// Front Jaws
 	minion.gib1mdl = "progs/gib_scorpleg.mdl";	// Single Leg
 	minion.gib2mdl = "progs/gib_scorptail.mdl";	// Tail + Sting
 	minion.gib3mdl = "progs/gib_scorpclaw.mdl";	// Claw

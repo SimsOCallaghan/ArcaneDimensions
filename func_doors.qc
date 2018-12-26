@@ -531,6 +531,8 @@ void() func_door_blocked =
 //----------------------------------------------------------------------
 void() func_door =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
 	// Setup all empty/silent sound files first
 	if (self.noise1 == "") self.noise1 = SOUND_EMPTY;
 	if (self.noise2 == "") self.noise2 = SOUND_EMPTY;

@@ -267,6 +267,8 @@ void () func_door_secret_blocked =
 //----------------------------------------------------------------------
 void () func_door_secret =
 {
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+	
 	// Setup all empty/silent sound files first
 	if (self.noise == "") self.noise = SOUND_EMPTY;
 	if (self.noise1 == "") self.noise1 = SOUND_EMPTY;
@@ -307,7 +309,7 @@ void () func_door_secret =
 	self.mdl = self.model;
 	// Save any angle value first (original behaviour)
 	self.mangle = self.angles;
-	
+
 	// Allow for angles up/down by using movedir instead
 	if (CheckZeroVector(self.angles)) self.angles = '0 360 0';
 	SetMovedir ();	// Setup move direction base on angles

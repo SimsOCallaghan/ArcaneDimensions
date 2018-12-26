@@ -54,7 +54,7 @@ void() eel_plasma =
 	org = self.origin + attack_vector(self.attack_offset);
 	dir = normalize(self.enemy.origin - self.origin);
 
-	launch_plasma(org, dir, CT_PROJ_PLASMA, self.attack_speed);
+	launch_plasma(org, dir, CT_MONEEL, self.attack_speed);
 };
 
 //----------------------------------------------------------------------
@@ -89,7 +89,7 @@ void() eel_pain7 = [ $edeath1, eel_run] {};
 //----------------------------------------------------------------------
 void(entity inflictor, entity attacker, float damage) eel_pain =
 {
-	// Reset skin if come from combat
+	// Reset combat skin
 	self.skin = 0;
 
 	// Check all pain conditions and set up what to do next
@@ -106,7 +106,12 @@ void(entity inflictor, entity attacker, float damage) eel_pain =
 void() eel_die1 = [ $edeath1, eel_die2 ] {};
 void() eel_die2 = [ $edeath2, eel_die3 ] {monster_check_gib();};
 void() eel_die3 = [ $edeath3, eel_die4 ] {monster_check_gib();self.solid = SOLID_NOT;};
-void() eel_die4 = [ $edeath4, eel_die5 ] {};
+void() eel_die4 = [ $edeath4, eel_die5 ] {
+	// make sure the eel drops to the ground
+	self.movetype = MOVETYPE_TOSS;
+	self.velocity_z = 10 + random()*10;
+	self.flags = self.flags - (self.flags & FL_ONGROUND);
+};
 void() eel_die5 = [ $edeath5, eel_die6 ] {};
 void() eel_die6 = [ $edeath6, eel_die7 ] {};
 void() eel_die7 = [ $edeath7, eel_die8 ] {};
@@ -122,6 +127,9 @@ void() eel_die15 = [ $edeath15, eel_die15 ] {monster_deadbody_check();};
 //----------------------------------------------------------------------
 void() eel_die =
 {
+	// Reset combat skin
+	self.skin = 0;
+	
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
 
@@ -131,9 +139,12 @@ void() eel_die =
 		if (pointcontents(self.origin) == CONTENT_WATER) self.gravity = 0.25;
 
 		sound (self, CHAN_BODY, "eel/death1.wav", 1, ATTN_NORM);
+
 		// Death animation not at bottom of bounding box
-		self.bbmins_z = -1;
+		self.bbmins = '-12 -12 -1';
+		self.bbmaxs = '12 12 12';
 		setsize(self, self.bbmins, self.bbmaxs);
+		
 		// With the bounding box changed for the animation the
 		// gib system now needs an offset to cope!
 		self.max_health = MON_GIBFOUNTAIN;
@@ -173,6 +184,13 @@ void() monster_eel =
 	self.sight_sound = "eel/sight1.wav";
 	precache_sound (self.sight_sound);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_PLASMAGRN);
+	}
+	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_EEL;
@@ -180,10 +198,13 @@ void() monster_eel =
 	self.gibhealth = -25;
 	self.gibbed = FALSE;
 	self.pain_flinch = 10;			// Easy response to pain
-	self.steptype = FS_FLYING;		// It has fins!?!
+	self.steptype = FS_FLYING;		// It has no sea legs!
 	self.blockudeath = TRUE;		// No humanoid death sound
 	self.attack_offset = '20 0 -2';	// Plasma start location
 
+	// Check for water sightline wakeup
+	if (self.spawnflags & MON_LIQUIDBLOCK) self.liquidblock = TRUE;
+	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
@@ -202,5 +223,3 @@ void() monster_eel =
 	
 	monster_start();
 };
-
-

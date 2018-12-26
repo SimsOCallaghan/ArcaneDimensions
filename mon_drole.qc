@@ -229,6 +229,9 @@ void(float side) drole_claw =
 		ldmg = 12 + 6*random();
 		T_Damage (self.enemy, self, self, ldmg, DAMARMOR);		
 		SpawnMeatSpray (self, self.enemy, side);
+
+		// Check for poisonous attribute (new poison version)
+		if (self.poisonous) PoisonDeBuff(self.enemy);
 	}
 };
 
@@ -322,23 +325,24 @@ void() drole_fire =
 	if (!self.enemy) return;
 	if (self.health < 1) return;
 	
-	ai_face();
 	self.attack_speed = 80;
 	
 	makevectors (self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
-	dir = normalize((self.enemy.origin+'0 0 -8') - org);
+	dir = normalize((self.attack_track + '0 0 -8') - org);
 	avel = avel = vecrand(100,200,FALSE);
 	
 	Launch_Missile (org, dir, avel, CT_PROJ_DROLE, self.attack_speed);
 };
 
 //----------------------------------------------------------------------
-void() drole_magic1 = [ $magic1, drole_magic2 ] {ai_face();
-sound(self, CHAN_WEAPON, "drole/fire.wav", 1, ATTN_NORM);};
-void() drole_magic2 = [ $magic2, drole_magic3 ] {ai_face();};
-void() drole_magic3 = [ $magic3, drole_magic4 ] {ai_face();};
-void() drole_magic4 = [ $magic4, drole_magic5 ] {drole_fire();};
+void() drole_magic1 = [ $magic1, drole_magic2 ] {
+	self.attack_track = self.enemy.origin;
+	sound(self, CHAN_WEAPON, "drole/fire.wav", 1, ATTN_NORM);
+};
+void() drole_magic2 = [ $magic2, drole_magic3 ] {ai_trackenemy();};
+void() drole_magic3 = [ $magic3, drole_magic4 ] {ai_trackenemy();};
+void() drole_magic4 = [ $magic4, drole_magic5 ] {ai_trackenemy();drole_fire();};
 void() drole_magic5 = [ $magic5, drole_magic6 ] {ai_face();};
 void() drole_magic6 = [ $magic6, drole_magic7 ] {ai_face();};
 void() drole_magic7 = [ $magic7, drole_magic8 ] {ai_face();};
@@ -452,6 +456,13 @@ void() monster_drole =
 
 	self.sight_sound = "drole/sight.wav";
 	precache_sound (self.sight_sound);
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_DROLEGRN);	// growing poisonball
+	}
 
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement

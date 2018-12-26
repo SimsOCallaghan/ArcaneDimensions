@@ -56,10 +56,10 @@ void() emitdpp_particle = {
 	}
 	
 	if (self.pemit_target) {
-		self.dpp_vel = vectoangles(self.pemit_target.origin - self.pemit_source.origin);
-		self.dpp_vel_z = 0;
-		makevectors (self.dpp_vel);
-		self.dpp_vel = normalize(v_forward);
+		// Easier solution for finding particle direction (velocity)
+		// Subtract target from source and normalize (range 0-1)
+		// Previous version was using vectoangles (was broken)
+		self.dpp_vel = normalize(self.pemit_target.origin - self.pemit_source.origin);
 	}
 
 	// Check for volume particle spawning
@@ -526,7 +526,7 @@ void(vector ring_org, vector ring_dir, vector ring_rdir, float ring_rad, float r
 	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
 
 	// Setup DP particle style based on supplied style
-	if (ext_dppart) {
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 		if (ring_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_RINGPARTY;
 		else if (ring_style & PARTICLE_BURST_GREEN) dpp_string = DPP_RINGPARTG;
 		else if (ring_style & PARTICLE_BURST_RED) dpp_string = DPP_RINGPARTR;
@@ -544,7 +544,7 @@ void(vector ring_org, vector ring_dir, vector ring_rdir, float ring_rad, float r
 	ring_angle = 360 / ring_qty;
 	while (ring_loop < ring_qty) {
 		// Is the DP particle system active?
-		if (ext_dppart) {
+		if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 			// Work out point on circle circumference using
 			// the v_forward vector with incremental angles	
 			circle_vec = '0 0 0';
@@ -710,7 +710,7 @@ void(vector e_org, float e_qty, float e_speed, float e_dist, float p_style) part
 	// Check for maximim amount of particles available
 	if ( (part_total+e_qty) >= part_max - 1) return;
 
-	if (ext_dppart) {
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 		// Setup DP particle style based on supplied style
 		if (p_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_BURSTPARTY;
 		else if (p_style & PARTICLE_BURST_GREEN) dpp_string = DPP_BURSTPARTG;
@@ -769,10 +769,11 @@ void(vector e_org, float e_qty, float e_time, float p_style, float e_style) part
 
 	// Have particles been enabled via serverflags?
 	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
+
 	// Can only have integer particle quantity
 	e_qty = rint(e_qty);
 
-	if (ext_dppart) {
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 		// DP hammer impact, 1=regular 2=shockwave
 		if (e_style & PARTICLE_BURST_SHOCKWAVE) {
 			if (e_style & 1) pointparticles(particleeffectnum(DPP_BURSTSHOCKWAVE1), e_org, '0 0 0', 1);
@@ -824,7 +825,7 @@ void(vector debuff_center, float debuff_volsize, float debuff_qty, float debuff_
 	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
 
 	// Setup DP particle style based on supplied style
-	if (ext_dppart) {
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 		if (debuff_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_RINGPARTY;
 		else if (debuff_style & PARTICLE_BURST_GREEN) dpp_string = DPP_RINGPARTG;
 		else if (debuff_style & PARTICLE_BURST_RED) dpp_string = DPP_RINGPARTR;
@@ -846,7 +847,7 @@ void(vector debuff_center, float debuff_volsize, float debuff_qty, float debuff_
 		debuff_org = debuff_center + debuff_vol;
 
 		// Is the DP particle system active?
-		if (ext_dppart)
+		if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE)
 			pointparticles(particleeffectnum(dpp_string), debuff_org, '0 0 0', 1);
 		else {
 			part = fetch_particle();
@@ -888,7 +889,7 @@ void(vector dust_center, float dust_qty, float dust_style) particle_dust =
 	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
 
 	// Setup DP particle style based on supplied style
-	if (ext_dppart) {
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
 		if (dust_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_RINGPARTY;
 		else if (dust_style & PARTICLE_BURST_GREEN) dpp_string = DPP_RINGPARTG;
 		else if (dust_style & PARTICLE_BURST_RED) dpp_string = DPP_RINGPARTR;
@@ -911,7 +912,7 @@ void(vector dust_center, float dust_qty, float dust_style) particle_dust =
 		dust_org = dust_center + dust_vol;
 
 		// Is the DP particle system active?
-		if (ext_dppart)
+		if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE)
 			pointparticles(particleeffectnum(dpp_string), dust_org, '0 0 0', 1);
 		else {
 			part = fetch_particle();

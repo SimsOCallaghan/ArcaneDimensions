@@ -5,7 +5,7 @@ float TRIG_NOTOUCH = 1;			// Touch functionality is disabled
 float TRIG_DEVMODE = 4;			// Will only trigger in dev model
 float TRIG_INVIEW = 8;			// player has to see trigger
 float TRIG_MODCHECK = 16;		// Will remove this entity if THIS mod is active
-float TRIG_MONSTERS = 32;		// Cane be touched/triggered by monsters
+float TRIG_MONSTERS = 32;		// Can be touched/triggered by monsters
 // float ENT_STARTOFF = 64;		// Global spawnflags setting
 
 // Added by functions, no map entity interaction

@@ -382,7 +382,7 @@ void() monster_pyro =
 	self.attack_offset = '24 8.5 16';	// End of Gun
 	self.ammo_shells = 4;				// drops armor shards instead
 	if (!self.exactskin) self.randomskin = 4;
-	
+	self.poisonous = FALSE;				// Use Fumigator instead
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;
@@ -441,7 +441,9 @@ void() monster_fumigator =
 	precache_model (SBURST_POISON);		// Poison on
 	precache_model (SBURST_POISONDP);	// DP Collision
 
-	precache_poisongibs();					// precache gibs
+	precache_poisongibs();				// precache gibs
+	self.gibtype = GIBTYPE_POISON;		// Poison gibs!
+	self.poisonous = TRUE;				// Oh yeah! Always!
 	
 	self.solid = SOLID_NOT;
 	self.movetype = MOVETYPE_NONE;
@@ -455,14 +457,13 @@ void() monster_fumigator =
 	self.steptype = FS_TYPEHEAVY;		// heavy feet
 	self.attack_offset = '24 8.5 16';	// End of Gun
 	self.ammo_shells = 4;				// drops armor shards instead
-	self.poisonous = TRUE;				// Oh yeah! Poison!
-	self.gibtype = GIBTYPE_POISON;		// Poison gibs!
 	self.no_liquiddmg = TRUE;			// Immune to slime/lava
 	if (!self.exactskin) self.randomskin = 4;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = 0; self.resist_nails = 0.5;
 	self.resist_rockets = self.resist_cells = 0;
+	self.reflectnails = TRUE;		// Reflect nail projectiles
 
 	self.th_checkattack = PyroCheckAttack;
 	self.th_stand = pyro_stand1;

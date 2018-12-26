@@ -173,8 +173,8 @@ void() ambient_custom_play =
 		if (self.volume > 1) self.volume = 1;
 	}
 	
-	// Check for special weather sounds?
-	if (self.no_weather == TRUE) {
+	// Check for weather system?
+	if (self.check_weather == TRUE) {
 		// Check if weather system still active?
 		if (!query_configflag(SVR_WEATHER)) {
 			// never has multiple sounds
@@ -326,7 +326,7 @@ void() ambient_custom_rain =
 	
 	self.wait = -1;			// pretend loop, no pause
 	self.waitmin = -1;		// No start delay
-	self.no_weather = TRUE;	// Keep checking weather system
+	self.check_weather = TRUE;	// Keep checking weather system
 	
 	// Always start off, must be triggered
 	self.spawnflags = ENT_STARTOFF;
@@ -338,6 +338,13 @@ void() ambient_custom_rain =
 //----------------------------------------------------------------------
 void() ambient_custom_rumble =
 {
+	// Always precache all sounds and then randomly pick one
+	// load/save games will always generate new random selection
+	// and that will produce cache errors everytime
+	precache_sound ("ambience/rumble1.wav");
+	precache_sound ("ambience/rumble2.wav");
+	precache_sound ("ambience/rumble3.wav");
+	
 	// Pick a random sound to start with
 	if (self.count < 0) self.count = random()*3;
 		
@@ -379,6 +386,16 @@ void() ambient_custom_rumble =
 //----------------------------------------------------------------------
 void() ambient_custom_wind =
 {
+	// Always precache all sounds and then randomly pick one
+	// load/save games will always generate new random selection
+	// and that will produce cache errors everytime
+	precache_sound ("ambience/windgust1.wav");
+	precache_sound ("ambience/windgust2.wav");
+	precache_sound ("ambience/windgust3.wav");
+	precache_sound ("ambience/windgust4.wav");
+	precache_sound ("ambience/windgust5.wav");
+	precache_sound ("ambience/windgust6.wav");
+
 	// Pick a random sound to start with
 	if (self.count < 0) self.count = random()*6;
 		
@@ -441,6 +458,14 @@ void() ambient_custom_wind =
 //----------------------------------------------------------------------
 void() ambient_custom_wood =
 {
+	// Always precache all sounds and then randomly pick one
+	// load/save games will always generate new random selection
+	// and that will produce cache errors everytime
+	precache_sound ("ambience/woodcreak2a.wav");
+	precache_sound ("ambience/woodcreak2b.wav");
+	precache_sound ("ambience/woodcreak2c.wav");
+	precache_sound ("ambience/woodcreak2d.wav");
+
 	// Pick a random sound to start with
 	if (self.count < 0) self.count = random()*4;
 		

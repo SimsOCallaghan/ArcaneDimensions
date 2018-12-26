@@ -52,10 +52,14 @@ void() SetNewParms =
 	if (query_configflag(SVR_UPDSSG)) parm10 = parm10 | IT_UPGRADE_SSG;
 	if (query_configflag(SVR_UPDLG)) parm10 = parm10 | IT_UPGRADE_LG;
 	
-	// These extra parms not used at present
-	parm11 = 0; parm12 = 0;
-	parm13 = 0; parm14 = 0;
-	parm15 = 0; parm16 = 0;
+	// Are map variables live?
+	if (mapvar_cvar) dprint("\b[CLIENT]\b LIVE Map Variables Detected\n");
+	else {
+		dprint("\b[CLIENT]\b RESETTING Map Variables\n");
+		// Reset map variables ready for use
+		parm11 = parm12 = parm13 = parm14 = parm15 = parm16 = 0;
+		mapvar_reset();
+	}
 };
 
 /*======================================================================
@@ -90,6 +94,11 @@ void() SetChangeParms =
 	parm7 = self.ammo_cells;
 
 	parm8 = self.weapon;
+	
+	dprint("\b[CLIENT]\b SAVING Map Variables\n");
+	// Save map variables (22 bits per parm, 132 total)
+	parm11 = mapvar[0]; parm12 = mapvar[1]; parm13 = mapvar[2];
+	parm14 = mapvar[3]; parm15 = mapvar[4]; parm16 = mapvar[5];
 };
 
 /*======================================================================
@@ -329,6 +338,8 @@ void() SyncModInventory =
 void() DecodeLevelParms =
 {
 	dprint("\b[CLIENT]\b Decode (Level) Parms\n");
+	// Map Variables are active (do not reset)
+	mapvar_cvar = TRUE;
 	// Found any runes? going back to start map? reset inventory
 	if (serverflags & SVR_RUNE_ALL) {
 		// take away all stuff on starting new episode
@@ -350,6 +361,15 @@ void() DecodeLevelParms =
 	self.weapon = parm8;
 	self.armortype = parm9 * 0.01;
 	self.armorvalue = parm3;
+
+	dprint("\b[CLIENT]\b Reading Map Variables\n");
+	// Read/Setup map variables (22 bits per parm, 132 total)
+	mapvar[0] = parm11; mapvar[1] = parm12; mapvar[2] = parm13;
+	mapvar[3] = parm14; mapvar[4] = parm15; mapvar[5] = parm16;
+	
+	// Check for any worldspawn map variable settings
+	if (CheckZeroVector(world.mapvar_update) == FALSE)
+		mapvar_range(world.mapvar_update);
 };
 
 //----------------------------------------------------------------------
@@ -480,8 +500,8 @@ void() SetupSpawnCoopLocations =
 //----------------------------------------------------------------------
 entity() SelectSpawnPoint =
 {
-	local entity spot, spot2, thing;
-	local float  pcount, start2;
+	local entity spot, thing;
+	local float  pcount, start2, runeactive;
 	
 	// Always use a player start as default position
 	if (!lastspawn) lastspawn = find (world, classname, "info_player_start");
@@ -537,22 +557,28 @@ entity() SelectSpawnPoint =
 	}
 
 	// Check for any info_player_start2 special spawn locations
-	start2 = mathlib_bitvalue( query_configflag(SVR_SPAWN_BIT1), SVR_SPAWN_BIT1);
-	start2 = start2 + mathlib_bitvalue( query_configflag(SVR_SPAWN_BIT2), SVR_SPAWN_BIT2)*2;
-	start2 = start2 + mathlib_bitvalue( query_configflag(SVR_SPAWN_BIT3), SVR_SPAWN_BIT3)*4;
+	if (query_configflag(SVR_SPAWN_BIT1) > 0) start2 = 1;
+	else start2 = 0;
+	if (query_configflag(SVR_SPAWN_BIT2) > 0) start2 = start2 + 2;
+	if (query_configflag(SVR_SPAWN_BIT3) > 0) start2 = start2 + 4;
 	if (start2 > 0) dprint("\b[CLIENT]\b Unique Info_Player_Start2 Active\n");
 	
-	// have a rune or new spawnflag option? Pick second spawn position
-	if ( query_configflag(SVR_RUNE_ALL) || start2 > 0 ) {
-		// Read any spawn location number (High/low bit flag, 0-3 values)
+	// Check for any runes active
+	runeactive = query_configflag(SVR_RUNE_ALL);
+	
+	// have a rune or new spawnflag option?
+	if ( runeactive > 0 || start2 > 0 ) {
+		// Find second spawn locations (can have several)
 		spot = find (world, classname, "info_player_start2");
-		if (spot) {
-			spot2 = spot;
-			while (spot) {
-				if (spot.startspawn2 == start2) spot2 = spot;
-				spot = find(spot, classname, "info_player_start2");
-			}
-			return spot2;
+		while (spot) {
+			// Check for rune only start 2 setup
+			if (runeactive > 0 && spot.startspawn2 == 0)
+				return spot;
+			// Check for special spawn2 location
+			else if (spot.startspawn2 == start2)
+				return spot;
+			// Keep searching for start2 positions
+			spot = find(spot, classname, "info_player_start2");
 		}
 	}
 	
@@ -616,7 +642,7 @@ void() PutClientInServer =
 	self.suppressCenterPrint = FALSE;	// No centerprint active
 
 	ResetDebuffSystem(self);			// Reset/initialize debuff system
-	
+
 	self.enemy = world;
 	DecodeLevelParms ();
 	self.weapon = W_BestWeapon (self);	// Pick best weapon from inventory
@@ -767,6 +793,7 @@ void() PlayerPostThink =
 		// - first couple of frames the player is not setup correctly
 		if (self.flags & FL_CLIENT) {
 			postthink = TRUE;			// postthink flag complete
+			mapvar_cvar = TRUE;			// Map Variable are live
 			// Reset any screen cshift parameters, eng often leaves them
 			if (!self.cshift_upd) self.cshift_time = -1;
 			
@@ -1246,6 +1273,7 @@ void(entity targ, entity attacker) ClientObituary =
 				// Rogue Software enemies
 				else if (attacker.classtype == CT_MONMUMMY) bprint (" was Mummified\n");
 				else if (attacker.classtype == CT_MONWRAITH) bprint (" was shattered by a Wraith\n");
+				else if (attacker.classtype == CT_MONEEL) bprint (" was electrified by an Eel\n");
 
 				// Quoth MOD enemies
 				else if (attacker.classtype == CT_MONVORELING) bprint (" was nibbled by a Voreling\n");
@@ -1254,6 +1282,10 @@ void(entity targ, entity attacker) ClientObituary =
 				else if (attacker.classtype == CT_MONDROLE) bprint (" was decimated by a Drole\n");
 				else if (attacker.classtype == CT_MONFREDDIE) bprint (" was exterminated by Freddie\n");
 				else if (attacker.classtype == CT_MONGAUNT) bprint (" was blasted by a Gaunt\n");
+				else if (attacker.classtype == CT_MONSENTINEL) bprint (" was scorched by a Sentinel\n");
+				else if (attacker.classtype == CT_MONDGUARDQ) bprint (" was slaughtered by a Death Guard\n");
+				else if (attacker.classtype == CT_MONDLORD) bprint (" was executed by a Death Lord\n");
+				else if (attacker.classtype == CT_MONGUG) bprint (" was obliterated by a Gug\n");
 
 				// New base enemies
 				else if (attacker.classtype == CT_MONARMYROCKET) bprint (" was blown up by a Rocketeer\n");
@@ -1271,6 +1303,12 @@ void(entity targ, entity attacker) ClientObituary =
 				else if (attacker.classtype == CT_MONBOIL) bprint (" was blown away by a Boil\n");
 				else if (attacker.classtype == CT_MONSEEKER) bprint (" was destroyed by a Seeker\n");
 
+				// Twisted xmas mod enemies
+				else if (attacker.classtype == CT_MONELF) bprint (" was torn to pieces by a Elf\n");
+				else if (attacker.classtype == CT_MONRAINDEER) bprint (" was trampled by a Raindeer\n");
+				else if (attacker.classtype == CT_MONSNOWMAN) bprint (" was smashed on a Snowman\n");
+				else if (attacker.classtype == CT_MONSANTA) bprint (" was wrapped up by Santa\n");
+								
 				// Not present in original ID levels
 				//if (attacker.classname == "monster_dragon") bprint (" was fried by a Dragon\n");
 				//if (attacker.classname == "monster_vomit") bprint (" was vomited on by a Vomitus\n");

@@ -52,7 +52,7 @@ void() f_swim = {
 	else self.frame = $swim1 + self.walkframe;
 	// Loop around animation block
 	if (self.walkframe > 17) self.walkframe = 0;
-	
+
 	if (self.state == FISH_STAND) ai_stand();
 	else if (self.state == FISH_WALK) ai_walk(self.move_state_y);
 	else ai_run(self.move_state_z);
@@ -97,11 +97,15 @@ void() fish_melee =
 	ai_damagebreakable(5);					// Damage any breakables
 	if (!ai_checkmelee(MONAI_MELEEFISH)) return;	// Too far away
 		
-	// Fish bites man!
-	ldmg = (random() + random()) * 3;
+	// Fish bites man! 1-6 Damage
+	ldmg = (random() + random() + random()) * 2;
+	if (ldmg < 1) ldmg = 1;
 	sound (self, CHAN_VOICE, "fish/bite.wav", 1, ATTN_NORM);
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 	
+	// Check for poisonous attribute (new poison version)
+	if (self.poisonous) PoisonDeBuff(self.enemy);
+
 	// Spawn some touch blood (no explicit direction)
 	spawn_touchblood (self, self.enemy, ldmg*3);
 };
@@ -220,6 +224,12 @@ void() monster_fish =
 	precache_sound ("fish/death.wav");
 	precache_sound ("fish/bite.wav");
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
+	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	self.gibhealth = -10;
@@ -228,7 +238,11 @@ void() monster_fish =
 	self.steptype = FS_FLYING;			// It has fins!?!
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '24 0 -8';		// Bite attack offset
+	self.height = 0;					// reset enemytarget tracking
 	if (!self.exactskin) self.randomskin = 4;
+
+	// Check for water sightline wakeup
+	if (self.spawnflags & MON_LIQUIDBLOCK) self.liquidblock = TRUE;
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
@@ -249,6 +263,7 @@ void() monster_fish =
 		self.move_state = '0 8 12';
 	}
 	
+	self.th_checkattack = FishCheckAttack;
 	self.th_stand = f_stand;
 	self.th_walk = f_walk;
 	self.th_run = f_run;

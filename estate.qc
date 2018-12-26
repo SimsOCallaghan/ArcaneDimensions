@@ -130,7 +130,7 @@ void() trigger_entitystate_use =
 void() trigger_entitystate_off =
 {
 	self.classtype = CT_ESTATE;
-	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
+	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_OFF;
 };
@@ -139,7 +139,7 @@ void() trigger_entitystate_off =
 void() trigger_entitystate_on =
 {
 	self.classtype = CT_ESTATE;
-	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
+	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_ON;
 };
@@ -148,7 +148,7 @@ void() trigger_entitystate_on =
 void() trigger_entitystate_disable =
 {
 	self.classtype = CT_ESTATE;
-	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
+	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_DISABLE;
 };
@@ -157,7 +157,7 @@ void() trigger_entitystate_disable =
 void() trigger_entitystate_reset =
 {
 	self.classtype = CT_ESTATE;
-	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
+	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_RESET;
 };
@@ -166,7 +166,7 @@ void() trigger_entitystate_reset =
 void() trigger_entitystate_aframe =
 {
 	self.classtype = CT_ESTATE;
-	if (!self.target) dprint("\b[ENTSTATE]\b Missing target!\n");
+	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_AFRAME;
 };

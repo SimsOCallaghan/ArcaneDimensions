@@ -44,8 +44,10 @@ void(entity targ, entity attacker) Killed =
 	oself = self; self = targ;
 	self.activate = attacker;		// Always keep track of what did damage
 
-	// doors, triggers, etc
-	if (self.movetype == MOVETYPE_PUSH || self.movetype == MOVETYPE_NONE) {	
+	// func bmodels, triggers, breakables etc
+	// Horrible hack for pushables; They switch movetype, hard to catch
+	if (self.movetype == MOVETYPE_PUSH || self.movetype == MOVETYPE_NONE ||
+		self.classtype == CT_FUNCPUSHABLE) {	
 		self.th_die ();
 	}
 	else {
@@ -126,6 +128,12 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 
 	// If target cannot take damage, no point doing damage
 	if (targ.takedamage == DAMAGE_NO) return;
+	
+	// Check for breakable/pushables being immune to monster damage
+	// This check is present in all projectiles functions instead
+	// Its not really necessary here because its about monsters
+	// if (ai_immunedamage(attacker, targ)) return;
+	
 	// used by buttons and triggers to set activator for target firing
 	damage_attacker = attacker;
 
@@ -410,8 +418,12 @@ void(entity inflictor, entity attacker, float damage, entity ignore, float check
 			// setup as a dead exception path
 			if (checkclass == IGNORECLASS && head.classtype == ignore.classtype) { }
 			else {
+				// Check for breakable/pushable monster immunity
+				// Do nothing, radius damage has no miss effect
+				if (ai_immunedamage(attacker, head)) {
+				}
 				// Check for any breakables which are prone to explosive damage
-				if (ai_foundbreakable(attacker, head,TRUE) && head.brktrigmissile !=0) {
+				else if (ai_foundbreakable(attacker, head,TRUE) && head.brktrigmissile !=0) {
 					trigger_ent(head, attacker);
 				}
 				else {
@@ -438,6 +450,11 @@ void(entity inflictor, entity attacker, float damage, entity ignore, float check
 								if (head.resist_rockets > 0)
 									points = Resist_Damage(head, IT_ROCKETS, points);
 								
+								// Zombies should really be blown from explosives
+								// especially from ogre grenades right under their feet
+								// Check for glancing damage or if too far away
+								if (head.classgroup == CG_ZOMBIE && points > (head.health*0.25))
+									points = DAMAGE_ZOMBIECLASS;
 								// Any damage left? Check for poison as well
 								if (points > 0) T_Damage (head, inflictor, attacker, points, DAMARMOR);
 								if (attacker.poisonous) PoisonDeBuff(head);

@@ -401,7 +401,7 @@ void(vector orgofs, float angofs) minotaur_fire =
 	else {
 		// Projectile behaves like plasma (light/trail/impact effects)
 		// The correct projectile model is switched in launch function
-		launch_plasma(org, dir, CT_PROJ_PLASMA, self.attack_speed);
+		launch_plasma(org, dir, CT_MONMINOTAUR, self.attack_speed);
 	}
 };
 
@@ -749,10 +749,13 @@ void() monster_minotaur =
 	self.steptype = FS_TYPELARGE;	// Giant sound
 	self.blockudeath = TRUE;		// No humanoid death
 	self.part_style = PARTICLE_BURST_BLUE;
+	self.poisonous = FALSE;			// blue ver = Always poison free
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = 0; self.resist_cells = 0.5;
+	self.reflectlightning = TRUE;	// Reflect lightning strikes
+	self.reflectplasma = TRUE;		// Reflect plasma projectiles
 
 	self.th_checkattack = MinotaurCheckAttack;
 	self.th_stand = mino_stand1;
@@ -771,11 +774,12 @@ void() monster_minotaur =
 	self.classmove = MON_MOVEWALK;
 	
 	// Special darker version for gargoyle spawner
-	// Update all gib models and check/set poison debuff
+	// Update all gib models and set poison debuff
 	if (self.spawnflags & MON_MINOTAUR_MINIONS) {
-		self.exactskin = 1;		// Black skin + yellow eyes
-		if (self.poisonous < 0) self.poisonous = FALSE;	// Poison debuff
-		else self.poisonous = TRUE;
+		self.poisonous = TRUE;			// darker ver = Always poisonous
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		self.exactskin = 1;				// Black skin + yellow eyes
 		self.gib1skin = self.gib2skin = self.gib3skin = 1;
 		self.part_style = PARTICLE_BURST_GREEN;
 		// Reduce minions down to 3, gargoyles are tougher to kill

@@ -993,6 +993,7 @@ void() iceg_setup =
 	// Setup Ammo Resistance
 	self.resist_shells = self.resist_cells = 0;
 	self.resist_nails = self.resist_rockets = 0.75;
+	self.reflectnails = TRUE;		// Reflect nail projectiles
 	
 	//Resist_CheckRange(self);		// Double check values
 	Resist_Save(self);				// Save for Later
@@ -1126,6 +1127,7 @@ void() monster_icegolem =
 	self.bbmaxs = '32 32 128';
 	self.bboxtype = BBOX_CUSTOM;
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+	self.poisonous = FALSE;			// Cannot be poisonous
 
 	self.steptype = FS_TYPEGIANT;	// Giant sound
 	self.health = self.max_health = MEGADEATH;

@@ -467,6 +467,7 @@ void() monster_shub =
 	self.no_liquiddmg = TRUE;		// no slime/lava damage
 	self.idlemoreoften = TRUE;		// More frequent idle sounds
 	self.gibbed = FALSE;			// Still in one piece
+	self.poisonous = FALSE;			// Cannot be poisonous
 
 	self.deadflag = DEAD_NO;					// used to stop death re-triggering
 	self.liquidbase = self.liquidcheck = 0;		// Used for liquid content damage

@@ -88,20 +88,33 @@ void()	WizardAttackFinished =
 //----------------------------------------------------------------------
 void() Wiz_FastFire =
 {
-	local vector		vec;
-	local vector		dst;
+	local vector vec, dst;
+	local entity twizard, tmissile;
 
+	// Is the wizard still alive?
 	if (self.owner.health > 0) {
-		self.owner.effects = self.owner.effects | EF_MUZZLEFLASH;
+		// Setup correct entities
+		tmissile = self;
+		twizard = self.owner;
+		// Switch to the actual wizard
+		self = twizard;
+		
+		// Add glow effect to wizard while firing	
+		self.effects = self.effects | EF_MUZZLEFLASH;
 
-		makevectors (SUB_angEnemyTarget());	
-		dst = SUB_orgEnemyTarget() - 13*self.movedir;
-	
-		vec = normalize(dst - self.origin);
+		// Check for any enemytarget setup (above spawnflag)
+		makevectors (SUB_angEnemyTarget());
+		// Work out origin and offset from missile, not wizard
+		dst = SUB_orgEnemyTarget() - 13 * tmissile.movedir;
+		vec = normalize(dst - tmissile.origin);
+		
 		self.attack_speed = SPEED_WIZSPIKE + (skill * SPEED_WIZSKILL);
+		// make sure sound is played on the wizard, not the missile
 		sound (self, CHAN_WEAPON, "wizard/wattack.wav", 1, ATTN_NORM);
-		launch_projectile (self.origin, vec, CT_PROJ_WIZ, self.attack_speed);
-		newmis.owner = self.owner;
+		// Launch projectile expects self = firing monster
+		launch_projectile (tmissile.origin, vec, CT_PROJ_WIZ, self.attack_speed);
+		// Switch back to missile entity for removal
+		self = tmissile;
 	}
 
 	remove (self);
@@ -113,7 +126,7 @@ void() Wiz_FastFire =
 //----------------------------------------------------------------------
 void() Wiz_StartFast =
 {
-	local	entity	missile;
+	local entity missile;
 	
 	sound (self, CHAN_WEAPON, "wizard/wattack.wav", 1, ATTN_NORM);
 	self.v_angle = self.angles;
@@ -141,16 +154,16 @@ void() Wiz_StartFast =
 };
 
 //----------------------------------------------------------------------
-void()	wiz_fast1	=[	$magatt1,		wiz_fast2	] {ai_face();Wiz_StartFast();};
-void()	wiz_fast2	=[	$magatt2,		wiz_fast3	] {ai_face();};
-void()	wiz_fast3	=[	$magatt3,		wiz_fast4	] {ai_face();};
-void()	wiz_fast4	=[	$magatt4,		wiz_fast5	] {ai_face();};
-void()	wiz_fast5	=[	$magatt5,		wiz_fast6	] {ai_face();};
-void()	wiz_fast6	=[	$magatt6,		wiz_fast7	] {ai_face();};
-void()	wiz_fast7	=[	$magatt5,		wiz_fast8	] {ai_face();};
-void()	wiz_fast8	=[	$magatt4,		wiz_fast9	] {ai_face();};
-void()	wiz_fast9	=[	$magatt3,		wiz_fast10] {ai_face();};
-void()	wiz_fast10=[	$magatt2,		wiz_run1	] {WizardAttackFinished (); ai_face();};
+void()	wiz_fast1  =[ $magatt1, wiz_fast2 ] {ai_face();Wiz_StartFast();};
+void()	wiz_fast2  =[ $magatt2, wiz_fast3 ] {ai_face();};
+void()	wiz_fast3  =[ $magatt3, wiz_fast4 ] {ai_face();};
+void()	wiz_fast4  =[ $magatt4, wiz_fast5 ] {ai_face();};
+void()	wiz_fast5  =[ $magatt5, wiz_fast6 ] {ai_face();};
+void()	wiz_fast6  =[ $magatt6, wiz_fast7 ] {ai_face();};
+void()	wiz_fast7  =[ $magatt5, wiz_fast8 ] {ai_face();};
+void()	wiz_fast8  =[ $magatt4, wiz_fast9 ] {ai_face();};
+void()	wiz_fast9  =[ $magatt3, wiz_fast10] {ai_face();};
+void()	wiz_fast10 =[ $magatt2, wiz_run1  ] {WizardAttackFinished (); ai_face();};
 
 //============================================================================
 void()	wiz_wakeup =[ $hover1, wiz_run1 ] {
@@ -174,10 +187,10 @@ void()	wiz_wakeup =[ $hover1, wiz_run1 ] {
 };
 
 //============================================================================
-void()	wiz_pain1	=[	$pain1,		wiz_pain2	] {};
-void()	wiz_pain2	=[	$pain2,		wiz_pain3	] {};
-void()	wiz_pain3	=[	$pain3,		wiz_pain4	] {};
-void()	wiz_pain4	=[	$pain4,		wiz_run1	] {};
+void() wiz_pain1 =[ $pain1, wiz_pain2] {};
+void() wiz_pain2 =[ $pain2, wiz_pain3] {};
+void() wiz_pain3 =[ $pain3, wiz_pain4] {};
+void() wiz_pain4 =[ $pain4, wiz_run1 ] {};
 
 //----------------------------------------------------------------------
 void(entity inflictor, entity attacker, float damage) wiz_pain =
@@ -199,15 +212,15 @@ void(entity inflictor, entity attacker, float damage) wiz_pain =
 };
 
 //============================================================================
-void()	wiz_death1	=[	$death1,		wiz_death2	] {};
-void()	wiz_death2	=[	$death2,		wiz_death3	] {monster_check_gib();};
-void()	wiz_death3	=[	$death3,		wiz_death4	] {monster_check_gib();
+void() wiz_death1 =[ $death1, wiz_death2 ] {};
+void() wiz_death2 =[ $death2, wiz_death3 ] {monster_check_gib();};
+void() wiz_death3 =[ $death3, wiz_death4 ] {monster_check_gib();
 	self.solid = SOLID_NOT;};
-void()	wiz_death4	=[	$death4,		wiz_death5	] {};
-void()	wiz_death5	=[	$death5,		wiz_death6	] {};
-void()	wiz_death6	=[	$death6,		wiz_death7	] {};
-void()	wiz_death7	=[	$death7,		wiz_death8	] {monster_death_postcheck();};
-void()	wiz_death8	=[	$death8,		wiz_death8	] {monster_deadbody_check();};
+void() wiz_death4 =[ $death4, wiz_death5 ] {};
+void() wiz_death5 =[ $death5, wiz_death6 ] {};
+void() wiz_death6 =[ $death6, wiz_death7 ] {};
+void() wiz_death7 =[ $death7, wiz_death8 ] {monster_death_postcheck();};
+void() wiz_death8 =[ $death8, wiz_death8 ] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 void() wiz_die =
@@ -233,7 +246,7 @@ void() monster_wizard =
 {
 	if (deathmatch) { remove(self); return; }
 
-	self.mdl = "progs/wizard.mdl";
+	self.mdl = "progs/mon_wizard.mdl";
 	self.headmdl = "progs/h_wizard.mdl";
 	self.gib1mdl = "progs/gib_wzarm1.mdl";	// Left arm/stump
 	self.gib2mdl = "progs/gib_wzarm2.mdl";	// Right arm/stump
@@ -261,6 +274,14 @@ void() monster_wizard =
 	self.sight_sound = "wizard/wsight.wav";
 	precache_sound (self.sight_sound);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		self.exactskin = 1;				// Greener version
+		self.gib1skin = self.gib2skin = self.gib3skin = 1;
+	}
+
 	// Cache gargoyle is a special class used for precache only
 	if (self.classtype != CT_CACHEWIZARD) setup_wizard();
 };
@@ -268,6 +289,7 @@ void() monster_wizard =
 //----------------------------------------------------------------------------
 void() monster_nourminion = { 
 	self.classtype = CT_CACHEWIZARD; 
+	self.poisonous = TRUE;	// Cache poison stuff (just in case)
 	monster_wizard();
 };
 
@@ -282,8 +304,12 @@ void() setup_wizard =
 	self.pain_flinch = 70;				// high pain threshold
 	self.pain_longanim = TRUE;			// Has long pain animation for Shadow Axe
 	self.blockudeath = TRUE;			// no humanoid death sound
-	if (self.height == 0) self.height = MONAI_ABOVEDIST; // Custom height
+	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.attack_offset = '0 0 30';		// Acid spit start location
+
+	// Always reset Ammo Resistance to be consistent
+	self.resist_shells = self.resist_nails = 0;
+	self.resist_rockets = self.resist_cells = 0;
 
 	// Allow wizards to keep a certain distance above the enemy
 	if (self.spawnflags & MON_WIZARD_ABOVE) {
@@ -297,10 +323,6 @@ void() setup_wizard =
 	self.th_pain = wiz_pain;
 	self.th_die = wiz_die;
 		
-	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = self.resist_cells = 0;
-
 	if(!self.classtype) self.classtype = CT_MONWIZARD;
 	if (!self.classgroup) self.classgroup = CG_WIZARD;
 	self.classmove = MON_MOVEFLY;
@@ -316,7 +338,7 @@ void() setup_wizard =
 		self.th_missile = wiz_fast1;
 		self.th_slide = wiz_side1;
 	}
-		
+
 	monster_start();
 };
 
@@ -347,7 +369,13 @@ void(vector minion_org, entity minion_targ, float minion_sflag) minion_wizard =
 	minion.minion_active = TRUE;			// Minion flag
 	minion.bodyfadeaway = TRUE;				// Get rid of body
 	
-	minion.mdl = "progs/wizard.mdl";
+	// Check for poison gibs being cached first
+	if (gibpoison && self.poisonous == TRUE) {
+		minion.poisonous = self.poisonous;	// carry over from host spawner 
+		minion.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+	}
+
+	minion.mdl = "progs/mon_wizard.mdl";
 	minion.headmdl = "progs/h_wizard.mdl";
 	minion.gib1mdl = "progs/gib_wzarm1.mdl";	// Left arm/stump
 	minion.gib2mdl = "progs/gib_wzarm2.mdl";	// Right arm/stump

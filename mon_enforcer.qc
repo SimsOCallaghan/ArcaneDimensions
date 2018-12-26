@@ -177,7 +177,7 @@ void() eliminator_fire =
 	org = self.origin + attack_vector(self.attack_offset);
 	vec = normalize(self.enemy.origin - self.origin);
 
-	launch_plasma(org, vec, CT_PROJ_PLASMA, SPEED_PLASMA);
+	launch_plasma(org, vec, CT_MONELIMATOR, SPEED_PLASMA);
 };
 
 //----------------------------------------------------------------------
@@ -372,8 +372,15 @@ void() monster_enforcer =
 	if (deathmatch) { remove(self); return; }
 	
 	self.classtype = CT_MONENFORCER;
-	precache_model (MODEL_PROJ_LASER);	// Originally - progs/laser.mdl
-
+	precache_model (MODEL_PROJ_LASER); // Originally - progs/laser.mdl
+	
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_LASERGRN);
+	}
+	
 	if (self.health < 1) self.health = 80;
 	self.ammo_cells = rint(1 + random()*2);
 	self.exactskin = rint((random()*3)-0.5);
@@ -381,11 +388,15 @@ void() monster_enforcer =
 
 	self.idle_sound = "enforcer/idle1.wav";
 	precache_sound (self.idle_sound);
+	self.sight_count = 4;
 	self.sight_sound = "enforcer/sight1.wav";
+	self.sight_sound2 = "enforcer/sight2.wav";
+	self.sight_sound3 = "enforcer/sight3.wav";
+	self.sight_sound4 = "enforcer/sight4.wav";
 	precache_sound (self.sight_sound);
-	precache_sound ("enforcer/sight2.wav");
-	precache_sound ("enforcer/sight3.wav");
-	precache_sound ("enforcer/sight4.wav");
+	precache_sound (self.sight_sound2);
+	precache_sound (self.sight_sound3);
+	precache_sound (self.sight_sound4);
 
 	// Projectile fire and impact (used in projectiles)
 	precache_sound ("enforcer/enfire.wav");
@@ -404,6 +415,13 @@ void() monster_defender =
 	self.classtype = CT_MONDEFENDER;
 	precache_model (MODEL_PROJ_GRENADE);
 
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_GRENADEGRN);
+	}
+	
 	if (self.health < 1) self.health = 100;
 	self.ammo_shells = rint(4 + random()*4);
 	self.exactskin = 3 + rint((random()*3)-0.5);
@@ -436,6 +454,13 @@ void() monster_eliminator =
 	
 	self.classtype = CT_MONELIMATOR;
 	precache_model (MODEL_PROJ_PLASMA);
+
+	// Check for poisonous entity flag
+	if (self.poisonous) {
+		precache_poisongibs();			// precache gibs
+		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+		precache_model (MODEL_PROJ_PLASMAGRN);
+	}
 
 	if (self.health < 1) self.health = 120;
 	self.ammo_cells = rint(2 + random()*2);

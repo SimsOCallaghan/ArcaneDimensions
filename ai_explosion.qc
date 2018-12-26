@@ -252,14 +252,18 @@ void(entity source, vector org, float velrnd, float upbase, float uprnd) SpawnPr
 };
 
 //----------------------------------------------------------------------
-// SpawnBlood
+// SpawnBlood (All blood particles through this function)
 //----------------------------------------------------------------------
 void(entity targ, vector org, vector vel, float part_qty) SpawnBlood =
 {
 	local float loop_count, part_col;
 	loop_count = 0;
 	vel = vel * 0.1;
-	part_qty = part_qty / 2;
+	// monsters show 2 x blood particles (default), it seems pointless
+	// to reduce that back down here. When a monster has a high ammo
+	// resistance it needs to be obviously less, the default needs to
+	// be higher to make a greater visual impact.
+	// part_qty = part_qty / 2;
 
 	// Exception - breakables don't really bleed red blood
 	if (targ.classgroup == CG_BREAKABLE) part_col = targ.bleedcolour;

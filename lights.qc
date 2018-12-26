@@ -284,8 +284,7 @@ void() light_torch_small_walltorch =
 	setmodel (self, self.mdl);
 	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
 	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-		self.angles_y = rint(random()*359);
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 	setup_light_sound();
 	setup_light_particle(PARTICLE_STYLE_FLAMET);
@@ -332,8 +331,7 @@ void() light_flame_large_yellow =
 	self.frame = 1;			// Switch to frame group 2 (larger flame)
 	if (!self.alpha) self.alpha = 0.8;
 	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-		self.angles_y = rint(random()*359);
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 	setup_light_sound();
 	setup_light_particle(PARTICLE_STYLE_FLAMEL);
@@ -379,8 +377,7 @@ void() light_flame_small_yellow =
 	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
 	if (!self.alpha) self.alpha = 0.8;
 	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-		self.angles_y = rint(random()*359);
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
 	setup_light_sound();
 	setup_light_particle(PARTICLE_STYLE_FLAMES);
@@ -527,8 +524,7 @@ void() light_candle_setup =
 		self.effects = self.effects + EF_NOSHADOW;
 
 	// Setting the angle key in the editor to UP/DOWN = random rotation	
-	if (self.angles_y < 0 || (self.angles_y == 0 && !query_configflag(SVR_ITEMROTATE)) ) 
-		self.angles_y = rint(random()*359);
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 	
 	// Setup light
 	if (self.spawnflags & LIGHT_FLAMEOFF) {

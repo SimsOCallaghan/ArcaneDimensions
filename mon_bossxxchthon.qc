@@ -493,6 +493,7 @@ void() monster_chthon =
 		}
 		precache_model (MODEL_PROJ_LAVA);
 		self.dpp_name = "TR_BOSSCHTHON";
+		self.poisonous = FALSE;
 	}
 
 	self.idle_sound = "chthon/idle1.wav";

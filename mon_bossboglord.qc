@@ -461,7 +461,8 @@ void() monster_boglord =
 		self.part_style = PARTICLE_BURST_RED;
 		self.part_life = EXPLODE_MED;
 		if (self.health < 1) self.health = 2000;
-		self.exactskin = 1;	// Dark red/purple
+		self.exactskin = 1;			// Dark red/purple
+		self.poisonous = FALSE;		// Cannot be poisonous
 	}
 	else {
 		// Unique models for wizard trail on model flags
@@ -470,12 +471,14 @@ void() monster_boglord =
 		self.gib2mdl = "progs/gib_blclaw2.mdl";		// Right claw
 		self.gib3mdl = "progs/gib_blfoot1.mdl";		// foot
 		self.gib4mdl = "progs/gib_blfoot2.mdl";		// foot
-		self.poisonous = TRUE;				// Green vulcan blood!
-		self.gibtype = GIBTYPE_POISON;		// Liquid Poison
 		self.part_style = PARTICLE_BURST_YELLOW;
 		self.part_life = EXPLODE_POISON_MED;
 		if (self.health < 1) self.health = 1200;
-		self.exactskin = 0;	// Swampy green
+		self.exactskin = 0;				// Swampy green
+		
+		precache_poisongibs();			// precache gibs
+		self.poisonous = TRUE;			// Green vulcan blood!
+		self.gibtype = GIBTYPE_POISON;	// Liquid Poison
 	}
 
 	// Precache model + unique particle trail
@@ -526,29 +529,32 @@ void() monster_boglord =
 	precache_sound ("boglord/bangdoor1.wav");
 	precache_sound ("boglord/bangdoor2.wav");
 
-	precache_poisongibs();				// precache gibs
-
-	self.solid = SOLID_NOT;				// No interaction with world
-	self.movetype = MOVETYPE_NONE;		// Static item, no movement
-	self.bbmins = '-32 -32 -24';		// Special Size
+	self.solid = SOLID_NOT;			// No interaction with world
+	self.movetype = MOVETYPE_NONE;	// Static item, no movement
+	self.bbmins = '-32 -32 -24';	// Special Size
 	self.bbmaxs = '32 32 80';
-	self.bboxtype = BBOX_CUSTOM;		// Custom size
-	self.bossflag = TRUE;				// Boss flag (like FL_MONSTER)
-	self.gibhealth = -60;
-	self.gibbed = FALSE;				// Starts complete
-	self.pain_flinch = 400;				// Really low chance of pain
-	self.pain_timeout = 2;				// long pause on pain
-	self.infightextra = 8;				// Does not like infighting
-	self.steptype = FS_TYPELARGE;		// Large stomping feet
-	self.blockudeath = TRUE;			// No player gib sound
-	self.tetherturn = TRUE;				// Always turn towards enemy
-	self.tetherpause = 0.9;				// Rarely pauses to attacks
-	self.dmg = 40;						// Radius dmg for gibondeath
+	self.bboxtype = BBOX_CUSTOM;	// Custom size
+	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+
+	self.gibhealth = -60;			// Shambler gibness!
+	self.gibbed = FALSE;			// Starts complete
+	self.pain_flinch = 400;			// Really low chance of pain
+	self.pain_timeout = 2;			// long pause on pain
+	self.infightextra = 8;			// Does not like infighting
+	self.steptype = FS_TYPELARGE;	// Large stomping feet
+	self.blockudeath = TRUE;		// No player gib sound
+	self.pain_longanim = FALSE;		// cannot be chopped with shadow axe
+	self.no_liquiddmg = TRUE;		// no slime/lava damage
+	self.tetherturn = TRUE;			// Always turn towards enemy
+	self.tetherpause = 0.9;			// Rarely pauses to attacks
+	self.dmg = 40;					// Radius dmg for gibondeath
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0.75;
-
+	self.reflectlightning = TRUE;	// Reflect lightning strikes
+	self.reflectplasma = TRUE;		// Reflect plasma projectiles
+	
 	self.th_checkattack = BogLordCheckAttack;
 	self.th_stand = bogl_stand1;
 	self.th_walk = bogl_walk1;

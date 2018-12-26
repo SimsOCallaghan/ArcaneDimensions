@@ -49,7 +49,6 @@ entity(string arrowmdl, vector arroworg) path_corner_spawnarrow =
 {
 	local entity arrow;
 	arrow = spawn();
-	arrow.owner = self;
 	arrow.classtype = CT_ATTACHMENT;
 	arrow.movetype = MOVETYPE_NONE;
 	arrow.solid = SOLID_NOT;

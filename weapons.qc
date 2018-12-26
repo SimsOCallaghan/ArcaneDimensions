@@ -107,6 +107,7 @@ void() W_FireAxe =
 	
 	org = trace_endpos - v_forward*4;	// Back 4 units to spawn blood
 
+	// Only stuff that can be damaged has unique impact sounds
 	if (trace_ent.takedamage) {
 		trace_ent.axhitme = 1;			// special DM/Coop axe hit sound
 		if (self.moditems & IT_UPGRADE_AXE) axedmg = DAMAGE_PLAYAXE2;
@@ -116,17 +117,29 @@ void() W_FireAxe =
 		SpawnBlood (trace_ent, org, '0 0 1', axedmg);
 		T_Damage (trace_ent, self, self, axedmg, DAMARMOR);
 		
-		// Check with impact sound to play
+		// Monster impact sounds (fleshy stuff)
 		if (trace_ent.flags & FL_MONSTER) {
 			if (random() < 0.5) sound (self, CHAN_WEAPON, GIB_SOUND_HEAVY, 1, ATTN_NORM);
 			else sound (self, CHAN_WEAPON, GIB_SOUND_HEAVY2, 1, ATTN_NORM);
 		}
+		// Breakable impact sounds (def=stone/brick)
 		else if (trace_ent.classtype == CT_FUNCBREAK) {
 			if (trace_ent.style == BTYPE_WOOD) 
 				sound (self, CHAN_WEAPON, SOUND_AXE_WOOD, 1, ATTN_NORM);
 			else if (trace_ent.style == BTYPE_GLASS) 
 				sound (self, CHAN_WEAPON, SOUND_AXE_GLASS, 1, ATTN_NORM);
 			else if (trace_ent.style == BTYPE_METAL) 
+				sound (self, CHAN_WEAPON, SOUND_AXE_METAL, 1, ATTN_NORM);
+			else
+				sound (self, CHAN_WEAPON, SOUND_AXE_STONE, 1, ATTN_NORM);
+		}
+		// Pushable impact sounds (def=stone/brick)
+		else if (trace_ent.classtype == CT_FUNCPUSHABLE) {
+			if (trace_ent.style == PTYPE_WOOD) 
+				sound (self, CHAN_WEAPON, SOUND_AXE_WOOD, 1, ATTN_NORM);
+			else if (trace_ent.style == PTYPE_GLASS) 
+				sound (self, CHAN_WEAPON, SOUND_AXE_GLASS, 1, ATTN_NORM);
+			else if (trace_ent.style == PTYPE_METAL) 
 				sound (self, CHAN_WEAPON, SOUND_AXE_METAL, 1, ATTN_NORM);
 			else
 				sound (self, CHAN_WEAPON, SOUND_AXE_STONE, 1, ATTN_NORM);
@@ -533,12 +546,17 @@ void() W_FirePlasma =
 	self.currentammo = self.ammo_cells = self.ammo_cells - 1;
 	
 	org = self.origin + v_forward*8 + '0 0 16';
-	launch_plasma (org, dir, CT_PROJ_PLASMA, SPEED_PLAYPLASMA);
+	launch_plasma (org, dir, CT_PLAYER, SPEED_PLAYPLASMA);
 };
 
 /*======================================================================
 LIGHTNING
 ======================================================================*/
+void(vector lstart, entity lsource, float ldamage) LightningReflection;
+//----------------------------------------------------------------------
+// This is a general purpose lighting damage function
+// Used by monsters and traps
+//----------------------------------------------------------------------
 void(vector lstart, vector lfinish, entity lsource, float ldamage) LightningDamage =
 {
 	local vector spot1, spot2, lightdir;
@@ -583,8 +601,20 @@ void(vector lstart, vector lfinish, entity lsource, float ldamage) LightningDama
 
 	// Found a target to hit?
 	if (lighthit) {
+		//----------------------------------------------------------------------
+		// Check for breakable/pushable monster immunity
+		if (ai_immunedamage(self, trace_ent)) {
+			// This is resist lightning function without pain sound
+			// Don't spawn smoke constantly (let the sprite finish)
+			if (self.lightning_timer < time) {
+				self.lightning_timer = time + 0.3;
+				SpawnExplosion(EXPLODE_BURST_SMOKE, trace_endpos, "");
+			}
+			SpawnProjectileSmoke(trace_endpos, 200, 50, 150);
+		}
+		//----------------------------------------------------------------------
 		// Check for any cell/lightning resistance
-		if (trace_ent.resist_cells > 0) {
+		else if (trace_ent.resist_cells > 0) {
 			ldamage = Resist_Damage(trace_ent, IT_CELLS, ldamage);
 			Resist_Lightning(trace_ent, trace_endpos);
 			if (ldamage > 0)
@@ -596,7 +626,46 @@ void(vector lstart, vector lfinish, entity lsource, float ldamage) LightningDama
 			SpawnBlood(trace_ent, trace_endpos, '0 0 100', ldamage*4);
 			T_Damage (trace_ent, lsource, lsource, ldamage, DAMARMOR);
 		}
+		// Check for any lightning reflection abilitites
+		if (trace_ent.reflectlightning) {
+			// Source = Lightning originally came from player
+			LightningReflection(trace_endpos, trace_ent, ldamage*0.5);
+		}
 	}	
+};
+
+//----------------------------------------------------------------------
+// New ability to spawn lighting strikes in random directions
+//----------------------------------------------------------------------
+void(vector lstart, entity lsource, float ldamage) LightningReflection =
+{
+	local vector lfinish, dir;
+
+	// Setup a random XYZ direction (+/-)
+	lfinish = lstart + vecrand(0,1000,1);
+	
+	// Trace line in random direction
+	traceline(lstart, lfinish, FALSE, lsource);
+	
+	// Random chance of a plasma/lightning bolt!
+	if (random() < 0.5) {
+		dir = normalize(trace_endpos - lstart);
+		launch_plasma(lstart, dir, CT_REFLECTLIGHT, SPEED_REFLECTION);
+	}
+	else {
+		// Draw lighting beam (32 model unit chunks)
+		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+		WriteByte (MSG_BROADCAST, TE_LIGHTNING2);
+		WriteEntity (MSG_BROADCAST, lsource);
+		WriteCoord (MSG_BROADCAST, lstart_x);
+		WriteCoord (MSG_BROADCAST, lstart_y);
+		WriteCoord (MSG_BROADCAST, lstart_z);
+		WriteCoord (MSG_BROADCAST, trace_endpos_x);
+		WriteCoord (MSG_BROADCAST, trace_endpos_y);
+		WriteCoord (MSG_BROADCAST, trace_endpos_z);
+		// Check for damage with new lightning beam
+		LightningDamage(lstart, trace_endpos, world, ldamage);
+	}
 };
 
 //----------------------------------------------------------------------
@@ -662,6 +731,11 @@ void(vector p1, vector p2, entity from, float damage) PlayerLightningDamage =
 			// Originally used 225 blood colour
 			SpawnBlood(trace_ent, trace_endpos, '0 0 100', damage*4);
 			T_Damage (trace_ent, from, from, damage, DAMARMOR);
+		}
+		// Check for any lightning reflection abilitites
+		if (trace_ent.reflectlightning) {
+			// Source = Lightning originally came from player
+			LightningReflection(trace_endpos, trace_ent, damage*0.5);
 		}
 	}	
 };

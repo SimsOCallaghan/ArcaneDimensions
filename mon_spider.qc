@@ -39,29 +39,29 @@ $frame death9 death10 death11 death12 death13 death14 death15 death16
 $frame death17 death18 death19 death20
 
 //======================================================================
-void()	spider_idle1	=[	$idle1,	spider_idle2	] {monster_idle_sound();ai_stand();};
-void()	spider_idle2	=[	$idle2,	spider_idle3	] {ai_stand();};
-void()	spider_idle3	=[	$idle3,	spider_idle4	] {ai_stand();};
-void()	spider_idle4	=[	$idle4,	spider_idle5	] {ai_stand();};
-void()	spider_idle5	=[	$idle5,	spider_idle6	] {ai_stand();};
-void()	spider_idle6	=[	$idle6,	spider_idle7	] {ai_stand();};
-void()	spider_idle7	=[	$idle7,	spider_idle8	] {ai_stand();};
-void()	spider_idle8	=[	$idle8,	spider_idle9	] {ai_stand();};
-void()	spider_idle9	=[	$idle9,	spider_idle10	] {ai_stand();};
-void()	spider_idle10	=[	$idle10,	spider_idle11	] {ai_stand();};
-void()	spider_idle11	=[	$idle11,	spider_idle12	] {ai_stand();};
-void()	spider_idle12	=[	$idle12,	spider_idle13	] {ai_stand();};
-void()	spider_idle13	=[	$idle13,	spider_idle1	] {ai_stand();};
+void() spider_idle1 =[ $idle1, spider_idle2] {monster_idle_sound();ai_stand();};
+void() spider_idle2 =[ $idle2, spider_idle3] {ai_stand();};
+void() spider_idle3 =[ $idle3, spider_idle4] {ai_stand();};
+void() spider_idle4 =[ $idle4, spider_idle5] {ai_stand();};
+void() spider_idle5 =[ $idle5, spider_idle6] {ai_stand();};
+void() spider_idle6 =[ $idle6, spider_idle7] {ai_stand();};
+void() spider_idle7 =[ $idle7, spider_idle8] {ai_stand();};
+void() spider_idle8 =[ $idle8, spider_idle9] {ai_stand();};
+void() spider_idle9 =[ $idle9, spider_idle10] {ai_stand();};
+void() spider_idle10 =[ $idle10, spider_idle11] {ai_stand();};
+void() spider_idle11 =[ $idle11, spider_idle12] {ai_stand();};
+void() spider_idle12 =[ $idle12, spider_idle13] {ai_stand();};
+void() spider_idle13 =[ $idle13, spider_idle1] {ai_stand();};
 
 //======================================================================
-void()	spider_walk1	=[	$walk1,		spider_walk2	] {monster_idle_sound();ai_walk(4);};
-void()	spider_walk2	=[	$walk3,		spider_walk3	] {monster_footstep(FALSE); ai_walk(3);};
-void()	spider_walk3	=[	$walk5,		spider_walk4	] {ai_walk(4);};
-void()	spider_walk4	=[	$walk7,		spider_walk5	] {ai_walk(5);};
-void()	spider_walk5	=[	$walk9,		spider_walk6	] {ai_walk(4);};
-void()	spider_walk6	=[	$walk11,		spider_walk7	] {monster_footstep(FALSE); ai_walk(3);};
-void()	spider_walk7	=[	$walk13,		spider_walk8	] {ai_walk(4);};
-void()	spider_walk8	=[	$walk15,		spider_walk1	] {ai_walk(5);};
+void() spider_walk1 =[ $walk1, spider_walk2] {monster_idle_sound();ai_walk(4);};
+void() spider_walk2 =[ $walk3, spider_walk3] {monster_footstep(FALSE); ai_walk(3);};
+void() spider_walk3 =[ $walk5, spider_walk4] {ai_walk(4);};
+void() spider_walk4 =[ $walk7, spider_walk5] {ai_walk(5);};
+void() spider_walk5 =[ $walk9, spider_walk6] {ai_walk(4);};
+void() spider_walk6 =[ $walk11, spider_walk7] {monster_footstep(FALSE); ai_walk(3);};
+void() spider_walk7 =[ $walk13, spider_walk8] {ai_walk(4);};
+void() spider_walk8 =[ $walk15, spider_walk1] {ai_walk(5);};
 
 //======================================================================
 void() spider_runpause =
@@ -113,24 +113,24 @@ void(float dist) spider_checkpause =
 };
 
 //----------------------------------------------------------------------
-void()	spider_run1	=[	$walk1,		spider_run2	] {self.movespeed = 0; monster_idle_sound();spider_checkpause(8);};
-void()	spider_run2	=[	$walk3,		spider_run3	] {monster_footstep(FALSE); spider_checkpause(6);};
-void()	spider_run3	=[	$walk5,		spider_run4	] {spider_checkpause(8);};
-void()	spider_run4	=[	$walk7,		spider_run5	] {spider_checkpause(10);};
-void()	spider_run5	=[	$walk9,		spider_run6	] {spider_checkpause(8);};
-void()	spider_run6	=[	$walk11,	spider_run7	] {monster_footstep(FALSE); spider_checkpause(6);};
-void()	spider_run7	=[	$walk13,	spider_run8	] {spider_checkpause(8);};
-void()	spider_run8	=[	$walk15,	spider_run1	] {spider_checkpause(10);};
+void()	spider_run1 =[ $walk1, spider_run2 ] {self.movespeed = 0; monster_idle_sound();spider_checkpause(8);};
+void()	spider_run2 =[ $walk3, spider_run3 ] {monster_footstep(FALSE); spider_checkpause(6);};
+void()	spider_run3 =[ $walk5, spider_run4 ] {spider_checkpause(8);};
+void()	spider_run4 =[ $walk7, spider_run5 ] {spider_checkpause(10);};
+void()	spider_run5 =[ $walk9, spider_run6 ] {spider_checkpause(8);};
+void()	spider_run6 =[ $walk11, spider_run7 ] {monster_footstep(FALSE); spider_checkpause(6);};
+void()	spider_run7 =[ $walk13, spider_run8 ] {spider_checkpause(8);};
+void()	spider_run8 =[ $walk15, spider_run1 ] {spider_checkpause(10);};
 
 //======================================================================
-void()	spider_slide1	=[	$walk1,		spider_slide2	] {ai_run_slide(6); monster_idle_sound();};
-void()	spider_slide2	=[	$walk3,		spider_slide3	] {ai_run_slide(4);};
-void()	spider_slide3	=[	$walk5,		spider_slide4	] {ai_run_slide(6);};
-void()	spider_slide4	=[	$walk7,		spider_slide5	] {ai_run_slide(4);};
-void()	spider_slide5	=[	$walk9,		spider_slide6	] {ai_run_slide(6);};
-void()	spider_slide6	=[	$walk11,	spider_slide7	] {ai_run_slide(4);};
-void()	spider_slide7	=[	$walk13,	spider_slide8	] {ai_run_slide(6);};
-void()	spider_slide8	=[	$walk15,	spider_run1	] {ai_run(4);};
+void()	spider_slide1 =[ $walk1, spider_slide2 ] {ai_run_slide(6); monster_idle_sound();};
+void()	spider_slide2 =[ $walk3, spider_slide3 ] {ai_run_slide(4);};
+void()	spider_slide3 =[ $walk5, spider_slide4 ] {ai_run_slide(6);};
+void()	spider_slide4 =[ $walk7, spider_slide5 ] {ai_run_slide(4);};
+void()	spider_slide5 =[ $walk9, spider_slide6 ] {ai_run_slide(6);};
+void()	spider_slide6 =[ $walk11, spider_slide7 ] {ai_run_slide(4);};
+void()	spider_slide7 =[ $walk13, spider_slide8 ] {ai_run_slide(6);};
+void()	spider_slide8 =[ $walk15, spider_run1 ] {ai_run(4);};
 
 //======================================================================
 // SPIDER 2 - ACID SPIT FUNCTIONS (range)
@@ -197,8 +197,9 @@ void() spider_melee =
 	if (random() < 0.5) sound(self, CHAN_WEAPON, "spider/attackmunch.wav", TRUE, TRUE);
 	else sound(self, CHAN_WEAPON, "spider/attacktear.wav", TRUE, TRUE);
 
-	// Spider bite is very weak
+	// Spider bite (damage 1-9) is very weak
 	ldmg = (random() + random() + random()) * 3;
+	if (ldmg < 1) ldmg = 1;
 	T_Damage (self.enemy, self, self, ldmg, DAMARMOR);
 
 	// Check for poisonous attribute (generally green spider)
@@ -209,21 +210,22 @@ void() spider_melee =
 };
 
 //----------------------------------------------------------------------
-void()	spider_bite1	=[	$atkup1,		spider_bite2	] {ai_face();};
-void()	spider_bite2	=[	$atkup5,		spider_bite3	] {ai_face();};
-void()	spider_bite3	=[	$atkup7,		spider_bite4	] {ai_face();};
-void()	spider_bite4	=[	$atkup9,		spider_bite5 ] {ai_face();};
-void()	spider_bite5	=[	$atkup11,		spider_bite6 ] {ai_face();};
+void() spider_bite1 = [ $atkup1, spider_bite2 ] {ai_face();};
+void() spider_bite2 = [ $atkup5, spider_bite3 ] {ai_face();};
+void() spider_bite3 = [ $atkup7, spider_bite4 ] {ai_face();};
+void() spider_bite4 = [ $atkup9, spider_bite5 ] {ai_face();};
+void() spider_bite5 = [ $atkup11, spider_bite6 ] {ai_face();};
 // Start bite attack loop
-void()	spider_bite6	=[	$atkloop1,		spider_bite7 ] {ai_face();};
-void()	spider_bite7	=[	$atkloop3,		spider_bite8 ] {ai_face();};
-void()	spider_bite8 = [	$atkloop5,		spider_bite9 ] {spider_melee();};
-void()	spider_bite9 = [	$atkloop7,		spider_bite10 ] {};
-void()	spider_bite10 =[	$atkloop9,		spider_bite11 ] {
-	if (ai_checkmelee(MONAI_MELEESPIDER) && self.enemy.health > 0) self.think = spider_bite6;};
+void() spider_bite6 = [ $atkloop1, spider_bite7 ] {ai_face();};
+void() spider_bite7=[ $atkloop3, spider_bite8 ] {ai_face();};
+void() spider_bite8 = [ $atkloop5, spider_bite9 ] {spider_melee();};
+void() spider_bite9 = [ $atkloop7, spider_bite10 ] {};
+void() spider_bite10 = [ $atkloop9, spider_bite11 ] {
+	if (ai_checkmelee(MONAI_MELEESPIDER) && self.enemy.health > 0 && self.health > 0) 
+		self.think = spider_bite6;};
 // Exit bite attack loop
-void()	spider_bite11	=[	$atkup7,		spider_bite12] {};
-void()	spider_bite12	=[	$atkup5,		spider_run1	] {};
+void() spider_bite11 = [ $atkup7, spider_bite12 ] {};
+void() spider_bite12 = [ $atkup5, spider_run1 ] {};
 
 //============================================================================
 // SPIDER 1 - JUMP FUNCTION (range)
@@ -264,12 +266,12 @@ void()	Spider_JumpTouch =
 };
 
 //----------------------------------------------------------------------------
-void() spider_leap1	=[	$jump1, spider_leap2	] {	ai_face();
+void() spider_leap1 =[ $jump1, spider_leap2 ] {ai_face();
 	self.jump_flag = time + MONAI_JUMPTIMEOUT; // Stop jumping so much
 	monster_idle_sound();
 };
-void() spider_leap2	=[	$jump3, spider_leap3	] {ai_face();};
-void() spider_leap3	=[	$jump5, spider_leap4	] {
+void() spider_leap2 =[ $jump3, spider_leap3 ] {ai_face();};
+void() spider_leap3 =[ $jump5, spider_leap4 ] {
 	ai_face();
 	self.jump_flag = time + MONAI_JUMPTIMEOUT; // Stop jumping so much
 	self.touch = Spider_JumpTouch;
@@ -279,10 +281,10 @@ void() spider_leap3	=[	$jump5, spider_leap4	] {
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
 };
-void() spider_leap4	=[	$jump7, spider_leap5	] {};
-void() spider_leap5	=[	$jump8, spider_leap6 ] {};	
-void() spider_leap6	=[	$jump9, spider_leap7	] {};
-void() spider_leap7	=[	$jump10, spider_leap8 ] {
+void() spider_leap4 =[ $jump7, spider_leap5 ] {};
+void() spider_leap5 =[ $jump8, spider_leap6 ] {};	
+void() spider_leap6 =[ $jump9, spider_leap7 ] {};
+void() spider_leap7 =[ $jump10, spider_leap8 ] {
 	// Double check monster is still falling?
 	if (CheckZeroVector(self.velocity) || self.oldorigin == self.origin) {
 		self.ideal_yaw = random() * 360; //random jump angle
@@ -292,9 +294,9 @@ void() spider_leap7	=[	$jump10, spider_leap8 ] {
 };
 
 //----------------------------------------------------------------------
-void() spider_leap8	=[	$jump11, spider_leap9 ] {monster_footstep(FALSE);};
-void() spider_leap9	=[	$jump13, spider_leap10] {monster_footstep(FALSE);};
-void() spider_leap10=[	$jump15, spider_run1 ] {ai_resetangles();};
+void() spider_leap8 =[ $jump11, spider_leap9] {monster_footstep(FALSE);};
+void() spider_leap9 =[ $jump13, spider_leap10] {monster_footstep(FALSE);};
+void() spider_leap10 =[ $jump15, spider_run1] {ai_resetangles();};
 
 //======================================================================
 // CEILING SPIDERS - Idle/Drop/Touch/Land functions
@@ -622,7 +624,6 @@ void() setup_spider =
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '24 0 20';		// Bite attack offset
 	self.attack_offset = '14 0 8';		// Used by green spider, at jaws
-	
 	self.movespeed = 1;					// Can never be a turret
 
 	// Always reset Ammo Resistance to be consistent
@@ -641,13 +642,13 @@ void() setup_spider =
 	if (self.spawnflags & MON_SPIDER_LARGE) {
 		if (self.health < 1) self.health = 75;
 		self.gibhealth = -25;
-		if (self.poisonous < 0) self.poisonous = FALSE;
-		else self.poisonous = TRUE;
+		self.poisonous = TRUE;		// Always poisonous
 		self.th_missile = spider_spit1;
 	}
 	else {
 		if (self.health < 1) self.health = 30;
 		self.gibhealth = -20;
+		self.poisonous = FALSE;		// Large only are poisonous
 		self.th_jump = spider_leap1;
 		self.th_jumpexit = spider_leap9;
 	}

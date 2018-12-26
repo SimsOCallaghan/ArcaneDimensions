@@ -369,7 +369,7 @@ void() hogremac_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "ogre/ogdth.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "ogre/ogdth.wav", 1, ATTN_NORM);
 		if (self.lip < 0.5) hogremac_dieA1();
 		else hogremac_dieB1();
 	}

@@ -22,6 +22,7 @@ float		ext_dppart;			// Extra DP particle system
 float		ext_dpsurf;			// Extra DP query surface information
 float		ext_dprain;			// Extra DP particle rain system
 float		ext_dpsnow;			// Extra DP particle snow system
+//float		ext_dprot;			// Extra DP rotating bmodel system
 float		pixelmode;			// Change texture pixel mode (linear/nearest)
 entity		gibitem;			// Latest gib to be generated
 float		gibstone;			// Has stone gibs been precached
@@ -520,6 +521,7 @@ float MON_JIM_ROCKET = 4;			// Rocket version of Jim the Robot
 float MON_SCORPION_STINGER = 4;		// Black stinger scorpion (debuff)
 float MON_TARBYLESSJUMP = 4;		// Will not constantly jump around
 float MON_WIZARD_ABOVE = 4;			// Wizard will float above enemy
+float MON_GOLEM_MELEEONLY = 4;		// Golems only do melee + stomp
 
 // Statue/Zombie options
 float MON_CRUCIFIED = 2;			// Zombies - start in crucified position

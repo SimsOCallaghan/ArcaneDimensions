@@ -529,7 +529,7 @@ void() spider_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "spider/death1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "spider/death1.wav", 1, ATTN_NORM);
 		spider_die1();
 	}
 };

@@ -349,7 +349,7 @@ void() gaunt_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "gaunt/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "gaunt/death.wav", 1, ATTN_NORM);
 		self.velocity_x = -200 + 400*random();
 		self.velocity_y = -200 + 400*random();
 		self.velocity_z = 100 + 100*random();

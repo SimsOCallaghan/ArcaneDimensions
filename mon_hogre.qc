@@ -345,7 +345,7 @@ void() hogre_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "ogre/ogdth.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "ogre/ogdth.wav", 1, ATTN_NORM);
 		self.lip = random();
 		if (self.lip < 0.05) hogre_dieS1();
 		else if (self.lip < 0.5) hogre_dieA1();

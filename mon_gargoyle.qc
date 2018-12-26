@@ -362,7 +362,7 @@ void() garg_die =
 	
 	// If not gibbed, then drop to ground
 	if (!self.gibbed) { 
-		sound (self, CHAN_BODY, "gargoyle/death1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "gargoyle/death1.wav", 1, ATTN_NORM);
 		self.flags = FL_MONSTER;				// reset all flag conditions
 		self.movetype = MOVETYPE_TOSS;			// Affected by gravity
 		self.velocity_x = -200 + 400*random();

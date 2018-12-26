@@ -286,16 +286,6 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	// No reaction if attacker is world (env trap, door, etc) 
 	//----------------------------------------------------------------------
 	if ( (self.flags & FL_MONSTER) && attacker != world) {
-		// Check if attack target is dead, otherwise will be stuck
-		if (self.switchattacker.health < 0) self.switchattacker = world;
-		// Has the monster kept track of any previous attackers?
-		// Low Random chance the monster will switch targets regardless
-		if (!self.switchattacker || random() < 0.02) self.switchattacker = attacker;
-		// if the monster is rapidly (>1s) switching targets, this blocks it
-		// This fixes infighting deadlocks and coop fights stuck switching targets
-		if (self.switchattacker != attacker) self.switchtimer = time + 1;
-		else self.switchtimer = 0;
-		
 		// Is the current attacker not self and not current enemy target?
 		if (self != attacker && attacker != SUB_entEnemyTarget()) {
 			if ( self.noinfighting && attacker.flags & FL_MONSTER 
@@ -304,10 +294,16 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 				// but let them react to the player
 			}
 			else {
+				// If previous switch target dead, focus on new target
+				if (self.switchattacker.health < 1) self.switchtimer = 0;
 				// Is the attacker a different classgroup and switching target available?
 				if ( self.classgroup != attacker.classgroup && self.switchtimer < time) {
 					// Prevent the monster from rapidily switching targets
-					self.switchtimer = time + 1;
+					if (self.switchattacker != attacker) self.switchtimer = time + 1;
+					else self.switchtimer = time + 0.1 + random();
+					// Switch to new target
+					self.switchattacker = attacker;
+
 					// Shift previous enemy to old enemy ready for new target
 					// Only switch if the new enemy is the player! (id logic)
 					// Check for new enemy target system before switching

@@ -434,6 +434,7 @@ void() worldspawn =
 	precache_sound (GIB_SOUND_CHAIN);		// Chain impact
 	precache_sound (GIB_SOUND_WOOD);		// Wooden impact
 	precache_sound (GIB_SOUND_ACID);		// Acid burning
+	precache_sound (GIB_SOUND_SDEATH);		// Stone death
 
 	//----------------------------------------------------------------------
 	// Footstep sounds (slow, light, medium, heavy, large & giant)
@@ -529,6 +530,8 @@ void() worldspawn =
 		// particle rain/snow system
 		ext_dprain = checkextension("DP_TE_PARTICLERAIN");
 		ext_dpsnow = checkextension("DP_TE_PARTICLESNOW");
+		// Engine support for proper rotating/colliding bmodels
+		//ext_dprot = checkextension("DP_SV_ROTATINGBMODEL");
 
 		// Check for FTE/QS-S point particle extensions
 		// Sadly it seems the QS-Spike engine is not going to declare

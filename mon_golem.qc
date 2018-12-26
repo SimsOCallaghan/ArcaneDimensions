@@ -310,7 +310,8 @@ void() golem_stomp23 = [ $stomp23, golem_stomp24 ] {golem_footstomp();};
 void() golem_stomp24 = [ $stomp24, golem_run1 ] {
 	golem_footstomp(); monster_footstep(FALSE);
 	// Double check enemy is still alive?
-	if (self.enemy.health > 1) {
+	// Make sure golem can do range attacks (melee only ver exists)
+	if (self.enemy.health > 1 && !(self.spawnflags & MON_GOLEM_MELEEONLY)) {
 		// If the enemy is visible, quickly go for range attack
 		if (!visblocked_wide(self.enemy, '0 0 34', '0 0 24')) {
 			SUB_AttackFinished (2 + 2*random());
@@ -485,7 +486,7 @@ void() golem_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "golem/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "golem/death.wav", 1, ATTN_NORM);
 		golem_death1 ();
 	}
 };
@@ -510,7 +511,9 @@ void() golem_wakefinished =
 	self.th_walk = golem_walk1;		// Walking
 	self.th_run = golem_run1;		// Running
 	self.th_melee = golem_melee;	// Fist attack
-	self.th_missile = golem_magic1;	// Rock Attack!
+	// Check for melee + stomp attack only version
+	if (!(self.spawnflags & MON_GOLEM_MELEEONLY)) 
+		self.th_missile = golem_magic1;
 	self.th_slide = golem_stomp1;	// Floor stomp
 	self.th_pain = golem_pain;		// Stumble and pain
 	self.th_die = golem_die;		// Face meets floor
@@ -604,6 +607,7 @@ void() monster_golem =
 	precache_model (MODEL_PROJ_GROCK1);
 	precache_model (MODEL_PROJ_GROCK2);
 	
+	self.gibtype = GIBTYPE_STONE;		// Stoney gibs!
 	self.gib1mdl = MODEL_PROJ_GROCK1;	// small golem rock
 	self.gib2mdl = MODEL_PROJ_GROCK2;	// medium golem rock
 	self.gib1frame = self.gib2frame = 9;
@@ -697,7 +701,9 @@ void() monster_golem =
 		self.th_walk = golem_walk1;
 		self.th_run = golem_run1;
 		self.th_melee = golem_melee;
-		self.th_missile = golem_magic1;
+		// Check for melee + stomp attack only version
+		if (!(self.spawnflags & MON_GOLEM_MELEEONLY)) 
+			self.th_missile = golem_magic1;
 		self.th_slide = golem_stomp1;
 		self.th_pain = golem_pain;
 	}

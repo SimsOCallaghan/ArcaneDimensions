@@ -487,7 +487,7 @@ void() dknight_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, self.death_sound, 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		if (random() > 0.5) dknight_die1 ();
 		else dknight_dieb1 ();
 	}

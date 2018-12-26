@@ -276,6 +276,7 @@ void() GolemCheckAttack =
 	// Range attack (Rock Attack)
 	//----------------------------------------------------------------------
 	if (time < self.attack_finished) return;
+	if (!self.th_missile) return;
 	
 	// Does the monster have a clear shot to the player?
 	// sightline can be blocked by other monsters

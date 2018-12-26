@@ -592,7 +592,7 @@ void() seek_die =
 	monster_death_precheck();
 
 	// Long death sound with comedy bing at the end!
-	sound (self, CHAN_BODY, "seeker/death1.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, "seeker/death1.wav", 1, ATTN_NORM);
 	// reset custom origins for body/arm gib parts
 	self.gib1origin = self.gib2origin = '0 0 0';
 	self.max_health = MON_GIBFOUNTAIN;

@@ -216,7 +216,7 @@ void() wiz_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) { 
-		sound (self, CHAN_BODY, "wizard/wdeath.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "wizard/wdeath.wav", 1, ATTN_NORM);
 		self.velocity_x = -200 + 400*random();
 		self.velocity_y = -200 + 400*random();
 		self.velocity_z = 100 + 100*random();

@@ -948,7 +948,7 @@ void() iceg_tranB9 = [ $tranB9, iceg_tranB10 ] {iceg_birth();ai_forward(5);};
 void() iceg_tranB10 = [ $tranB10, iceg_tranB11 ] {iceg_birth();ai_forward(5);};
 void() iceg_tranB11 = [ $tranB11, iceg_tranB12 ] {iceg_birth();ai_forward(5);};
 void() iceg_tranB12 = [ $tranB12, iceg_tranB13 ] {iceg_birth();ai_forward(5);};
-void() iceg_tranB13 = [ $tranB13, iceg_transB13 ] {
+void() iceg_tranB13 = [ $tranB13, iceg_tranB13 ] {
 	monster_footstep(FALSE);
 	self.takedamage = DAMAGE_YES;	// Can take damage
 	self.style = ICEG_PHASE2;		// Time to fight!
@@ -977,7 +977,7 @@ void() iceg_setup =
 	self.liquidbase = self.liquidcheck = 0;		// Used for liquid content damage
 	self.dmgcombined = self.dmgtimeframe = 0;	// combined damage over 0.1s
 	self.pain_longanim = FALSE;		// No axe advantage
-	self.takedamage = DAMAGE_YES;	// Allow resistance to work
+	self.takedamage = DAMAGE_NO;	// No damage, statue time
 	self.noinfighting = TRUE;		// No infighting
 	self.skin = 1;					// Frozen skin
 

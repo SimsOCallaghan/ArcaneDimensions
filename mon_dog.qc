@@ -343,7 +343,7 @@ void() dog_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "dog/ddeath.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "dog/ddeath.wav", 1, ATTN_NORM);
 
 		if (random() > 0.5) dog_die1 ();
 		else dog_dieb1 ();

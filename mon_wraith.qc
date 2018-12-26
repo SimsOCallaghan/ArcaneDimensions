@@ -782,7 +782,7 @@ void() wraith_die =
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();
 	self.solid = SOLID_NOT;
-	sound (self, CHAN_BODY, "wraith/death1.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, "wraith/death1.wav", 1, ATTN_NORM);
 
 	// Make sure fire wraith skin/alpha is reset on pain/death
 	self.skin = self.exactskin;

@@ -700,7 +700,7 @@ void()	skullw_death14	=[	$death15,	skullw_death14] {
 void() skullw_die =
 {
 	// Play fade away/death sound
-	sound (self, CHAN_BODY, "skullwiz/death.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, "skullwiz/death.wav", 1, ATTN_NORM);
 
 	// Pre-check routine to tidy up extra entities
 	monster_death_precheck();

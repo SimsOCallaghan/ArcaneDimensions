@@ -618,7 +618,7 @@ void() dcrossbow_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "knight/kdeath.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "knight/kdeath.wav", 1, ATTN_NORM);
 		if (random() > 0.5) dcrossbow_die1 ();
 		else dcrossbow_dieb1 ();
 	}

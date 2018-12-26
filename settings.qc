@@ -43,7 +43,7 @@ void() display_version =
 	if ( !(self.flags & FL_CLIENT) ) return;
 	
 	self.impulse = 0;
-	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.50\n");
+	sprint(self,"\b[INFO]\b Arcane Dimensions MOD v1.50P1\n");
 };
 
 /*======================================================================

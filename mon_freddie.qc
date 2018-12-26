@@ -447,7 +447,7 @@ void() fred_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "freddie/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "freddie/death.wav", 1, ATTN_NORM);
 		fred_death1 ();
 	}
 };

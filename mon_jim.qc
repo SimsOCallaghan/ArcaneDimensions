@@ -456,7 +456,7 @@ void() jim_die =
 	// Second function accents the spiral (1s forward movement)
 	// Third final impact (touch function goes here as well)
 	//
-	sound (self, CHAN_BODY, "jim/death1.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, "jim/death1.wav", 1, ATTN_NORM);
 	self.solid = SOLID_NOT;			// No world colision
 	self.movetype = MOVETYPE_FLY;	// Free velocity movement
 	self.touch = jim_is_dead;		// still can touch stuff

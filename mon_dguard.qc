@@ -445,7 +445,7 @@ void() dguard_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "knight/kdeath.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "knight/kdeath.wav", 1, ATTN_NORM);
 		if (random() > 0.75) dguard_dieC1 ();				// Forward - platoon like
 		else if (random() > 0.5) dguard_dieA1 ();		// Forward - standard
 		else dguard_dieB1 ();												// Backward - standard

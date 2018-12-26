@@ -66,6 +66,7 @@ string GIB_SOUND_CHAIN = "gibs/gibchain.wav";
 string GIB_SOUND_WOOD = "gibs/gibwood.wav";
 string GIB_SOUND_UDEATH = "player/udeath.wav";
 string GIB_SOUND_ACID = "gibs/gibacid.wav";
+string GIB_SOUND_SDEATH = "gibs/stonedeath.wav";
 
 string GIB1_BLOOD = "progs/gib_1.mdl";
 string GIB2_BLOOD = "progs/gib_2.mdl";
@@ -498,9 +499,12 @@ void() monster_ThrowGib =
 	// New set of gib sounds - gib1, gib3, gib5
 	// FIXME - Sadly the source for these files is UT :(
 	// Zombies have special gib sound because they always go that way!
+	// Stone enemies are just a pile of rubble and dust!
 	//----------------------------------------------------------------------
 	if (self.classgroup == CG_ZOMBIE)
 		sound (self, CHAN_VOICE, "zombie/z_gib.wav", 1, ATTN_NORM);
+	else if (self.gibtype == GIBTYPE_STONE)
+		sound(self, CHAN_VOICE, GIB_SOUND_SDEATH, 1, ATTN_NORM);
 	else {
 		self.lip = random() * 4;
 		if (self.lip < 1) sound (self, CHAN_VOICE, GIB1_SOUND, 1, ATTN_NORM);

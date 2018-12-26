@@ -352,7 +352,7 @@ void() pinch_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "scorpion/death1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "scorpion/death1.wav", 1, ATTN_NORM);
 		pinch_die1();
 	}
 };

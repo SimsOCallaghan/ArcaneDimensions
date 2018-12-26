@@ -494,7 +494,7 @@ void() voreling_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "voreling/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "voreling/death.wav", 1, ATTN_NORM);
 		if (random() < 0.6) voreling_die1();
 		else voreling_dieB1();
 	}

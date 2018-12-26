@@ -302,7 +302,7 @@ void() knight_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, self.death_sound, 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		if (random() > 0.5) knight_die1 ();		// Forward - standard
 		else knight_dieb1 ();									// Backward - standard
 	}

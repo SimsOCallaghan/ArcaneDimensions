@@ -237,7 +237,7 @@ void() cent_die =
 	// regular death
 	if (!self.gibbed) {
 		self.state = TRUE;
-		sound (self, CHAN_BODY, "enforcer/death1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "enforcer/death1.wav", 1, ATTN_NORM);
 		// Make sure Centurion falls to the ground (like wizards)
 		self.velocity_x = -200 + 400*random();
 		self.velocity_y = -200 + 400*random();

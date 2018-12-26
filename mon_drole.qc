@@ -411,7 +411,7 @@ void() drole_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "drole/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "drole/death.wav", 1, ATTN_NORM);
 		drole_death1 ();
 	}
 };

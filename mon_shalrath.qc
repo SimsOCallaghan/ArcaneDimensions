@@ -117,6 +117,8 @@ void(vector hmofs, float hmframe) Setup_ShalHome =
 		self.attachment.movetype = MOVETYPE_NONE;
 		self.attachment.solid = SOLID_NOT;
 	}
+	// Double check for pain interruption
+	else if (self.attachment.state == STATE_OFF) return;
 
 	// Turn towards enemy and update model attachment
 	// The offset is based on the shalrath facing forward
@@ -172,6 +174,8 @@ void(vector eggofs, float eggframe) Setup_ShalrathEgg =
 		self.pain_finished = time + 1;
 		sound (self, CHAN_WEAPON, "shalrath/attack3.wav", 1, ATTN_NORM);
 	}
+	// Double check for pain interruption
+	else if (self.attachment.state == STATE_OFF) return;
 
 	// Turn towards enemy and update model attachment
 	// The offset is based on the shalrath facing forward
@@ -243,7 +247,7 @@ void() shal_magic =
 
 //============================================================================
 void() shal_pain1 =[ $pain1, shal_pain2 ] {};
-void() shal_pain2 =[ $pain2, shal_pain3 ] {};
+void() shal_pain2 =[ $pain2, shal_pain3 ] {shalrath_finish_attachment();};
 void() shal_pain3 =[ $pain3, shal_pain4 ] {};
 void() shal_pain4 =[ $pain4, shal_pain5 ] {};
 void() shal_pain5 =[ $pain5, shal_run1  ] {};
@@ -291,7 +295,7 @@ void() shal_die =
 
 	// Normal death
 	if (!self.gibbed) {
-		sound (self, CHAN_BODY, "shalrath/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, "shalrath/death.wav", 1, ATTN_NORM);
 		shal_death1();
 	}
 };

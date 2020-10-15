@@ -21,7 +21,7 @@ float FUNC_LASERSOLID = 2;		// Func bmodel blocks on all sides
 float FUNC_LASERNODMG = 4;		// Func bmodel does no touch damage
 
 float FUNC_SKILLSTARTOPEN = 1;	// Reverse setup for lighting issues
-float FUNC_SKILLCHOASMODE = 2;	// Check for chaos setup instead of skill
+float FUNC_SKILLCHAOSMODE = 2;	// Check for chaos setup instead of skill
 float FUNC_SKILLSTARTDIS = 32;	// Pillar starts in disabled state
 
 float BOB_COLLISION = 2;		// Collision for misc_bob
@@ -820,7 +820,7 @@ _shadow     : Will cast shadows on other models and itself
 _shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 STARTOPEN : bmodel works in reverse state (moved to dest at spawn)
-CHOASMODE : special setup for the random chaos mode (waitmin=touch delay)
+CHAOSMODE : special setup for the random chaos mode (waitmin=touch delay)
 STARTDIS  : Starts disabled and waits for trigger
 STARTOFF  : Starts off and waits for trigger
 -------- NOTES --------
@@ -851,7 +851,7 @@ void() func_chaos_check =
 {
 	// If blocked by entity state system do nothing
 	if (self.estate & ESTATE_BLOCK) return;
-	if (!(self.spawnflags & FUNC_SKILLCHOASMODE)) return;
+	if (!(self.spawnflags & FUNC_SKILLCHAOSMODE)) return;
 
 	// Read console variable
 	self.randomized = read_randflags();
@@ -880,7 +880,7 @@ void() func_chaos_touch =
 	if ( !(other.flags & FL_CLIENT) ) return;
 	if ( other.health < 1 ) return;
 	// Chaos mode only
-	if (!(self.spawnflags & FUNC_SKILLCHOASMODE)) return;
+	if (!(self.spawnflags & FUNC_SKILLCHAOSMODE)) return;
 	// Slowdown touch functionality
 	if (self.pausetime > time) return;
 
@@ -896,7 +896,7 @@ void() func_chaos_touch =
 	else {
 		set_randflags(self.style);
 		if (self.message2 != "") centerprint(other, self.message2);
-		else centerprint(other,"Choas mode has been enabled!\n");
+		else centerprint(other,"Chaos mode has been enabled!\n");
 		stuffcmd (other, "bf\n");
 	}
 	
@@ -914,7 +914,7 @@ void() func_skill_check =
 {
 	// If blocked by entity state system do nothing
 	if (self.estate & ESTATE_BLOCK) return;
-	if (self.spawnflags & FUNC_SKILLCHOASMODE) return;
+	if (self.spawnflags & FUNC_SKILLCHAOSMODE) return;
 
 	// Has the skill level been changed?
 	if (self.lefty != skill) {
@@ -939,7 +939,7 @@ void() func_skill_touch =
 	if (self.spawnflags & ENT_STARTOFF) return;
 	if ( !(other.flags & FL_CLIENT) ) return;
 	if ( other.health < 1 ) return;
-	if (self.spawnflags & FUNC_SKILLCHOASMODE) return;
+	if (self.spawnflags & FUNC_SKILLCHAOSMODE) return;
 
 	// If skill level is changing, say so on console
 	if (skill != self.style) {
@@ -1077,7 +1077,7 @@ void() func_skill =
 
 	//----------------------------------------------------------------------
 	// New random chaos mode
-	if (self.spawnflags & FUNC_SKILLCHOASMODE) {
+	if (self.spawnflags & FUNC_SKILLCHAOSMODE) {
 		self.classtype = CT_FUNCCHAOS;
 		self.touch2 = func_chaos_touch;
 		self.th_wakeup = func_chaos_check;

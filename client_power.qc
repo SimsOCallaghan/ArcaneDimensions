@@ -391,7 +391,7 @@ void() ClientPowerups =
 	// - Flash screen 3s before running out
 	// - Give player 12s of air after suit finishes
 	//----------------------------------------------------------------------
-	if (self.airtank_finished > 0) {
+	if (self.airtank_finished > 0 || self.airtank_finished == -1) {
 		self.air_finished = time + 12;		// don't drown
 
 		// Produce particle bubbles
@@ -442,23 +442,26 @@ void() ClientPowerups =
 			}
 		}
 		
-		// sound and screen flash when items starts to run out
-		if (self.airtank_finished < time + PWR_FADING) {
-			self.airtank_sound = time + 4;	// Stop breathing sound
-			self.airtank_silent = FALSE;	// Reset sound suppression
-			if (self.airtank_time == 1) {
-				sprint (self, "Air supply in Tanks is expiring\n");
-				stuffcmd (self, "bf\n");
-				sound (self, CHAN_AUTO, SOUND_ARTAIRTANK2, 1, ATTN_NORM);
-				self.airtank_time = time + 1;
+		// Don't check expiration if infinite
+		if (self.airtank_finished > -1) {
+			// sound and screen flash when items starts to run out
+			if (self.airtank_finished < time + PWR_FADING) {
+				self.airtank_sound = time + 4;	// Stop breathing sound
+				self.airtank_silent = FALSE;	// Reset sound suppression
+				if (self.airtank_time == 1) {
+					sprint (self, "Air supply in Tanks is expiring\n");
+					stuffcmd (self, "bf\n");
+					sound (self, CHAN_AUTO, SOUND_ARTAIRTANK2, 1, ATTN_NORM);
+					self.airtank_time = time + 1;
+				}
+				if (self.airtank_time < time) {
+					self.airtank_time = time + 1;
+					stuffcmd (self, "bf\n");
+				}
 			}
-			if (self.airtank_time < time) {
-				self.airtank_time = time + 1;
-				stuffcmd (self, "bf\n");
-			}
+			// Update inventory and timers
+			if (self.airtank_finished < time) ResetPowerAirTank(self,0);
 		}
-		// Update inventory and timers
-		if (self.airtank_finished < time) ResetPowerAirTank(self,0);
 	}
 	
 	//----------------------------------------------------------------------

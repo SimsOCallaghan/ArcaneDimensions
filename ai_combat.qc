@@ -137,7 +137,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	// Check for breakable/pushables being immune to monster damage
 	// This check is present in all projectiles functions instead
 	// Its not really necessary here because its about monsters
-	// if (ai_immunedamage(attacker, targ)) return;
+	// if (ai_immunebreakable(attacker, targ)) return;
 	
 	// used by buttons and triggers to set activator for target firing
 	damage_attacker = attacker;
@@ -504,7 +504,7 @@ void(entity inflictor, entity attacker, float damage, entity ignore, float check
 			else {
 				// Check for breakable/pushable monster immunity
 				// Do nothing, radius damage has no miss effect
-				if (ai_immunedamage(attacker, head)) {
+				if (ai_immunebreakable(attacker, head)) {
 				}
 				// Check for any breakables which are prone to explosive damage
 				else if (ai_foundbreakable(attacker, head,TRUE) && head.brktrigmissile !=0) {

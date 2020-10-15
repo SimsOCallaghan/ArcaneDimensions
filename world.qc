@@ -296,7 +296,7 @@ void() worldspawn =
 	// MOD version, patch and optional beta number
 	//----------------------------------------------------------------------
 	mod_version = 1.80;
-	mod_patch = 0;
+	mod_patch = 1;
 	mod_beta = 0;
 
 	// ID map E3M3 has worldspawn angles set, WTF!?!

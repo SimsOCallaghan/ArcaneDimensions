@@ -601,6 +601,9 @@ void() tdeath_touch =
 {
 	// Cannot telefrag yourself!?!
 	if (other == self.owner) return;
+	// Touch trigger has expired
+	if (self.attack_finished < time) return;
+	
 	// Check if found a breakable than cannot be broken
 	if (ai_foundbreakable(self, other, FALSE)) return;
 		
@@ -612,6 +615,15 @@ void() tdeath_touch =
 			// Originally damaging self.owner, which is the spawner!
 			// This should match the last T_Damage below
 			T_Damage (other, self, self, MEGADEATH, NOARMOR);
+			return;
+		}
+		else {
+			// Cannot telefrag a boss!!! kill spawner instead
+			dprint("[TELEFRAG] Entity ("); dprint(self.owner.classname);
+			dprint(") cannot kill boss!\n");
+			T_Damage (self.owner, self, self, MEGADEATH, NOARMOR);
+			// Stop this trigger working
+			self.attack_finished = 0;
 			return;
 		}
 	}
@@ -649,6 +661,8 @@ void(vector org, entity death_owner) spawn_tdeath =
 	death.touch = tdeath_touch;
 	// Don't keep the trigger around for long
 	death.nextthink = time + 0.2;
+	// Block timer on touch function
+	death.attack_finished = time + 0.3;
 	death.think = SUB_Remove;
 	
 	// This is extremely costly on the engine because it re-checks

@@ -98,7 +98,7 @@ void() Touch_Bullet =
 		else self.dmg = DAMAGE_PSHELL;	
 		
 		// Check for breakable/pushable no monster damage
-		if (ai_immunedamage(self.owner, other)) {
+		if (ai_immunebreakable(self.owner, other)) {
 			self.dmg = 0;
 			WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 			WriteByte (MSG_BROADCAST, TE_GUNSHOT);
@@ -311,7 +311,7 @@ void() Touch_PlasmaProjectile =
 	else self.pos1 = DAMAGE_PLASMA;
 
 	// Check for breakable/pushable immunity first
-	if (ai_immunedamage(self.owner, other)) self.pos1 = '0 0 0';
+	if (ai_immunebreakable(self.owner, other)) self.pos1 = '0 0 0';
 	self.dmg = self.pos1_x + random()*self.pos1_y;
 	
 	// Plasma Splashdamage affects everything, check for 0 dmg first
@@ -324,7 +324,7 @@ void() Touch_PlasmaProjectile =
 	//----------------------------------------------------------------------
 	if (other.takedamage) {
 		// Check for breakable/pushable no monster damage
-		if (ai_immunedamage(self.owner, other)) {
+		if (ai_immunebreakable(self.owner, other)) {
 			// Using a cut down version of ammo resistance
 			SpawnExplosion(EXPLODE_BURST_SMOKE, self.origin, SOUND_PLASMA_HIT);
 			SpawnProjectileSmoke(self.origin, 200, 50, 150);
@@ -611,7 +611,7 @@ void() Touch_Projectile =
 		
 		//----------------------------------------------------------------------
 		// Check for breakable/pushable monster immunity
-		if (ai_immunedamage(self.owner, other)) {
+		if (ai_immunebreakable(self.owner, other)) {
 			// Zero damage and make sure no resistance checks
 			self.dmg = self.classgroup = 0;
 			// Remove poisonous effect
@@ -969,7 +969,7 @@ void() Touch_HomingMissile =
 	
 	//----------------------------------------------------------------------
 	// Check for breakable/pushable monster immunity
-	if (ai_immunedamage(self.oldenemy, other)) {
+	if (ai_immunebreakable(self.oldenemy, other)) {
 		// Show ammo resistance on bmodel
 		SpawnExplosion(EXPLODE_BURST_SMOKE,self.origin,SOUND_RESIST_ROCKET);
 		SpawnProjectileSmoke(self.origin, 200, 50, 150);
@@ -1225,7 +1225,7 @@ void() Touch_Missile =
 	
 	//----------------------------------------------------------------------
 	// Check for breakable/pushable monster immunity
-	if (ai_immunedamage(self.owner, other)) {
+	if (ai_immunebreakable(self.owner, other)) {
 		// Show ammo resistance
 		SpawnExplosion(EXPLODE_BURST_SMOKE,self.origin,SOUND_RESIST_ROCKET);
 		SpawnProjectileSmoke(self.origin, 200, 50, 150);

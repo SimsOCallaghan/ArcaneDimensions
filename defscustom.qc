@@ -655,7 +655,7 @@ float SVR_SHOTGPROJ = 131072;	// Turn OFF Shotgun projectiles
 float SVR_SHOTGCASE = 262144;	// Turn OFF Shotgun casings
 float SVR_ZAWARE = 524288;		// Turn OFF Z aware monsters
 float SVR_FOOTSTEP = 1048576;	// Turn OFF Enemy/player footsteps
-float SVR_EMPTY2 = 2097152;		// Not used atm
+float SVR_MWHEELSKIP = 2097152;	// Turn OFF NG/SNG mwheel skip
 float SVR_LIQDAM = 4194304;		// Turn OFF Monster Liquid damage
 
 //----------------------------------------------------------------------

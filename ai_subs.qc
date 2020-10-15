@@ -1004,10 +1004,10 @@ float(float tracedist, float traceang) ai_tracebreakable =
 };
 
 /*======================================================================
- ai_immunedamage
+ ai_immunebreakable
   Check if a breakable/pushable is immune to damage from monsters
 ======================================================================*/
-float(entity source, entity targ) ai_immunedamage =
+float(entity source, entity targ) ai_immunebreakable =
 {
 	// Found a breakable? (BSP or model)
 	if (targ.classtype == CT_FUNCBREAK || targ.classtype == CT_FUNCBREAKMDL) {
@@ -1293,10 +1293,21 @@ void(vector imp_vec, float imp_damage, float imp_radius, float imp_forward, floa
 				PlayBlastBeltSound(sjump);
 			// Only affect players and other monsters AND breakables (BSP+model)
 			else if (sjump.flags & FL_CLIENT || sjump.flags & FL_MONSTER || sjump.classgroup == CG_BREAKABLE) {
+				// Exclude breakable/pushable immune to monster damage
+				// This does not catch breakables excluded from player damage
+				if (ai_immunebreakable(self, sjump)) {
+					dprint("[SHOCKWAVE] Breakable (");
+					dprint(ftos(sjump.classtype));
+					dprint(") spnflg ("); dprint(ftos(sjump.spawnflags));
+					dprint(") Immune\n");
+				}
 				// Exclude statues, stone/heavy monsters and bosses!
-				if (sjump.classgroup != CG_STONE && sjump.bossflag == FALSE) {
-					// Is the entity on the ground or immune to damage?
-					if (sjump.flags & FL_ONGROUND || (!ai_immunedamage(self, sjump)) ) {
+				else if (sjump.classgroup != CG_STONE && sjump.bossflag == FALSE) {
+					// Is the entity on the ground or a breakable?
+					// The test for breakables exceptions is done earlier
+					// Breakable bmodel/model don't have onground flag set
+					// The onground test is really to catch player/monsters
+					if (sjump.flags & FL_ONGROUND || sjump.classgroup == CG_BREAKABLE) {
 						// Is the entity too far above or below the impact?
 						impzdiff = fabs(sjump.origin_z - impact_z);
 						if (impzdiff < MONAI_IMPACTZAXIS) {

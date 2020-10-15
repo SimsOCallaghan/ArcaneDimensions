@@ -27,6 +27,7 @@ void(float hpshift) togglehpmax; // Toggle Health Max levels
 void() toggledevhelpers;	// Toggle dev helpers (mark/arrows)
 void() togglebodyremoval;	// Toggle monster body fade/removal
 void() togglenotargetblock;	// Toggle notarget block on items
+void() togglenomwheelskip;	// Toggle no mouse wheel skip
 
 void() showbits_configflag;	// Display exact values of flag
 void() display_configflag;	// Display config flag
@@ -171,6 +172,7 @@ void() CycleThroughHuds =
 	if (impulse_playeronly()) return;		// Player only
 	// Is the CSQC functionality enabled/disabled?
 	// This entity key is updated (on client) by CSQC when active
+	// spike has broken this check in qss dev builds :(
 	if (self.ext_csqc == FALSE) {
 		sprint(self, "[IMPULSE] Custom HUDS not supported!\n");
 		return;
@@ -328,6 +330,7 @@ void() ImpulseCommands =
 	else if (self.impulse == 162) togglehpmax(0.25);	// Toggle HP Max 0.25/0.5/0.75/1.0
 	else if (self.impulse == 164) togglehpmax(0.50);	// Toggle HP Max between 0.5/1.0
 	else if (self.impulse == 166) togglenotargetblock();// Toggle notarget block on items
+	else if (self.impulse == 168) togglenomwheelskip(); // Toggle no mouse wheel skip
 	else if (self.impulse == 170) togglebodyremoval();	// Toggle monster body fade/removal
 	else if (self.impulse == 175) display_customkeys();	// Display Custom Key inventory
 	else if (self.impulse == 178) CycleThroughHuds();	// Cycle through different custom HUDS
@@ -531,7 +534,7 @@ void() showbits_configflag =
 		else if (loopcnt == 18) dprint("Shotgun casings\n");
 		else if (loopcnt == 19) dprint("Z aware monsters\n");
 		else if (loopcnt == 20) dprint("Enemy/player footsteps\n");
-		else if (loopcnt == 21) dprint("--\n");
+		else if (loopcnt == 21) dprint("MWheel NG/SNG Skip\n");
 		else if (loopcnt == 22) dprint("Monster Liquid damage\n");
 		else if (loopcnt == 23) dprint("--\n");
 		loopcnt = loopcnt + 1;
@@ -685,6 +688,8 @@ void() display_configflag =
 	else dprint("+ monster liquid damage enabled\n");
 	if (query_configflag(SVR_DEVHELPER)) dprint("- Dev helpers (mark/arrow) disabled\n");
 	else dprint("+ Dev helpers (mark/arrow) enabled\n");
+	if (query_configflag(SVR_MWHEELSKIP)) dprint("- MWheel ng/sng skip disabled\n");
+	else dprint("+ MWheel ng/sng skip enabled\n");
 	
 	// Body fade/floor checks
 	if (map_bodyfadeaway > 0) dprint("+ Monster dead body fade away\n");
@@ -962,6 +967,22 @@ void() toggleshotguncase =
 	
 	sprint(self, "\b[Impulse]\b Shotgun Casing ("); 
 	if (query_configflag(SVR_SHOTGCASE)) sprint(self, "OFF)\n");
+	else sprint(self, "ON)\n");
+};
+
+//----------------------------------------------------------------------
+void() togglenomwheelskip =
+{
+	if (impulse_activecameras()) return;	// Are cameras active
+	if (impulse_playeronly()) return;		// Player only
+
+	self.impulse = 0;
+	// Toggle the state of the console variable using the server flag
+	if (query_configflag(SVR_MWHEELSKIP)) update_configflag(SVR_MWHEELSKIP, FALSE);
+	else update_configflag(SVR_MWHEELSKIP, TRUE);
+	
+	sprint(self, "\b[Impulse]\b Mouse Wheel NG/SNG skip ("); 
+	if (query_configflag(SVR_MWHEELSKIP)) sprint(self, "OFF)\n");
 	else sprint(self, "ON)\n");
 };
 

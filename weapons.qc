@@ -629,7 +629,7 @@ void(vector lstart, vector lfinish, entity lsource, float ldamage) LightningDama
 	if (lighthit) {
 		//----------------------------------------------------------------------
 		// Check for breakable/pushable monster immunity
-		if (ai_immunedamage(self, trace_ent)) {
+		if (ai_immunebreakable(self, trace_ent)) {
 			// This is resist lightning function without pain sound
 			// Don't spawn smoke constantly (let the sprite finish)
 			if (self.lightning_timer < time) {
@@ -1114,13 +1114,21 @@ void() CycleWeaponCommand =
 			if (self.ammo_shells < 2) am = 1;
 		}		
 		else if (self.weapon == IT_SUPER_SHOTGUN) {
-			// Skip over the nailgun and go straight to SNG!!!
-			if (self.items & IT_SUPER_NAILGUN && self.ammo_nails > 2) {
-				self.weapon = IT_SUPER_NAILGUN;
-			}
-			else {
+			// Check for configflag override of this feature
+			if (query_configflag(SVR_MWHEELSKIP)) {
 				self.weapon = IT_NAILGUN;
 				if (self.ammo_nails < 1) am = 1;
+			}
+			else {
+				// Only skip over the NG if the player has both!
+				if (self.items & IT_SUPER_NAILGUN && self.items & IT_NAILGUN) {
+					self.weapon = IT_SUPER_NAILGUN;
+					if (self.ammo_nails < 2) am = 1;
+				}
+				else {
+					self.weapon = IT_NAILGUN;
+					if (self.ammo_nails < 1) am = 1;
+				}
 			}
 		}
 		else if (self.weapon == IT_NAILGUN) {
@@ -1176,13 +1184,22 @@ void() CycleWeaponReverseCommand =
 			if (self.ammo_nails < 2) am = 1;
 		}
 		else if (self.weapon == IT_SUPER_NAILGUN) {
-			// Skip over the nailgun and go straight to SSG!!!
-			if (self.items & IT_SUPER_SHOTGUN && self.ammo_shells > 2) {
-				self.weapon = IT_SUPER_SHOTGUN;
-			}
-			else {
+			// Check for configflag override of this feature
+			if (query_configflag(SVR_MWHEELSKIP)) {
 				self.weapon = IT_NAILGUN;
 				if (self.ammo_nails < 1) am = 1;
+			}
+			else {
+				// Only skip over the SNG if the player has it!
+				if (self.items & IT_SUPER_NAILGUN && self.items & IT_SUPER_SHOTGUN) {
+					// Skip over the nailgun and go straight to SSG
+					self.weapon = IT_SUPER_SHOTGUN;
+					if (self.ammo_shells < 2) am = 1;
+				}
+				else {
+					self.weapon = IT_NAILGUN;
+					if (self.ammo_nails < 1) am = 1;
+				}
 			}
 		}
 		else if (self.weapon == IT_NAILGUN) {

@@ -1007,6 +1007,8 @@ void() trigger_changelevel_fire =
 	update_configflag(SVR_SPAWN_BIT2, floor( (self.startspawn2 & 2) / 2) );
 	update_configflag(SVR_SPAWN_BIT3, floor( (self.startspawn2 & 4) / 4) );
 		
+	// Map hack for ad_tears map, secret exit does not go back to start map
+	if (world.model == "maps/ad_tears.bsp") self.map = "start";
 	// *change* if map key not defined, reload current map again
 	if (self.map) nextmap = self.map;
 	SUB_UseTargets ();

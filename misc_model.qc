@@ -623,6 +623,29 @@ void() misc_model =
 	// Save angles (mangle not used)
 	self.mangle = self.angles;
 
+	// MAP/CODE HACK Terrible way to fix this map
+	// If wrong engine then delete the misc_model detail)
+	if (world.model == "maps/ad_sepulcher.bsp") { 
+		// Running on DP engine?
+		if (engine == ENG_DPEXT && ext_ftepart == FALSE)
+		{ remove(self); return; }
+		// Running on Fitz (QS/MarkV) engines?
+		if (engine == ENG_FITZ) { remove(self); return; }
+	}
+	
+	// Check for static entity option first
+	if (self.spawnflags & ENT_SPNSTATIC) { 
+		setmodel (self, self.mdl);
+		// Exact frame/skin numbers (check for negatives)
+		if (self.pos1_z < 0) self.frame = self.pos1_x;
+		else self.frame = self.pos1_z;
+		if (self.pos2_z < 0) self.frame = self.pos2_x;
+		else self.skin = self.pos2_z;
+		// Goodbye entity!
+		makestatic(self);
+		return;
+	}
+
 	// ---------------------------------------------------------
 	// No animation loops defined
 	self.aflag = FALSE;
@@ -759,19 +782,6 @@ void() misc_model =
 		if (self.delay <= 0) self.delay = 0.2;
 	}
 	
-	// Check for static entity option first
-	if (self.spawnflags & ENT_SPNSTATIC) { 
-		setmodel (self, self.mdl);
-		// Exact frame/skin numbers (check for negatives)
-		if (self.pos1_z < 0) self.frame = self.pos1_x;
-		else self.frame = self.pos1_z;
-		if (self.pos2_z < 0) self.frame = self.pos2_x;
-		else self.skin = self.pos2_z;
-		// Goodbye entity!
-		makestatic(self);
-		return;
-	}
-
 	// Check for drop to floor functionality
 	if (self.spawnflags & MISC_DROPTOFLOOR) {
 		// Turn misc model into an item so it can fall down

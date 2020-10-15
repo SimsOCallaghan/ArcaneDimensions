@@ -817,6 +817,9 @@ void() nour_die9 = [ $death9, nour_die9 ] {
 //----------------------------------------------------------------------
 void() nour_die =
 {
+	dprint("[NOUR] Dying State ("); dprint(ftos(self.style));
+	dprint(") HP ("); dprint(ftos(self.health));
+	dprint(")\n");
 	self.deadflag = DEAD_DEAD;	// Nour bites the dust
 	self.effects = 0;			// Remove effects on death
 	nour_finish_attachment();	// Remove any attachments

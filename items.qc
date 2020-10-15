@@ -2007,6 +2007,9 @@ void() item_shells =
 		if (random() < 0.5) self.spawnflags = self.spawnflags | A_LID;
 		self.frame_box = 0;
 	}
+	// Item progression list ammo cannot have lids!
+	if (self.progspawnlist > 0) 
+		self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	
 	item_ammo_setup();
 };
@@ -2071,7 +2074,10 @@ void() item_spikes =
 		if (random() < 0.5) self.spawnflags = self.spawnflags | A_LID;
 		self.frame_box = 0;
 	}
-
+	// Item progression list ammo cannot have lids!
+	if (self.progspawnlist > 0) 
+		self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
+	
 	item_ammo_setup();
 };
 

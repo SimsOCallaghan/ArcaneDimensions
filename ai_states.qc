@@ -7,6 +7,7 @@
 //----------------------------------------------------------------------
 void() ai_stand =
 {
+	self.lastorigin = self.origin;		// Save for cinematic interpolation
 	if (self.health < 1) return;		// Health < 0, no more standing
 	monster_liquid_check();				// Check for liquid damage
 	check_tethertimer();				// Check for tethering system
@@ -19,7 +20,7 @@ void() ai_stand =
 		self.th_walk ();
 	}
 	else {
-		// Only test ground walking monsters (no fly/swim)
+		// Only test ground walking monsters (no fly/swim/static)
 		// Check global map variable first (default = off)
 		if (map_bodyflrcheck == TRUE && self.classmove == MON_MOVEWALK) 
 			ent_floorcheck(self, FLOOR_TRACE_MONSTER);
@@ -71,33 +72,55 @@ void(float dist) ai_run =
 	movedist = dist;
 
 	// Is the enemy dead or no longer taking damage?
-	if (SUB_healthEnemyTarget() < 1 || SUB_takedEnemyTarget() == DAMAGE_NO) {
-		// Switch around any enemytarget for enemy
+	if (SUB_healthEnemyTarget() < 1 || SUB_takedEnemyTarget() == DAMAGE_NO || self.enemyexit) {
+		// Reset any exit conditions
+		self.enemyexit = FALSE;
+		// Remove any enemy target entity tracking
 		SUB_switchEnemyTarget();
-		self.enemy = self.goalentity = world;
+		// Reset enemy and target system
+		self.enemy = self.goalentity = self.movetarget = world;
+			
 		// Is the old enemy still alive and can it be damaged?
 		if (self.oldenemy.health > 0 && self.oldenemy.takedamage > 0) {
 			self.enemy = self.oldenemy;
 			HuntTarget ();
 		}
 		else {
-			// Nothing left to fight, stand around and wait for something
-			if (self.movetarget.classtype == CT_PATHCORNER) {
-				self.goalentity = self.movetarget;
-				self.think = self.th_walk;
+			// Was this a passive monster before combat?
+			if (self.passive_mode == TRUE) {
+				// Return to passive monster state (reset)
+				self.passive_state = MON_PASSIVESTATE_RESET;
+				check_passivestate_system(self);
 			}
-			else self.think = self.th_stand;
+			else {
+				// Monster busy with something else?
+				if (self.target != "") 
+					self.movetarget = find(world, targetname, self.target);
+				// Check for path corners (patrols) and return to stand/walk
+				if (self.movetarget.classtype == CT_PATHCORNER) {
+					self.goalentity = self.movetarget;
+					self.think = self.th_walk;
+				}
+				else self.think = self.th_stand;
+			}
+			// Exit run function
 			return;
 		}
 	}
-
+	
 	// Wake up any monsters in visual range
 	self.show_hostile = time + 1;
 
 	// check visibility of enemy
 	enemy_vis = visible(SUB_entEnemyTarget());
-	if (enemy_vis) self.search_time = time + 5;
+	if (enemy_vis) {
+		// Used to wake up other enemies
+		self.search_time = time + 5;
+		// The last time the enemy was in sight
+		self.enemylastseen = time;
+	}
 
+	//----------------------------------------------------------------------
 	// look for other coop players
 	if (coop && self.search_time < time) {
 		if (FindTarget ()) return;
@@ -132,6 +155,11 @@ void(float dist) ai_run =
 		if (self.th_tether) self.think = self.th_tether;
 		return;
 	}
+
+	//----------------------------------------------------------------------
+	// Check for the passive state system (reset/timer etc)
+	//----------------------------------------------------------------------
+	if (check_passivestate_system(self)) return;
 	
 	//----------------------------------------------------------------------
 	// Check if blocked by breakables

@@ -380,7 +380,8 @@ void() monster_pyro =
 	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.steptype = FS_TYPEHEAVY;		// heavy feet
 	self.attack_offset = '24 8.5 16';	// End of Gun
-	self.ammo_shells = 4;				// drops armor shards instead
+	if (self.ammo_nails < 0) self.ammo_nails = 0;
+	else if (self.ammo_nails == 0) self.ammo_nails = 5;
 	if (!self.exactskin) self.randomskin = 4;
 	self.poisonous = FALSE;				// Use Fumigator instead
 	self.deathstring = " was toasted by a Pyro\n";
@@ -409,7 +410,8 @@ void() monster_pyro =
 ======================================================================*/
 void() monster_fumigator =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.mdl = "progs/mon_fumigator.mdl";
 	self.headmdl = "progs/h_pyro.mdl";

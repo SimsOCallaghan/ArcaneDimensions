@@ -117,7 +117,7 @@ void() ShalMissile =
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "shalrath/attack2.wav", 1, ATTN_NORM);
 	self.attack_speed = SPEED_SHALMISSILE + (skill * SPEED_SHALSKILL);
-	// Original vector location 0 0 10, new 0 8 36
+	// Original vector location 0 0 10, new 0 8 20
 	Launch_HomingMissile ('0 8 20', '0 0 10', CT_PROJ_SHAL, self.attack_speed);
 };
 
@@ -326,7 +326,10 @@ void() shal_die =
 ======================================================================*/
 void() monster_shalrath =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_shalrath.mdl";	// Extra skin
 	self.headmdl = "progs/h_shalrath.mdl";	// Matching new skin
@@ -367,7 +370,7 @@ void() monster_shalrath =
 	self.idmins = VEC_HULL2_MIN;	// -32 -32 -24, 32 32 64
 	self.idmaxs = VEC_HULL2_MAX;
 	if (self.bboxtype < 1) self.bboxtype = BBOX_WIDE;
-	if (self.health < 1) self.health = 400;
+	if (self.health < 1) self.health = HP_MONSHALRATH;
 	self.gibhealth = -90;			// Rarely gib (explosives required)
 	self.gibbed = FALSE;			// Still in one piece
 	self.pain_flinch = 70;			// take a lot of damage before pain

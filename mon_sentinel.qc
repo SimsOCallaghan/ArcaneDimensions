@@ -135,7 +135,7 @@ void() sent_attack =
 		}
 		else {
 			if (random() < 0.2) sound (self, CHAN_WEAPON, "sentinel/laser.wav", 1, ATTN_NORM);
-			else sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);
+			else sound (self, CHAN_WEAPON, SOUND_LASER_FIRE, 1, ATTN_NORM);
 			launch_projectile(org, vec, CT_PROJ_LASER, self.attack_speed);
 		}
 	}
@@ -158,7 +158,7 @@ void() sent_inpain =
 	// Start of pain cycle
 	if (self.inpain ==  0) {
 		// Spawn a pile of sparks and dust falling down
-		particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+		particle_dust(self.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 	}
 	// Finished, back to combat
 	else if (self.inpain >= 5) {
@@ -192,7 +192,7 @@ void() sent_die =
 	monster_death_precheck();
 
 	// Final fireworks!
-	particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+	particle_dust(self.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 	SpawnExplosion(EXPLODE_BIG, self.origin, self.death_sound);
@@ -217,7 +217,8 @@ QUAKED monster_sentinel (1 0 0) (-16 -16 -24) (16 16 24) Ambush
 ======================================================================*/
 void() monster_sentinel =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_sentinel.mdl";		// AD naming
 	self.gib1mdl = "progs/gib_metal1.mdl";		// Breakable metal
@@ -235,8 +236,8 @@ void() monster_sentinel =
 	// Default attack - lasers!
 	precache_model (MODEL_PROJ_LASER);			// Copy of enforcer laser
 	precache_sound("sentinel/laser.wav");		// Unique laser fire
-	precache_sound ("enforcer/enfire.wav");
-	precache_sound ("enforcer/enfstop.wav");
+	precache_sound (SOUND_LASER_FIRE);
+	precache_sound (SOUND_LASER_HIT);
 
 	// Alternative attack - red hot nails!?!
 	if (self.spawnflags & MON_SENTINEL_NAIL) {
@@ -264,9 +265,10 @@ void() monster_sentinel =
 	self.steptype = FS_FLYING;			// Silent feet
 	self.pain_longanim = FALSE;			// No long pain animation
 	self.blockudeath = TRUE;			// No humanoid death sound
-	self.idlemoreoften = TRUE;			// More creepy idle sounds
+	//self.idlemoreoften = TRUE;		// More creepy idle sounds
 	self.poisonous = FALSE;				// Robots are not poisonous
 	if (self.height == 0) self.height = 32; // Custom height
+	self.no_liquiddmg = TRUE;			// Immune to slime/lava
 	self.walkframe = 0;					// Reset frame counter
 	self.attack_offset = '0 0 14';		// front/middle of body
 	self.sight_nofront = TRUE;			// Has no front facing

@@ -237,7 +237,7 @@ void() CheckForSergeantCharge =
 	self.height = fabs(self.origin_z - self.enemy.origin_z);
 	
 	// If within melee range, go straight to melee
-	if (ai_checkmelee(MONAI_MELEEFRONT)) {
+	if (ai_checkmelee(MONAI_MELEEFRONT,FALSE)) {
 		self.attack_state = AS_MELEE;
 		self.think = self.th_melee;
 	}
@@ -533,7 +533,8 @@ QUAKED monster_dsergeant (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
 void() monster_dsergeant =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_dsergeant.mdl";			// Blue badass!
 	self.headmdl = "progs/h_dknight.mdl";
@@ -597,7 +598,7 @@ void() monster_dsergeant =
 	self.pain_flinch = 80;				// Take a lot to go into pain
 	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// Shambler like pain level
-	self.infightextra = 2;				// Double damage to other monsters
+	if (self.infightextra <= 0) self.infightextra = 2; // Double damage to other monsters
 	self.steptype = FS_TYPEHEAVY;		// Heavy Player feet
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack

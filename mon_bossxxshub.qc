@@ -28,8 +28,9 @@ float() xxshub_FindTarget =
 	
 	// Get the obvious exception(s) done first
 	if (self.health < 1) return FALSE;
-	if (intermission_running) return FALSE;
-
+	if (intermission_running > 0) return FALSE;
+	if (cinematic_running > 0) return FALSE;
+	
 	// Find a client in current PVS
 	client = checkclient ();
 	
@@ -134,6 +135,7 @@ void() xxshub_idleframe =
 		// Check for any no combat conditions
 		if (self.enemy.health < 1) self.enemy = world;
 		else if (intermission_running > 0) self.enemy = world;
+		else if (cinematic_running > 0) self.enemy = world;
 		else if (self.enemy.flags & FL_NOTARGET) self.enemy = world;
 		else if (self.enemy.items & IT_INVISIBILITY) self.enemy = world;
 
@@ -422,7 +424,8 @@ void() xxshub_start =
 ============================================================================*/
 void() monster_shub =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/oldone.mdl";
 	precache_model (self.mdl);
@@ -461,6 +464,7 @@ void() monster_shub =
 	self.bbmins = '-96 -96 -24';	// has own entity setup
 	self.bbmaxs = '96 96 192';
 	self.bboxtype = BBOX_CUSTOM;	// Custom BBox size
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.health = self.max_health = MEGADEATH;
 	self.pain_finished = LARGE_TIMER;
@@ -469,7 +473,11 @@ void() monster_shub =
 	self.gibbed = FALSE;			// Still in one piece
 	self.poisonous = FALSE;			// Cannot be poisonous
 	self.deathstring = " became one with Shub-Niggurath\n";
+	self.lastorigin = self.origin;	// Origin for camera interpolation
 
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
+	
 	self.deadflag = DEAD_NO;					// used to stop death re-triggering
 	self.liquidbase = self.liquidcheck = 0;		// Used for liquid content damage
 	self.dmgcombined = self.dmgtimeframe = 0;	// combined damage over 0.1s
@@ -478,7 +486,7 @@ void() monster_shub =
 	// Attack 1 - Setup projectile speed (200 + 20*skill)
 	if (CheckZeroVector(self.pos1)) self.pos1 = '200 20 0';
 	// Attack 1 - Setup projectile damage (Base + Random, Splash)
-	if (CheckZeroVector(self.pos2)) self.pos2 = '0 0 40';
+	if (CheckZeroVector(self.pos2)) self.pos2 = DAMAGE_HMSHUB;
 	// Attack 2 - Setup projectile speed, splash damage
 	if (CheckZeroVector(self.pos3)) self.pos3 = '300 500 40';
 

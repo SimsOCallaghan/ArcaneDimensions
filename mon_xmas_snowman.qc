@@ -55,7 +55,7 @@ void() SnowmMelee =
 	if (self.health < 1) return;
 		
 	ai_damagebreakable(10);							// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEESNOWMAN)) return; // Too far away
+	if (!ai_checkmelee(MONAI_MELEESNOWMAN,FALSE)) return; // Too far away
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
@@ -78,7 +78,7 @@ void() snowm_claw3 = [ $claw3, snowm_claw4 ] {ai_face();SnowmMelee();};
 void() snowm_claw4 = [ $claw4, snowm_claw5 ] {};
 void() snowm_claw5 = [ $claw5, snowm_run1 ] {
 	// Check if snowman is within range to attack again
-	if (ai_checkmelee(MONAI_MELEESNOWMAN) && self.enemy.health > 0) {
+	if (ai_checkmelee(MONAI_MELEESNOWMAN,FALSE) && self.enemy.health > 0) {
 		if (self.health > 0) self.think = snowm_claw1;
 	}
 };
@@ -212,7 +212,8 @@ QUAKED monster_snowman (1 0 0) (-16 -16 -24) (16 16 32) Ambush
 ======================================================================*/
 void() monster_xmas_snowman =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/xmas/mon_snowman.mdl";		// Top Hat Snow
 	self.headmdl = "progs/xmas/h_snowman.mdl";		// Top Hat

@@ -74,12 +74,12 @@ void() raind_melee =
 		
 	ai_charge(10);
 	ai_damagebreakable(20);
-	if (!ai_checkmelee(MONAI_MELEERAINDEER)) return;
+	if (!ai_checkmelee(MONAI_MELEERAINDEER,FALSE)) return;
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
 
-	sound(self, CHAN_WEAPON, "xmas/raindeer/hit.wav", TRUE, TRUE);
+	sound(self, CHAN_WEAPON, self.pain_sound, TRUE, TRUE);
 
 	// Antler attack is weak (1-9)
 	ldmg = (random() + random() + random()) * 3;
@@ -96,7 +96,7 @@ void() raind_ram2 = [ $rattack2, raind_ram3 ] {raind_melee();};
 void() raind_ram3 = [ $rattack3, raind_ram4 ] {ai_charge(5);};
 void() raind_ram4 = [ $rattack4, raind_run1 ] {
 	// Check if raindeer is within range to attack again
-	if (ai_checkmelee(MONAI_MELEERAINDEER) && self.enemy.health > 0) {
+	if (ai_checkmelee(MONAI_MELEERAINDEER,FALSE) && self.enemy.health > 0) {
 		if (self.health > 0) self.think = raind_ram1;
 	}
 };
@@ -247,7 +247,8 @@ void() raind_deadbody =
 //=============================================================================
 void() monster_xmas_raindeer =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/xmas/mon_raindeer.mdl";		// Brown meat
 	self.headmdl = "progs/xmas/h_raindeer.mdl";		// Bloody meat
@@ -290,6 +291,7 @@ void() monster_xmas_raindeer =
 	self.pain_flinch = 30;				// Light pain threshold
 	self.pain_longanim = FALSE;			// No long pain animation
 	self.steptype = FS_TYPESLOW;		// Small sounding feet
+	self.attack_explosive = TRUE;		// Has explosive attack
 	self.poisonous = FALSE;				// Not Supported
 	self.meleeoffset = '24 0 20';		// Antler attack offset
 	self.lefty = 0;						// Cycle attack sounds

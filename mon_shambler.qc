@@ -98,7 +98,7 @@ void(float melee_attack, float side) sham_meleeattack =
 	if (!self.enemy) return;					// Something to fight?
 	if (self.health < 1) return;				// Shambler alive?
 	ai_damagebreakable(40);						// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEESHAM)) return;// Too far away
+	if (!ai_checkmelee(MONAI_MELEESHAM, MONAI_MELEEZTALL)) return;// Too far away
 	dmg_multiplier = 1;
 
 	// Get closer to enemy
@@ -166,7 +166,7 @@ void() sham_swingl6 =[      $swingl6,      sham_swingl7   ] {ai_charge(9);};
 void() sham_swingl7 =[      $swingl7,      sham_swingl8   ] {ai_charge(5); sham_meleeattack(SHAM_MCLAW,250);};
 void() sham_swingl8 =[      $swingl8,      sham_swingl9   ] {ai_charge(4);};
 void() sham_swingl9 =[      $swingl9,      sham_run1  ] { ai_charge(8);
-	if (ai_checkmelee(MONAI_MELEESHAM)) {
+	if (ai_checkmelee(MONAI_MELEESHAM, MONAI_MELEEZTALL)) {
 		if (self.enemy && self.enemy.health > 1) {
 			// Done one claw swing, go for the smash if a zombie
 			if (self.enemy.classgroup == CG_ZOMBIE) self.think = sham_smash1;
@@ -186,7 +186,7 @@ void() sham_swingr6 =[      $swingr6,      sham_swingr7   ] {ai_charge(6);};
 void() sham_swingr7 =[      $swingr7,      sham_swingr8   ] {ai_charge(6); sham_meleeattack(SHAM_MCLAW,-250);};
 void() sham_swingr8 =[      $swingr8,      sham_swingr9   ] {ai_charge(3);};
 void() sham_swingr9 =[      $swingr9,      sham_run1  ] { ai_charge(10);
-	if (ai_checkmelee(MONAI_MELEESHAM)) {
+	if (ai_checkmelee(MONAI_MELEESHAM, MONAI_MELEEZTALL)) {
 		if (self.enemy && self.enemy.health > 1) {
 			// Done one claw swing, go for the smash if a zombie
 			if (self.enemy.classgroup == CG_ZOMBIE) self.think = sham_smash1;
@@ -311,10 +311,13 @@ void() sham_lightning =
 	else LightningDamage (org, trace_endpos, self, 10);
 };
 
+// Map hack entry for old function
+void() CastLightning = { sham_lightning(); };
+
 //----------------------------------------------------------------------
 void(vector leftofs, vector rightofs, float litframe) sham_casting =
 {
-	local vector org, dir;
+	local vector dir;
 	local float litpoint;
 	
 	if (self.health < 1) return;
@@ -461,7 +464,10 @@ QUAKED monster_shambler (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_shambler =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	if (self.poisonous) {
 		self.mdl = "progs/mon_shambler.mdl";
@@ -524,7 +530,7 @@ void() monster_shambler =
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_MASSIVE;
-	if (self.health < 1) self.health = 600;
+	if (self.health < 1) self.health = HP_MONSHAMBLER;
 	self.gibhealth = -60;
 	self.gibbed = FALSE;				// In one peice
 	self.pain_flinch = 400;				// Really low chance of pain

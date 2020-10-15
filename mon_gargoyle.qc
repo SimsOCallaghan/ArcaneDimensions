@@ -384,7 +384,8 @@ PERCH : Start in a sitting down, place 44 units out from perching edge, 4 units 
 void() setup_gargoyle;
 void() monster_gargoyle =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_gargoyle.mdl";
 	self.headmdl = "progs/h_gargoyle.mdl";
@@ -454,6 +455,7 @@ void() setup_gargoyle =
 	self.gibbed = FALSE;				// no falling apart
 	self.pain_flinch = 70;				// High pain threshold
 	self.blockudeath = TRUE;			// no humanoid death sound
+	self.attack_explosive = TRUE;		// Has explosive attack
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.attack_offset = '16 28 22';	// fireball start location
 	self.deathstring = " was burned by a Gargoyle\n";

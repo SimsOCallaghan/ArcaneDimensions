@@ -149,7 +149,7 @@ void() elf_melee =
 		
 	ai_charge(10);
 	ai_damagebreakable(10);
-	if (!ai_checkmelee(MONAI_MELEEELF)) return;
+	if (!ai_checkmelee(MONAI_MELEEELF,FALSE)) return;
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
@@ -175,7 +175,7 @@ void() elf_cane2 = [ $attack2, elf_cane3 ] {ai_charge(5);};
 void() elf_cane3 = [ $attack3, elf_cane4 ] {elf_melee();};
 void() elf_cane4 = [ $attack4, elf_cane5 ] {};
 void() elf_cane5 = [ $attack5, elf_run1 ] {
-	if (ai_checkmelee(MONAI_MELEEELF) && self.enemy.health > 0) {
+	if (ai_checkmelee(MONAI_MELEEELF,FALSE) && self.enemy.health > 0) {
 		if (self.health > 0) self.think = elf_cane1;
 	}
 };
@@ -230,7 +230,7 @@ void() elf_leap3 =[ $jump3, elf_leap4 ] {
 	self.jump_flag = time + MONAI_JUMPTIMEOUT; // Stop jumping so much
 	self.touch = Elf_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * MONAI_JUMPELFDIST + '0 0 200';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.origin_z = self.origin_z + 4;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
@@ -335,7 +335,8 @@ QUAKED monster_xmas_elf (1 0 0) (-16 -16 -24) (16 16 16) Ambush
 ======================================================================*/
 void() monster_xmas_elf =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/xmas/mon_elf.mdl";		// Crazy Grinning Fool
 	self.headmdl = "progs/xmas/h_elf.mdl";		// Shrunken Head
@@ -410,6 +411,11 @@ void() monster_xmas_elf =
 	self.attack_offset = '10 0 4';		// Magic attack offset
 	self.poisonous = FALSE;				// Not Supported
 	self.deathstring = " was torn to pieces by a Elf\n";
+
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '400 0 200';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPELFNEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPELFFAR;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

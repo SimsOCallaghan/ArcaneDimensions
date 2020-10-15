@@ -40,7 +40,9 @@ void() idchthon_tracking =
 	if (self.enemy.flags & FL_NOTARGET) self.enemy = world;
 	else if (self.enemy.items & IT_INVISIBILITY) self.enemy = world;
 	else if (intermission_running > 0) self.enemy = world;
+	else if (cinematic_running > 0) self.enemy = world;
 	else if (self.enemy.health < 1) self.enemy = world;
+
 	if (self.enemy) self.th_missile();
 };
 
@@ -83,8 +85,9 @@ void(vector orgofs) idchthon_missile =
 	local vector offang, org, vec, dir, mdest, avel;
 	local float projlen;
 
-	// No enemy, player dead or intermission?
-	if (!self.enemy || self.enemy.health < 1 || intermission_running > 0) {
+	// No enemy, player dead or intermission/cinematic?
+	if (!self.enemy || self.enemy.health < 1 || 
+		intermission_running > 0 || cinematic_running > 0) {
 		self.th_stand();
 		return;
 	}
@@ -92,10 +95,14 @@ void(vector orgofs) idchthon_missile =
 	sound (self, CHAN_WEAPON, "chthon/attack1.wav", 1, ATTN_NORM);
 	offang = vectoangles (self.enemy.origin - self.origin);	
 	makevectors (offang);
-	org = self.origin + attack_vector(orgofs);
+	// Original ID formula (Z axis is flatterned)
+	org = self.origin + orgofs_x*v_forward + orgofs_y*v_right + orgofs_z*'0 0 1';
+	//org = self.origin + attack_vector(orgofs);
 	
+	// Original ID formula (fixed speed)
+	self.attack_speed = 300;
 	// Skill level adjustment (easy=250, normal=300, hard=350, nm=400)
-	self.attack_speed = SPEED_LAVABALL + (skill*SPEED_LAVASKILL);
+	//self.attack_speed = SPEED_LAVABALL + (skill*SPEED_LAVASKILL);
 	
 	// Lead the missile on hard mode (This formula is not perfect) 
 	// There are plenty of missiles that go in strange directions, 
@@ -126,7 +133,9 @@ void() idchthon_face =
 	if (self.enemy.flags & FL_NOTARGET) self.enemy = world;
 	else if (self.enemy.items & IT_INVISIBILITY) self.enemy = world;
 	else if (intermission_running > 0) self.enemy = world;
+	else if (cinematic_running > 0) self.enemy = world;
 	else if (self.enemy.health < 1) self.enemy = world;
+
 	if (self.enemy) ai_face();
 };
 
@@ -319,7 +328,7 @@ void() lightning_use =
 
 //===========================================================================
 void() idchthon_death1 = [$death1, idchthon_death2] {
-sound (self, CHAN_VOICE, "chthon/death.wav", 1, ATTN_NORM);};
+sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);};
 void() idchthon_death2 = [$death2, idchthon_death3] {};
 void() idchthon_death3 = [$death3, idchthon_death4] {};
 void() idchthon_death4 = [$death4, idchthon_death5] {};
@@ -343,12 +352,13 @@ void() idchthon_death10 = [$death9, idchthon_death10] {
 	entity_hide(self);
 };
 
-/*======================================================================
- QUAKED monster_boss (1 0 0) (-128 -128 -24) (128 128 256)
+//======================================================================
+/*QUAKED monster_boss (1 0 0) (-128 -128 -24) (128 128 256)
 ======================================================================*/
 void() monster_boss =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_bosschthon.mdl";
 	precache_model (self.mdl);
@@ -359,9 +369,10 @@ void() monster_boss =
 	precache_sound ("weapons/rocket1i.wav");
 	precache_sound ("misc/power.wav");
 	
-	self.pain_sound = "chthon/pain.wav";
+	self.pain_sound = "chthon/pain1.wav";
 	precache_sound (self.pain_sound);
-	precache_sound ("chthon/death.wav");
+	self.death_sound = "chthon/death1.wav";
+	precache_sound (self.death_sound);
 
 	// Rise from lava roar + splash
 	self.sight_sound = "chthon/sight1.wav";
@@ -375,6 +386,7 @@ void() monster_boss =
 	self.bbmins = '-80 -80 -24';	// has own entity setup
 	self.bbmaxs = '80 80 256';
 	self.bboxtype = BBOX_CUSTOM;
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
 
@@ -384,6 +396,10 @@ void() monster_boss =
 	self.dpp_name = "TR_BOSSCHTHON";// Lava smoke and sparks
 	self.yaw_speed = 20;			// Fast turner
 	self.deathstring = " was blown apart by Chthon\n";
+	self.lastorigin = self.origin;	// Origin for camera interpolation
+
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 1;
@@ -401,7 +417,7 @@ void() monster_boss =
 	self.use = idchthon_awake;
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED event_lightning (0 1 1) (-16 -16 -16) (16 16 16) x
 Just for boss level. Used for killing Cthon.
 -------- KEYS --------
@@ -414,7 +430,7 @@ void() event_lightning =
 	self.use = lightning_use;
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED misc_teleporttrain (0 0.5 0.8) (-8 -8 -8) (8 8 8) x
 This is used for the final boss ONLY
 Flying ball needed to teleport kill Shub-Niggurath

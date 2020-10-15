@@ -23,6 +23,9 @@ float() emit_checksource =
 	// emitter will generate an unique number which the emitter will
 	// keep track of and compare to make sure the connection is valid.
 	//
+	// Particle effect was setup for static entity, leave it alone
+	//if (self.part_static == TRUE) return FALSE;
+	
 	// If the connection is broken, destroy particle emitter
 	if (self.entno_unique != self.pemit_source.entno_unique)
 		self.part_style = PARTICLE_STYLE_EMPTY;
@@ -75,6 +78,8 @@ void() emitdpp_particle = {
 		self.pos1_z = self.pos1_z + ( (random()*(self.part_vol_z*2)) - self.part_vol_z);
 	}
 	else self.pos1 = self.pemit_source.origin;
+	// Make sure any offset is added to source origin
+	self.pos1 = self.pos1 + self.pemit_source.part_ofs;
 
 	// Generate particles (DP Engine)
 	// DP particles are designed to go at origin, not origin+offset
@@ -160,7 +165,7 @@ void() emitepp_weather =
 	// byte color      : 8bit palette color
 	
 	// Double check if engine weather systems are enabled
-	if (query_configflag(SVR_WEATHER)) {
+	if (query_weathersystem() == FALSE) {
 		// Wait for any change, slow timer
 		self.think = emitepp_weather;
 		self.nextthink = time + 2;
@@ -764,7 +769,6 @@ void(vector e_org, float e_qty, float e_speed, float e_dist, float p_style) part
 void(vector e_org, float e_qty, float e_time, float p_style, float e_style) particle_explode = 
 {
 	local float e_loop;
-	local vector dp_vec;
 	local string dpp_string;
 
 	// Have particles been enabled via serverflags?
@@ -803,6 +807,122 @@ void(vector e_org, float e_qty, float e_time, float p_style, float e_style) part
 				part.owner = self;
 				particle_style(part, p_style);
 				explosion_style(part, e_org, e_style);
+				// Zero size and world interaction			
+				setsize (part, VEC_ORIGIN, VEC_ORIGIN);
+				part.nextthink = ((time + (random() * e_time)) + e_time);
+				part.think = finish_particle;
+			}
+		}
+	}
+};
+
+/*======================================================================
+ Particle DP/QSS/FTE smoke
+ 
+ e_org		: Starting point for DP smoke
+ e_dest		: Velocity direction for smoke
+ e_qty		: quantity of smoke particles
+ e_volume	: size of cube to spawn smoke inside for origin and direction
+ e_speedqty : Random smoke velocity speed multiplier
+ e_colour   : Colour (Grey, Yellow, White, Toxic, Green, Purple, Red, Fire)
+ =====================================================================*/
+void(vector e_org, vector e_dest, float e_qty, float e_volume, float e_speedqty, float e_colour) particle_DPsmoke = 
+{
+	local float e_speed;
+	local vector e_vel, rnd_vec;
+	local string dpp_string;
+
+	// Have particles been enabled via serverflags?
+	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
+
+	// Can only have integer particle quantity
+	e_qty = rint(e_qty);
+
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
+		if (e_colour == 1) dpp_string = DPP_VELSMOKEGREY2;
+		else if (e_colour == 2) dpp_string = DPP_VELSMOKEWHITE;
+		else if (e_colour == 3) dpp_string = DPP_VELSMOKETOXIC;
+		else if (e_colour == 4) dpp_string = DPP_VELSMOKEGREEN;
+		else if (e_colour == 5) dpp_string = DPP_VELSMOKEPURPLE;
+		else if (e_colour == 6) dpp_string = DPP_VELSMOKERED;
+		else if (e_colour == 7) dpp_string = DPP_VELSMOKEFIRE;
+		else dpp_string = DPP_VELSMOKEGREY1;
+		// Create some random volume displacement at origin/destination
+		rnd_vec = vecrand(0, e_volume, TRUE);
+		// Make sure volume is consistent with org+dest
+		e_org = e_org + rnd_vec;
+		e_dest = e_dest + rnd_vec;
+		// Random speed multiplier
+		e_speed = random() * e_speedqty;
+		// DP emiiter is setup with 64 velocity multiplier
+		e_vel = ((e_dest - e_org) * 0.015625) * e_speed;
+		pointparticles(particleeffectnum(dpp_string), e_org, e_vel, e_qty);
+	}
+};
+
+/*======================================================================
+ Particle stream
+ 
+ e_org		: Starting point for particle stream
+ e_dest		: Finishing point for particle stream
+ e_qty		: quantity of particle burst
+ e_time		: lifespan of particle (time + random()*time)
+ e_volume	: size of cube to spawn sprites inside for origin and direction
+ e_speedqty : Random particle velocity speed multiplier
+ p_style	: sprite style (check function particle_style above)
+ =====================================================================*/
+void(vector e_org, vector e_dest, float e_qty, float e_time, float e_volume, float e_speedqty, float p_style) particle_stream = 
+{
+	local float e_loop, e_speed;
+	local vector e_vel, rnd_vec;
+	local string dpp_string;
+
+	// Have particles been enabled via serverflags?
+	if (query_configflag(SVR_PARTICLES) != SVR_PARTICLES) return;
+
+	// Can only have integer particle quantity
+	e_qty = rint(e_qty);
+
+	if (ext_dppart && query_configflag(SVR_SPRPARTON) == FALSE && world.sprite_particles == FALSE) {
+		// Setup DP particle style based on supplied style
+		if (p_style & PARTICLE_BURST_YELLOW) dpp_string = DPP_BURSTPARTY;
+		else if (p_style & PARTICLE_BURST_GREEN) dpp_string = DPP_BURSTPARTG;
+		else if (p_style & PARTICLE_BURST_RED) dpp_string = DPP_BURSTPARTR;
+		else if (p_style & PARTICLE_BURST_BLUE) dpp_string = DPP_BURSTPARTB;
+		else if (p_style & PARTICLE_BURST_PURPLE) dpp_string = DPP_BURSTPARTP;
+		else dpp_string = DPP_BURSTPARTW;
+		// Create some random volume displacement at origin/destination
+		rnd_vec = vecrand(0, e_volume, TRUE);
+		e_org = e_org + rnd_vec;
+		e_dest = e_dest + rnd_vec;
+		e_speed = random() * e_speedqty;
+		e_vel = normalize(e_dest - e_org) * e_speed;
+		// Normalized velocity needs large extra boast! 
+		pointparticles(particleeffectnum(dpp_string), e_org, e_vel*64, e_qty);
+	}
+	else {
+		// Are there any free particles?
+		// Check for maximim amount of particles available
+		if ( (part_total+e_qty) >= part_max - 1) return;
+		e_loop = 0;
+		while (e_loop < e_qty) {
+			e_loop = e_loop + 1;	// Keep on loopin!
+			// Create some random volume displacement at origin/destination
+			rnd_vec = vecrand(0, e_volume, TRUE);
+			e_speed = random() * e_speedqty;
+			part = fetch_particle();
+			// Only preceed if a particle has been returned
+			if (part.classtype == CT_PARTICLE) {
+				part.owner = self;
+				// Pick sprite sizes
+				particle_style(part, p_style);
+				// Setup origin + direction
+				part.origin = e_org + rnd_vec;
+				setorigin (part, part.origin);
+				part.velocity = ((e_dest + rnd_vec) - e_org) * e_speed;
+				part.avelocity = vecrand(100,200,FALSE);
+				part.movetype = MOVETYPE_FLY;
+				part.flags = 0;
 				// Zero size and world interaction			
 				setsize (part, VEC_ORIGIN, VEC_ORIGIN);
 				part.nextthink = ((time + (random() * e_time)) + e_time);
@@ -879,9 +999,9 @@ void(vector debuff_center, float debuff_volsize, float debuff_qty, float debuff_
 //----------------------------------------------------------------------
 // Falling particle dust/dots
 //----------------------------------------------------------------------
-void(vector dust_center, float dust_qty, float dust_style) particle_dust =
+void(vector dust_center, float dust_qty, float dust_volsize, float dust_style) particle_dust =
 {
-	local float dust_loop, dust_volsize, dust_time;
+	local float dust_loop, dust_time;
 	local vector dust_org, dust_vol;
 	local string dpp_string;
 
@@ -905,7 +1025,8 @@ void(vector dust_center, float dust_qty, float dust_style) particle_dust =
 
 	dust_loop = 0;
 	dust_time = 1;
-	dust_volsize = 16;
+	// Allowed this to be a parameter (1.7p2)
+	//dust_volsize = 16;
 	
 	while (dust_loop < dust_qty) {
 		dust_vol = vecrand(0,dust_volsize,TRUE);

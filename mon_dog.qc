@@ -169,7 +169,7 @@ void() dog_bite =
 	
 	ai_charge(10);								// Get closer for extra bite
 	ai_damagebreakable(10);						// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEEDOG)) return;	// Too far away
+	if (!ai_checkmelee(MONAI_MELEEDOG,FALSE)) return;	// Too far away
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
@@ -249,7 +249,7 @@ void() dog_leap2	=[	$leap2,		dog_leap3	] {
 	self.jump_flag = time;	// No jump time limits
 	self.touch = Dog_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * 300 + '0 0 200';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.origin_z = self.origin_z + 4;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
@@ -271,9 +271,9 @@ void() dog_leap7	=[	$leap7,		dog_leap8	] {monster_footstep(FALSE);};
 void() dog_leap8	=[	$leap8,		dog_leap9	] {monster_footstep(FALSE);};
 void() dog_leap9	=[	$leap9,		dog_run1	] {ai_resetangles();};
 
-/*======================================================================
-  PAIN
-========================================================================*/
+//======================================================================
+//  PAIN
+//========================================================================
 void() dog_pain1	=[	$pain1 ,	dog_pain2	] {};
 void() dog_pain2	=[	$pain2 ,	dog_pain3	] {};
 void() dog_pain3	=[	$pain3 ,	dog_pain4	] {};
@@ -358,12 +358,15 @@ void() dog_die =
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_dog (1 0 0) (-32 -32 -24) (32 32 40) Ambush
 ======================================================================*/
 void() monster_dog =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_dog.mdl";
 	self.headmdl = "progs/h_dog.mdl";
@@ -392,7 +395,7 @@ void() monster_dog =
 	self.idmins = '-32 -32 -24';		// Original mega large bbox
 	self.idmaxs = '32 32 40';
 	if (self.bboxtype < 1) self.bboxtype = BBOX_DOG;
-	if (self.health < 1) self.health = 25;
+	if (self.health < 1) self.health = HP_MONDOG;
 	self.gibhealth = -35;
 	self.gibbed = FALSE;
 	self.pain_flinch = 10;				// Easy response to pain
@@ -400,6 +403,11 @@ void() monster_dog =
 	self.blockudeath = TRUE;			// No humanoid death sound
 	self.meleeoffset = '24 0 10';		// Bite attack offset
 	self.deathstring = " was mauled by a Rottweiler\n";
+
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '300 0 200';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPDOGNEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPDOGFAR;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

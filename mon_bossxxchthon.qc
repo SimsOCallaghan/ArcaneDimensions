@@ -40,7 +40,8 @@ float() xxchthon_FindTarget =
 	
 	// Get the obvious exception(s) done first
 	if (self.health < 1) return FALSE;
-	if (intermission_running) return FALSE;
+	if (intermission_running > 0) return FALSE;
+	if (cinematic_running > 0) return FALSE;
 
 	// Find a client in current PVS
 	client = checkclient ();
@@ -54,7 +55,7 @@ float() xxchthon_FindTarget =
 	// Check range and visibility of player
 	enemy_vis = visible(client);
 	if (!enemy_vis) return FALSE;
-	if (!infront(client)) return FALSE;
+	if (self.sight_nofront == FALSE && !infront(client)) return FALSE;
 
 	// Finally found something
 	self.enemy = client;
@@ -119,6 +120,19 @@ float() xxchthon_WaveCheck =
 	return FALSE;
 };
 
+//----------------------------------------------------------------------
+// Forces the next HP wave event to happen (use function)
+//----------------------------------------------------------------------
+void() xxchthon_WaveTrigger = { 
+	// Force HP down through T_damage function (safer option)
+	T_Damage (self, self, self, (self.health-self.bosswavetrig)+1, NOARMOR);
+
+	// Debug messages for wave and health
+	dprint("\b[BOSS]\b Force Wave HP ("); dprint(ftos(self.health));
+	dprint(") Trig ("); dprint(ftos(self.bosswavetrig));
+	dprint(")\n");
+};
+
 //===========================================================================
 // IDLE state - waiting for player
 //===========================================================================
@@ -143,6 +157,15 @@ void() xxchthon_idleframe =
 	if (xxchthon_WaveCheck() == TRUE) self.th_jump();
 	// Keep checking for players
 	else if (xxchthon_FindTarget()) self.th_missile();
+	
+	// Chance for turret mode?
+	if (random() < 0.1) {
+		// Turret mode (no front facing checks)
+		self.sight_nofront = TRUE;
+		// Setup random turning angle (clockwise direction)
+		self.ideal_yaw = anglemod(self.angles_y + 45 + (random()*90));
+		ChangeYaw ();
+	}
 };
 
 //----------------------------------------------------------------------
@@ -199,6 +222,8 @@ void() xxchthon_attackframe =
 	if (self.walkframe > 22) self.walkframe = 0;
 	self.nextthink = time + 0.1;
 	self.think = xxchthon_attackframe;
+	// Turn off turret mode (360 degree tracking)
+	self.sight_nofront = FALSE;
 	
 	// Setup current animation frame
 	self.frame = $attack1 + self.walkframe;
@@ -211,6 +236,7 @@ void() xxchthon_attackframe =
 		// Check for any no combat conditions
 		if (self.enemy.health < 1) self.enemy = world;
 		else if (intermission_running > 0) self.enemy = world;
+		else if (cinematic_running > 0) self.enemy = world;
 		else if (self.enemy.flags & FL_NOTARGET) self.enemy = world;
 		else if (self.enemy.items & IT_INVISIBILITY) self.enemy = world;
 		
@@ -296,7 +322,6 @@ void() xxchthon_shake =
 //============================================================================
 void(entity inflictor, entity attacker, float damage) xxchthon_pain =
 {
-
 	// Check for boss wave trigger events
 	if (xxchthon_WaveCheck() == TRUE) {self.th_jump(); return;}
 	self.pain_finished = time + 2 + random()*2;
@@ -346,7 +371,7 @@ void() xxchthon_explode =
 //----------------------------------------------------------------------
 void() xxchthon_explosion =
 {
-	// Pick random location above/center of chthin
+	// Pick random location above/center of chthon
 	self.oldorigin = self.origin + vecrand(0,100,TRUE);
 	self.oldorigin_z = self.origin_z + 50 + random()*100;
 
@@ -403,6 +428,8 @@ void() xxchthon_rise14	=[	$rise14, xxchthon_rise15 ] {ai_face();};
 void() xxchthon_rise15	=[	$rise15, xxchthon_rise16 ] {};
 void() xxchthon_rise16	=[	$rise16, xxchthon_rise17 ] {ai_face();};
 void() xxchthon_rise17	=[	$rise17, xxchthon_attack ] {
+	// Enable wave use functionality?
+	if (self.bosswaveuse > 0) self.use = xxchthon_WaveTrigger;
 	self.style = CHTHON_PHASE2;		// Start fighting
 	self.takedamage = DAMAGE_AIM;
 };
@@ -418,6 +445,7 @@ void() xxchthon_awake =
 
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
+	self.frame = 0; self.skin = self.exactskin;
 	setmodel(self, self.mdl);					// Setup model
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
 
@@ -426,6 +454,14 @@ void() xxchthon_awake =
 	self.velocity = '0 0 0';		// Make sure stationary
 	self.pain_longanim = FALSE;		// No axe advantage
 	self.noinfighting = TRUE;		// No infighting
+
+	// Check for delay spawn monster count
+	if (self.delaymonstercount) {
+		// Reset both monster count conditions
+		self.nomonstercount = self.delaymonstercount = 0;
+		total_monsters = total_monsters + 1;
+		update_hud_totals(HUD_MONSTERS);
+	}
 
 	Resist_CheckRange(self);		// Double check values
 	Resist_Save(self);				// Save for Later
@@ -468,7 +504,8 @@ void() xxchthon_awake =
 ======================================================================*/
 void() monster_chthon =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_bosschthon.mdl";
 	precache_model (self.mdl);
@@ -520,6 +557,7 @@ void() monster_chthon =
 	self.bbmins = '-80 -80 -24';	// has own entity setup
 	self.bbmaxs = '80 80 256';
 	self.bboxtype = BBOX_CUSTOM;
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	
 	self.health = self.max_health = MEGADEATH;
@@ -527,14 +565,22 @@ void() monster_chthon =
 	self.no_liquiddmg = TRUE;		// no slime/lava damage
 	self.gibbed = FALSE;			// Still in one piece
 	self.deathstring = " was blown apart by Chthon\n";
+	self.lastorigin = self.origin;	// Origin for camera interpolation
 
+	// Save for wakeup function
+	self.frame = 0; self.exactskin = self.skin;
+
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
+	
 	self.pain_flinch = 400;			// Shambler level
 	self.pain_timeout = 2;			// Stop constant pain
+	self.takedamage = DAMAGE_NO;	// Immune to damage
+	self.sight_nofront = TRUE;		// 360 degree wakeup
 
 	self.deadflag = DEAD_NO;					// used to stop death re-triggering
 	self.liquidbase = self.liquidcheck = 0;		// Used for liquid content damage
 	self.dmgcombined = self.dmgtimeframe = 0;	// combined damage over 0.1s
-	self.takedamage = DAMAGE_NO;	// Immune to damage
 	
 	// Setup projectile speed (250 + 50*skill)
 	if (CheckZeroVector(self.pos1)) self.pos1 = '250 50 0';
@@ -555,8 +601,21 @@ void() monster_chthon =
 		spawn_marker(self.origin, SPNMARK_YELLOW);
 		return;
 	}
+
+	// Monster count exceptions
+	if (self.nomonstercount > 0 || self.delaymonstercount > 0) {
+		// Some maps have way too many no monster counts
+		if (world.no_moncountdevmsg <= 0) {
+			dprint("\b[CHTHON]\b ("); dprint(self.targetname);
+			dprint(") - no monster count\n");
+		}
+	}
+	// Update count before client spawn
+	else total_monsters = total_monsters + 1;
 	
-	// Does not go through monster spawn functions
-	total_monsters = total_monsters + 1;
+	// Display debug diamonds
+	monster_devmarker(self);
+	
+	// Wait for trigger event
 	self.use = xxchthon_awake;
 };

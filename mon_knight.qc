@@ -68,8 +68,18 @@ void() knight_sword_sound;
 void() knight_walk1;
 void() knight_run1;
 
+// Custom onspawn pose
+float KNIGHT_STANDING = 0;
+float KNIGHT_LOOKLEFT = 2;
+float KNIGHT_LOOKRIGHT = 3;
+float KNIGHT_KNEELING = 5;
+float KNIGHT_ATTENTION = 6;
+
 //===========================================================================
-void()	knight_idlea1	=[	$idlea1,	knight_idlea2	] {ai_stand();};
+// Standing idleA - look left
+void()	knight_idlea1	=[	$idlea1,	knight_idlea2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_LOOKLEFT; ai_stand();};
 void()	knight_idlea2	=[	$idlea2,	knight_idlea3	] {ai_stand();};
 void()	knight_idlea3	=[	$idlea3,	knight_idlea4	] {ai_stand();};
 void()	knight_idlea4	=[	$idlea4,	knight_idlea5	] {ai_stand();};
@@ -87,7 +97,10 @@ void()	knight_idlea15	=[	$idlea15,	knight_idlea16	] {ai_stand();};
 void()	knight_idlea16	=[	$idlea16,	knight_stand1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	knight_idleb1	=[	$idleb1,	knight_idleb2	] {ai_stand();};
+// Standing idleB - look right
+void()	knight_idleb1	=[	$idleb1,	knight_idleb2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_LOOKRIGHT; ai_stand();};
 void()	knight_idleb2	=[	$idleb2,	knight_idleb3	] {ai_stand();};
 void()	knight_idleb3	=[	$idleb3,	knight_idleb4	] {ai_stand();};
 void()	knight_idleb4	=[	$idleb4,	knight_idleb5	] {ai_stand();};
@@ -103,7 +116,10 @@ void()	knight_idleb13	=[	$idleb13,	knight_idleb14	] {ai_stand();};
 void()	knight_idleb14	=[	$idleb14,	knight_stand1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	knight_kneelup1	=[	$kneelup1,	knight_kneelup2	] {ai_stand();};
+// From kneeling down to standing (blend animation)
+void()	knight_kneelup1	=[	$kneelup1,	knight_kneelup2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_STANDING; ai_stand(); monster_idle_sound();};
 void()	knight_kneelup2	=[	$kneelup2,	knight_kneelup3	] {ai_stand();};
 void()	knight_kneelup3	=[	$kneelup3,	knight_kneelup4	] {ai_stand();};
 void()	knight_kneelup4	=[	$kneelup4,	knight_kneelup5	] {ai_stand();};
@@ -116,18 +132,35 @@ void()	knight_kneelup10=[	$kneelup10,	knight_kneelup11] {ai_stand();};
 void()	knight_kneelup11=[	$kneelup11,	knight_stand1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	knight_kneel1	=[	$kneel1,	knight_kneel2	] {ai_stand();monster_idle_sound();};
+// From kneeling down to running (blend animation)
+void() knight_run1;
+void()	knight_runup1	=[	$kneelrun1,	knight_runup2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_STANDING; monster_idle_sound();};
+void()	knight_runup2	=[	$kneelrun2,	knight_runup3	] {};
+void()	knight_runup3	=[	$kneelrun3,	knight_runup4	] {};
+void()	knight_runup4	=[	$kneelrun4,	knight_runup5	] {};
+void()	knight_runup5	=[	$kneelrun5,	knight_runup6	] {ai_face();};
+void()	knight_runup6	=[	$kneelrun6,	knight_runup7	] {ai_face();};
+void()	knight_runup7	=[	$kneelrun7,	knight_runup8	] {ai_face();};
+void()	knight_runup8	=[	$kneelrun8,	knight_run1	] {ai_run(0);};
+
+//----------------------------------------------------------------------
+// Kneeling down (special pose)
+void()	knight_kneel1	=[	$kneel1,	knight_kneel2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_KNEELING; monster_idle_sound(); ai_stand();};
 void()	knight_kneel2	=[	$kneel2,	knight_kneel3	] {ai_stand();};
 void()	knight_kneel3	=[	$kneel3,	knight_kneel4	] {ai_stand();};
 void()	knight_kneel4	=[	$kneel4,	knight_kneel5	] {ai_stand();};
 void()	knight_kneel5	=[	$kneel5,	knight_kneel6	] {ai_stand();};
-void()	knight_kneel6	=[	$kneel6,	knight_kneel1	] {ai_stand();
-	if (random() < MON_IDLE_ANIMATION && self.weaponswitch < time) 
-		self.think = knight_kneelup1;	// Start standing up
-};
+void()	knight_kneel6	=[	$kneel6,	knight_kneel1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	knight_kneeldn1	=[	$kneeldn1,	knight_kneeldn2	] {ai_stand();};
+// From standing to kneeling down (blend animation)
+void()	knight_kneeldn1	=[	$kneeldn1,	knight_kneeldn2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_KNEELING; ai_stand();};
 void()	knight_kneeldn2	=[	$kneeldn2,	knight_kneeldn3	] {ai_stand();};
 void()	knight_kneeldn3	=[	$kneeldn3,	knight_kneeldn4	] {ai_stand();};
 void()	knight_kneeldn4	=[	$kneeldn4,	knight_kneeldn5	] {ai_stand();};
@@ -138,13 +171,26 @@ void()	knight_kneeldn8	=[	$kneeldn8,	knight_kneeldn9	] {ai_stand();};
 void()	knight_kneeldn9	=[	$kneeldn9,	knight_kneel1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	knight_attn1	=[	$attn1,		knight_attn2	] {ai_stand();monster_idle_sound();};
+// Standing upright to attention (special pose)
+void()	knight_attn1	=[	$attn1,		knight_attn2	] {
+	self.startingpose = KNIGHT_STANDING;
+	self.idlebusy = KNIGHT_ATTENTION; ai_stand(); monster_idle_sound();};
 void()	knight_attn2	=[	$attn2,		knight_attn3	] {ai_stand();};
 void()	knight_attn3	=[	$attn3,		knight_attn4	] {ai_stand();};
 void()	knight_attn4	=[	$attn4,		knight_attn1	] {ai_stand();};
 
 //----------------------------------------------------------------------
-void()	knight_stand1	=[	$stand1,	knight_stand2	] {ai_stand();monster_idle_sound();};
+void()	knight_stand1	=[	$stand1,	knight_stand2	] {
+	// Check for custom onspawn poses
+	if (self.startingpose == KNIGHT_KNEELING) knight_kneel1();
+	else if (self.startingpose == KNIGHT_ATTENTION) knight_attn1();
+	else if (self.startingpose == KNIGHT_LOOKLEFT) knight_idlea1();
+	else if (self.startingpose == KNIGHT_LOOKRIGHT) knight_idleb1();
+	else {
+		self.startingpose = self.idlebusy = KNIGHT_STANDING; 
+		ai_stand(); monster_idle_sound();
+	}
+};
 void()	knight_stand2	=[	$stand2,	knight_stand3	] {ai_stand();};
 void()	knight_stand3	=[	$stand3,	knight_stand4	] {ai_stand();};
 void()	knight_stand4	=[	$stand4,	knight_stand5	] {ai_stand();};
@@ -153,11 +199,12 @@ void()	knight_stand6	=[	$stand6,	knight_stand7	] {ai_stand();};
 void()	knight_stand7	=[	$stand7,	knight_stand8	] {ai_stand();};
 void()	knight_stand8	=[	$stand8,	knight_stand9	] {ai_stand();};
 void()	knight_stand9	=[	$stand9,	knight_stand1	] {
-	self.idlebusy = FALSE; 
+	self.idlebusy = KNIGHT_STANDING; 
 	if (random() < MON_IDLE_ANIMATION && self.weaponswitch < time) {
 		// Slow down the repeating of idle animations
 		self.weaponswitch = time + 1 + random()*3;
-		self.idlebusy = TRUE; 
+		// Will be set properly once in idle
+		self.idlebusy = TRUE;
 
 		self.lefty = 1 - self.lefty;
 		if (self.lefty == 1) self.think = knight_idlea1;	// Look left
@@ -220,7 +267,7 @@ void()	knight_atk10=[	$attackb10,		knight_run1	] {ai_charge(5);};
 //=============================================================================
 void() knight_melee =
 {
-	if (ai_checkmelee(MONAI_MELEEKNIGHT)) knight_atk1 ();
+	if (ai_checkmelee(MONAI_MELEEKNIGHT,FALSE)) knight_atk1 ();
 	else knight_runatk1 ();
 };
 
@@ -371,7 +418,10 @@ void() knight_statue =
 ======================================================================*/
 void() monster_knight =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_knight.mdl";
 	self.headmdl = "progs/h_knight.mdl";		// Large head
@@ -433,7 +483,7 @@ void() monster_knight =
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
-	if (self.health < 1) self.health = 75;
+	if (self.health < 1) self.health = HP_MONKNIGHT;
 	self.gibhealth = -40;				// Not easy to gib
 	self.gibbed = FALSE;				// Still in one peice
 	self.pain_flinch = 20;				// Light pain threshold

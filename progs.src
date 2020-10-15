@@ -2,17 +2,26 @@
 
 defs.qc
 defscustom.qc
+defsclass.qc
 dpextensions.qc
 mathlib.qc
 
+csqc_defs.qc
+// Pick AD or ID1 vers
+csqc_hudad.qc
+//csqc_hudvanilla.qc
+
 subs.qc
 subs_soc.qc
-hiprot.qc
 estate.qc
+hiprot.qc
+hipspawn.qc
 globalfog.qc
+chaosmode.qc
 settings.qc
 breakable.qc
 pushable.qc
+switchshad.qc
 
 part_manage.qc
 part_generate.qc
@@ -20,29 +29,37 @@ part_emitter.qc
 
 ai_gibs.qc
 ai_enemytarget.qc
-ai_pathcorner.qc
+ai_passive.qc
 ai_tether.qc
-ai_checkattack.qc
+ai_pathcorner.qc
 ai_explosion.qc
 ai_ammoresist.qc
 ai_subs.qc
 ai_states.qc
 ai_combat.qc
 ai_minions.qc
+ai_hazards.qc
+ai_projectiles.qc
+ai_checkattack.qc
 
 world.qc
+client_cshift.qc
 client_mapvar.qc
 client_debuff.qc
 client_power.qc
+client_ghook.qc
+client_evilmode.qc
 client.qc
 client_camera.qc
 client_info.qc
+client_advinfo.qc
 
 monsters.qc
 items.qc
-projectiles.qc
+items_progspn.qc
 weapons.qc
 player.qc
+lights.qc
 triggers_states.qc
 triggers.qc
 targets.qc
@@ -55,12 +72,13 @@ func_insvolume.qc
 func_plats.qc
 func_trains.qc
 misc.qc
+misc_model.qc
+misc_camera.qc
 misc_textbook.qc
 misc_targetdummy.qc
 traps.qc
 traps_pendulum.qc
 traps_sawblade.qc
-lights.qc
 sounds.qc
 
 // Monsters
@@ -70,6 +88,7 @@ mon_fish.qc
 mon_hknight.qc
 mon_knight.qc
 mon_ogre.qc
+mon_ogrextra.qc
 mon_enforcer.qc
 mon_shalrath.qc
 mon_shambler.qc
@@ -82,22 +101,25 @@ mon_zombie.qc
 mon_boil.qc
 mon_centurion.qc
 mon_dcrossbow.qc
+mon_deflector.qc
 mon_dfury.qc
 mon_dguard.qc
 mon_dguardquoth.qc
 mon_dknight.qc
 mon_dlord.qc
+mon_dprince.qc
 mon_drole.qc
 mon_dsergeant.qc
 mon_eel.qc
+mon_floyd.qc
 mon_freddie.qc
 mon_gargoyle.qc
 mon_gaunt.qc
 mon_golem.qc
-//mon_gug.qc
 mon_hogre.qc
 mon_hogreham.qc
 mon_hogremac.qc
+mon_invsword.qc
 mon_jim.qc
 mon_lostsoul.qc
 mon_minotaur.qc
@@ -107,16 +129,26 @@ mon_seeker.qc
 mon_sentinel.qc
 mon_skullwiz.qc
 mon_spider.qc
+mon_steelclaw.qc
 mon_swampling.qc
 mon_voreling.qc
 mon_wraith.qc
 mon_zombiek.qc
+// Replaced with justice
+//mon_baron.qc
 
 // Xmas Monsters
 mon_xmas_elf.qc
 mon_xmas_raindeer.qc
 mon_xmas_snowman.qc
 mon_xmas_santa.qc
+
+// Hypnogogia Monsters
+mon_sweeper.qc
+mon_turretbal.qc
+mon_bossmammoth.qc
+//mon_bossphobetor.qc
+//mon_bosspsyder.qc
 
 // ID Bosses
 mon_bossidchthon.qc
@@ -129,5 +161,6 @@ mon_bossboglord.qc
 mon_bosseidolon.qc
 mon_bossfiretop.qc
 mon_bossicegolem.qc
+// +mon_justice
+mon_bossjudicator.qc
 mon_bossnour.qc
-

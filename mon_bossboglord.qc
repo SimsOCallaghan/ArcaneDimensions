@@ -261,7 +261,7 @@ void() bogl_lightning =
 //----------------------------------------------------------------------
 void(vector leftofs, vector rightofs, float sbframe) bogl_casting =
 {
-	local vector org, dir, tang;
+	local vector dir, tang;
 	local float midpoint;
 	if (self.health < 1) return;
 
@@ -366,7 +366,7 @@ void() bogl_pain5 =[ $pain5, bogl_pain6 ] {};
 void() bogl_pain6 =[ $pain6, bogl_run1  ] {};
 
 //----------------------------------------------------------------------
-void(entity inflictor, entity attacker, float damage)	bogl_pain =
+void(entity inflictor, entity attacker, float damage) bogl_pain =
 {
 	// Finish with all attachments
 	bogl_finish_attachment();
@@ -445,7 +445,8 @@ QUAKED monster_boglord (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_boglord =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	// One model, two different skins
 	self.mdl = "progs/mon_bossboglord.mdl";
@@ -536,13 +537,15 @@ void() monster_boglord =
 	self.bbmins = '-32 -32 -24';	// Special Size
 	self.bbmaxs = '32 32 80';
 	self.bboxtype = BBOX_CUSTOM;	// Custom size
-	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
+	// Boglord and Fire Shamblers are really just monsters with HP++
+	// They don't need bossflag protection, their combat is standard stuff
+	//self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 
 	self.gibhealth = -60;			// Shambler gibness!
 	self.gibbed = FALSE;			// Starts complete
 	self.pain_flinch = 400;			// Really low chance of pain
 	self.pain_timeout = 2;			// long pause on pain
-	self.infightextra = 8;			// Does not like infighting
+	if (self.infightextra <= 0) self.infightextra = 8;
 	self.steptype = FS_TYPELARGE;	// Large stomping feet
 	self.blockudeath = TRUE;		// No player gib sound
 	self.pain_longanim = FALSE;		// cannot be chopped with shadow axe
@@ -551,11 +554,26 @@ void() monster_boglord =
 	self.tetherpause = 0.9;			// Rarely pauses to attacks
 	self.dmg = 40;					// Radius dmg for gibondeath
 	
+	// Special Rage attack mode ( >0 = enabled )
+	// Closer to 0 = Lightning attack, Closer to 1 = Ball attack
+	// Make sure percentage chance within range of 0-1
+	if (self.attack_rage <= 0) self.attack_rage = 0;
+	if (self.attack_rage >= 1) self.attack_rage = 1;
+	
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
+	
 	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = self.resist_cells = 0.75;
-	self.reflectlightning = TRUE;	// Reflect lightning strikes
-	self.reflectplasma = TRUE;		// Reflect plasma projectiles
+	if (self.classname == "monster_gug") {
+		self.resist_shells = self.resist_nails = 0;
+		self.resist_rockets = 0.5; self.resist_cells = 0;
+	}
+	else {
+		self.resist_shells = self.resist_nails = 0;
+		self.resist_rockets = self.resist_cells = 0.75;
+		self.reflectlightning = TRUE;	// Reflect lightning strikes
+		self.reflectplasma = TRUE;		// Reflect plasma projectiles
+	}
 	
 	self.th_checkattack = BogLordCheckAttack;
 	self.th_stand = bogl_stand1;
@@ -574,3 +592,12 @@ void() monster_boglord =
 	
 	monster_start();
 };
+
+//----------------------------------------------------------------------
+// Re-direct all Quoth Gug requests to Boglord!
+void() monster_gug = { 
+	self.attack_rage = 0.8;
+	if (self.health <= 0) self.health = 2000;
+	self.spawnflags = self.spawnflags | MON_BOGL_STRONG;
+	monster_boglord(); 
+}

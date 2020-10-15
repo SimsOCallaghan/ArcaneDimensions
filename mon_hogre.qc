@@ -126,9 +126,9 @@ void() hogre_run6	=[	$run6,		hogre_run7	] {monster_footstep(FALSE); ai_run(16);}
 void() hogre_run7	=[	$run7,		hogre_run8	] {ai_run(18);};
 void() hogre_run8	=[	$run8,		hogre_run1	] {ai_run(13);};
 
-/*======================================================================
- chainsaw (use version in mon_ogre.qc)
-======================================================================*/
+//======================================================================
+// chainsaw (use version in mon_ogre.qc)
+//======================================================================
 void() hogre_swing1	=[	$swing1,	hogre_swing2	] {ai_charge(10);hogre_sound(2);};
 void() hogre_swing2	=[	$swing2,	hogre_swing3	] {ai_charge(10);};
 void() hogre_swing3	=[	$swing3,	hogre_swing4	] {ai_charge(6);};
@@ -186,9 +186,9 @@ void() hogre_melee =
 	else hogre_swing1();
 };
 
-/*======================================================================
- OgreFireGrenade (use version in mon_ogre.qc)
-======================================================================*/
+//======================================================================
+// OgreFireGrenade (use version in mon_ogre.qc)
+//======================================================================
 void() hogre_shoot1	=[	$shootB1,		hogre_shoot2	] {ai_face();
 	MonsterGrenadeSound(); self.attack_speed = MonsterGrenadeSpeed();
 	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.enemy.origin, self.attack_speed); };
@@ -345,7 +345,7 @@ void() hogre_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) {
-		sound (self, CHAN_VOICE, "ogre/ogdth.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		self.lip = random();
 		if (self.lip < 0.05) hogre_dieS1();
 		else if (self.lip < 0.5) hogre_dieA1();
@@ -392,7 +392,7 @@ void() hogre_wakeup1 = {
 	else hogre_wakeup1b();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_hogre (0.5 0.75 0) (-32 -32 -24) (32 32 64) AMBUSH x METAL NOSIGHT NOIDLE NOGFX STARTOFF ANGRY Not_Easy Not_Normal Not_Hard Not_DM
 { model(":progs/mon_hogre.mdl"); }
 Ogre, 200 health points.
@@ -404,7 +404,8 @@ METAL : Chain mail metal armour and +100HP
 ======================================================================*/
 void() monster_hogre =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_hogre.mdl";			// New Ogre Model
 	self.headmdl = "progs/h_hogre.mdl";
@@ -434,7 +435,8 @@ void() monster_hogre =
 	precache_sound (self.idle_soundcom);
 
 	precache_sound ("ogre/ogdrag.wav");		// Chainsaw scrap on floor sound
-	precache_sound ("ogre/ogdth.wav");		// Death sound
+	self.death_sound = "ogre/ogdth.wav";
+	precache_sound (self.death_sound);		// Death sound
 	self.pain_sound = "ogre/ogpain1.wav";
 	precache_sound (self.pain_sound);		// Pain
 	
@@ -452,6 +454,7 @@ void() monster_hogre =
 	self.pain_flinch = 30;
 	self.pain_longanim = TRUE;
 	self.steptype = FS_TYPESLOW;
+	self.attack_explosive = TRUE;		// Has explosive attack
 	self.meleerange = MONAI_MELEEOGRE;	// Chainsaw range
 	self.deathstring = " was blown up by an Ogre Hunter\n";
 	
@@ -483,7 +486,8 @@ void() monster_hogre =
 	self.th_pain = hogre_pain;
 	self.th_wakeup = hogre_wakeup1;
 	
-	self.ammo_rockets = 2;
+	if (self.ammo_rockets < 0) self.ammo_rockets = 0;
+	else if (self.ammo_rockets == 0) self.ammo_rockets = 2;
 	self.classtype = CT_MONHOGRE;		// new style hunter ogre
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
 	self.classmove = MON_MOVEWALK;

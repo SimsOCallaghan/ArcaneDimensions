@@ -114,7 +114,8 @@ void() boil_checktarget =
 	
 	// Get the obvious exception(s) done first
 	if (self.health < 1) return;
-	if (intermission_running) return;
+	if (intermission_running > 0) return;
+	if (cinematic_running > 0) return;
 
 	// Find a client in current PVS
 	client = checkclient ();
@@ -313,6 +314,8 @@ void() boil_explode = {
 		WriteCoord (MSG_BROADCAST, self.origin_y);
 		WriteCoord (MSG_BROADCAST, self.origin_z);
 	}
+	// Can drop health packs! - randomizer
+	if (self.healamount > 0) DropHealthpack();
 };
 
 //----------------------------------------------------------------------
@@ -336,7 +339,8 @@ void() boil_die =
 ======================================================================*/
 void() monster_boil =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_boil.mdl";
 	precache_model (self.mdl);
@@ -358,6 +362,9 @@ void() monster_boil =
 		precache_poisongibs();			// precache gibs
 		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
 	}
+	
+	// The randomizer drops health packs on death
+	if (self.healamount > 0) CacheHealthpacks();
 	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
@@ -454,5 +461,11 @@ void() monster_boil =
 		self.th_melee = boil_expl1;
 	}
 	
-	monster_start();
+	// Delay spawn randomized boils a couple of frame
+	// To avoid telefrags issues of bad placement of HP packs
+	if (self.randomized > 0) {
+		self.nextthink = time + 0.1 + (random()*0.2);
+		self.think = monster_start;
+	}
+	else monster_start();
 };

@@ -1,6 +1,6 @@
-/*======================================================================
- MONSTER FUNCTIONS
-======================================================================*/
+//======================================================================
+// MONSTER FUNCTIONS
+//======================================================================
 
 float MONAI_ZOMBIEFLR = 1;		// start on floor
 float MONAI_ZOMBIEUPB = 2;		// zombie painb - 28 frames (9 = on ground)
@@ -18,23 +18,31 @@ void(float frameno) zombiek_onground;
 // Pre-defined bounding boxes for monsters
 // Use 'bboxtype' to specify one of these
 //----------------------------------------------------------------------
-float BBOX_TINY = 1;		// -16 -16 -24, 16 16 16
-float BBOX_SHORT = 4;		// -16 -16 -24, 16 16 32
-float BBOX_TALL = 5;		// -16 -16 -24, 16 16 40
-float BBOX_WIDE = 7;		// -24 -24 -24, 24 24 40
-float BBOX_GIANT = 8;		// -24 -24 -24, 24 24 64
-float BBOX_MASSIVE = 10;	// -32 -32 -24, 32 32 64
-float BBOX_GOLEM = 15;		// -24 -24 -24, 24 24 72
-float BBOX_DOG = 20;		// -20 -20 -24, 20 20 16
-float BBOX_FISH = 25;		// -16 -16 -24, 16 16 24
-float BBOX_FISHS = 26;		// -12 -12 -16, 12 12 16
-float BBOX_EEL = 27;		// -16 -16 -16, 16 16 16
-float BBOX_HYDRA = 30;		// -20 -20 -16, 20 20 16
-float BBOX_CUSTOM = 99;		// Custom size set already
+float BBOX_TINY = 1;		// -16 -16 -24, 16 16 16	Vol 32 x 32 x 40
+float BBOX_SQUARE = 2;		// -20 -20 -20, 20 20 20	Vol 40 x 40 x 40
+float BBOX_BRKTINY = 3;		// -12 -12 -24, 12 12 16	Vol 24 x 24 x 40
+float BBOX_SHORT = 4;		// -16 -16 -24, 16 16 32	Vol 32 x 32 x 56
+float BBOX_TALL = 5;		// -16 -16 -24, 16 16 40	Vol 32 x 32 x 64
+float BBOX_XTALL = 6;		// -16 -16 -24, 16 16 64	Vol 32 x 32 x 88
+float BBOX_WIDE = 7;		// -24 -24 -24, 24 24 40	Vol 48 x 48 x 64
+float BBOX_GIANT = 8;		// -24 -24 -24, 24 24 64	Vol 48 x 48 x 88
+float BBOX_MASSIVE = 10;	// -32 -32 -24, 32 32 64	Vol 64 x 64 x 88
+float BBOX_XMASSIVE = 12;	// -32 -32 -24, 32 32 80	Vol 64 x 64 x 104
+// Custom monster bound box sizes
+float BBOX_DOG = 20;		// -20 -20 -24, 20 20 16	Vol 40 x 40 x 40
+float BBOX_FISH = 30;		// -16 -16 -24, 16 16 24	Vol 32 x 32 x 48
+float BBOX_FISHS = 32;		// -12 -12 -16, 12 12 16	Vol 24 x 24 x 32
+float BBOX_EEL = 34;		// -16 -16 -16, 16 16 16	Vol 32 x 32 x 32
+float BBOX_HYDRA = 36;		// -20 -20 -16, 20 20 16	Vol 40 x 40 x 32
+float BBOX_JUSTICE = 40;	// -16 -16 -24, 16 16 56	Vol 32 x 32 x 80
+float BBOX_GOLEM = 50;		// -28 -28 -24, 28 28 80	Vol 56 x 56 x 104
+float BBOX_PSYDER = 60;		// -32 -32 -24, 32 32 160	Vol 64 x 64 x 184
 
-/*======================================================================
- monster_use - trigger/make angry
-======================================================================*/
+float BBOX_CUSTOM = 99;		// Custom size defined on monster
+
+//======================================================================
+// monster_use - trigger/make angry
+//======================================================================
 void() monster_use =
 {
 	// Busy with another enemy or dead?
@@ -107,7 +115,22 @@ void() monster_liquid_check =
 	monster_feet = self.origin; 
 	monster_feet_z = monster_feet_z + self.mins_z;
 	self.liquidbase = pointcontents(monster_feet);
-
+	
+	// Some monsters start in lava/slime (ID1 maps)
+	// If placed in laval/slime give immunity (old ID1 behaviour)
+	if (framecount < 50) {
+		if (self.liquidbase == CONTENT_SLIME || self.liquidbase == CONTENT_LAVA)
+		{ 
+			self.no_liquiddmg = TRUE;
+			spawn_marker(self.origin, 0);
+			dprint("\b[Monster]\b ("); dprint(self.classname);
+			dprint(") at ("); dprint(vtos(self.origin));
+			dprint(") in ("); dprint(ftos(self.liquidbase));
+			dprint(") FC ("); dprint(ftos(framecount));
+			dprint(")\n");
+			return;
+		}
+	}
 	// Setup standard damage for liquid types
 	if (self.liquidbase == CONTENT_SLIME) monster_dmg = SLIME_DAMAGE * MON_MULTIPLIER;
 	else if (self.liquidbase == CONTENT_LAVA) monster_dmg = LAVA_DAMAGE * MON_MULTIPLIER;
@@ -174,7 +197,8 @@ void() monster_sightsound =
 	if (self.health < 1) return;
 	if (!self.sight_sound) return;
 	if (self.spawnflags & MON_SPAWN_NOSIGHT) return;
-	if (intermission_running > 0) return;		// intermission or finale
+	if (intermission_running > 0) return;
+	if (cinematic_running > 0) return;
 
 	// Only do a sight sound when necessary, otherwise it overlaps and gets messy	
 	if (self.sight_timeout < time) {
@@ -382,6 +406,9 @@ void() monster_death_postcheck =
 	self.solid = SOLID_TRIGGER;
 	self.touch = SUB_Null;
 	
+	// Compatibility with Quoth body fade version
+	if (self.corpse_time > 0) self.bodyfadeaway = self.corpse_time;
+	
 	// Check for global or individual body fading mechanic
 	if (self.bodyfadeaway > 0 || map_bodyfadeaway > 0) {
 		if (map_bodyfadeaway > 0) bodytimer = map_bodyfadeaway;
@@ -452,6 +479,72 @@ void() monster_death_use =
 
 	activator = self.enemy;
 	SUB_UseTargets ();
+};
+
+/*======================================================================
+ monster_remove_kill
+  - A clean way to kill/remove a monster from a map
+  - deathfunc to go through existing death function
+  - gibdeath for explosion of blood and guts
+======================================================================*/
+void(entity targ, float deathfunc, float gibdeath) monster_remove_kill =
+{
+	dprint("\b[MON_KILL]\b "); dprint(targ.classname);
+	dprint(" dropped dead!\n");
+	// There are always exceptions to the use of the monster flag
+	// Point Hell knights don't use monster flag to prevent damage!
+	if (targ.spawnflags & MON_POINT_KNIGHT && targ.health > 0) 
+		targ.flags = targ.flags | FL_MONSTER;
+	
+	if (targ.bossflag) {
+		dprint("\b[MON_KILL]\b Cannot kill bosses this way!\n");
+		spawn_marker(targ.origin, SPNMARK_YELLOW);
+		return;
+	}
+	
+	// only work with monsters, can't be dead, dying or negative health!
+	if (targ.flags & FL_MONSTER && targ.health > 0 && !targ.deadflag) {
+		// Check for any targets (counters will broken otherwise)
+		if (self.target != "") trigger_strs(self.target, self);
+		if (self.target2 != "") trigger_strs(self.target2, self);
+		
+		// Check if death function is required for monster
+		// Also double check they have a death function setup!
+		if (deathfunc && targ.th_die) {
+			// Quick way to make something gib, switch on the flag for it!
+			if (gibdeath) targ.gibondeath = TRUE;
+			// Make sure monster can take damage
+			targ.takedamage = DAMAGE_YES;
+			// Always do enough damage to kill the monster
+			// Can be a problem for ammo resistant
+			T_Damage (targ, world, world, targ.health+1, NOARMOR);
+		}
+		else {
+			targ.deadflag = DEAD_DEAD;
+			targ.enemy = world;
+			targ.health = targ.gibhealth;
+
+			// If a monster marked with no monster count dies
+			// update HUD totals to reflect death properly
+			if (targ.nomonstercount) {
+				total_monsters = total_monsters + 1;
+				update_hud_totals(HUD_MONSTERS);
+			}	
+			// Update global monster death totals
+			killed_monsters = killed_monsters + 1;
+			WriteByte (MSG_ALL, SVC_KILLEDMONSTER);
+
+			// Stop all animation think functions
+			targ.think = SUB_Null;
+			targ.nextthink = time + LARGE_TIMER;
+			// Finally stop and hide all models
+			// Should not remove monster, it might have dependancies
+			entity_hide(targ);
+			if (targ.attachment) entity_remove(targ.attachment, 0.1);
+			if (targ.attachment2) entity_remove(targ.attachment2, 0.1);
+			if (targ.attachment3) entity_remove(targ.attachment3, 0.1);
+		}
+	}
 };
 
 /*======================================================================
@@ -557,30 +650,20 @@ void() monster_targets =
 void() monster_spawn =
 {
 	//----------------------------------------------------------------------
-	// Check for Axe / Shotgun / LG upgrade monster spawn exceptions?
-	if (self.upgrade_axe || self.upgrade_ssg || self.upgrade_lg) {
-		// Has ANY player (server test not individual) 
-		// picked up the relevant upgrade weapons?
-		if (self.upgrade_axe && !query_configflag(SVR_UPDAXE) ) return;
-		if (self.upgrade_ssg && !query_configflag(SVR_UPDSSG) ) return;
-		if (self.upgrade_lg && !query_configflag(SVR_UPDLG) ) return;
-
-		// Update monster count (not added to monster count until spawned)
-		total_monsters = total_monsters + 1;
-		update_hud_totals(HUD_MONSTERS);
-	}
-
-	//----------------------------------------------------------------------
 	// Check if the monster can spawn without telefragging something
 	if (self.spawnnotelefrag > 0) {
 		// Switch on world interaction
 		self.solid = SOLID_SLIDEBOX;
-		self.movetype = MOVETYPE_STEP;
+		// Not all monsters are step movement, some are stationary
+		if (self.classmove == MON_MOVESTATIC) self.movetype = MOVETYPE_NONE;
+		else self.movetype = MOVETYPE_STEP;
 		// restore model/bbox to get world collision
 		setmodel(self, self.mdl);
 		setsize (self, self.bbmins, self.bbmaxs);
 		// reset origin, just in case been moved since last
 		setorigin(self, self.oldorigin);
+		// Save origin for cinematic camera angle interpolation
+		self.lastorigin = self.origin;
 		
 		// Make sure movement flag types are correct
 		if (self.classmove == MON_MOVEFLY ) 
@@ -590,13 +673,14 @@ void() monster_spawn =
 
 		// Can the monster walk without collision?
 		if (!walkmove (0, 0)) {
-			dprint("BLOCKED "); dprint(self.classname); dprint(" ");
 			// Switch off monster and wait again
 			self.solid = SOLID_NOT;
 			setmodel(self,"");
 			setsize(self, VEC_ORIGIN, VEC_ORIGIN);
 			self.think = monster_spawn;
 			self.nextthink = time + 0.1 + random()*0.5;
+			//dprint(self.classname); dprint(" is Blocked, waiting (");
+			//dprint(ftos(self.nextthink - time)); dprint(") secs\n");
 			return;
 		}
 		else {
@@ -657,7 +741,9 @@ void() monster_spawn =
 	if (self.think1) self.use = self.think1;	// different use function?
 	else self.use = monster_use;				// default trigger event
 	self.solid = SOLID_SLIDEBOX;				// Standard monster movement
-	self.movetype = MOVETYPE_STEP;				// Standard monster movement
+	// Some monsters never move, make sure they don't drift either
+	if (self.classmove == MON_MOVESTATIC) self.movetype = MOVETYPE_NONE;
+	else self.movetype = MOVETYPE_STEP;			// Standard monster movement
 	setmodel(self, self.mdl);					// Setup model
 	self.skin = self.skin_override;				// Restore any skins
 	self.frame = self.frame_override;			// Restore any frames
@@ -691,6 +777,9 @@ void() monster_spawn =
 	// Check for tether system (special target field)
 	setup_tethersystem();
 	
+	// Check for passive mode and add (defaults) extra variables
+	setup_passivestate(self);
+
 	// Long time before first idle sound (except scorpions!)
 	if (self.idletimer < 1) {
 		if (self.classtype == CT_MONSCORPION) self.idletimer = time + 0.1 + random();
@@ -699,7 +788,7 @@ void() monster_spawn =
 	
 	// Reset all enemy tracking entities
 	if (!self.enemy) self.enemy = self.movetarget = self.goalentity = world;
-	self.pausetime = LARGE_TIMER;
+	self.pausetime = time + LARGE_TIMER;
 
 	// Setup pain tolerence level based on current skill level
 	if (!self.pain_timeout) self.pain_timeout = 1;	// Default
@@ -715,16 +804,17 @@ void() monster_spawn =
 
 	//----------------------------------------------------------------------
 	self.ideal_yaw = self.angles * '0 1 0';
-	if (self.classmove == MON_MOVEWALK ) {		// Walking Monsters
-		if (!self.yaw_speed) self.yaw_speed = 20;
-	}
-	else if (self.classmove == MON_MOVEFLY ) {	// Flying Monsters
+	if (self.classmove == MON_MOVEFLY ) {	// Flying Monsters
 		if (!self.yaw_speed) self.yaw_speed = 15;
 		self.flags = self.flags | FL_FLY;
 	}
 	else if (self.classmove == MON_MOVESWIM ) {	// Swimming Monsters	
 		if (!self.yaw_speed) self.yaw_speed = 10;
 		self.flags = self.flags | FL_SWIM;
+	}
+	else {
+		// Default walking/static monsters
+		if (!self.yaw_speed) self.yaw_speed = 20;
 	}
 
 	// Not all bounding boxes extend up very high, make sure the view_ofs
@@ -808,6 +898,7 @@ void() monster_spawn =
 	if (self.classmove == MON_MOVEWALK) {
 		self.origin_z = self.origin_z + 1;
 		droptofloor();
+		
 		if (!walkmove(0,0)) {
 			// Tempoaraily use lip variable for stuck condition
 			self.lip = TRUE;
@@ -831,19 +922,14 @@ void() monster_spawn =
 			// Is the monster stuck with new/old bounding box?
 			// Stuck monsters contribute towards level monster totals
 			if (self.lip) {
-				// If the monster is stuck and delay spawned, gib instead
-				if (self.spawnflags & MON_SPAWN_DELAY) {
-					self.health = self.gibhealth;
-					Killed(self, self);
-				}
-				else {
-					// this condition should be a map spawn event only
-					dprint ("\b[STUCK]\b "); dprint (self.classname);
-					dprint (" at "); dprint (vtos(self.origin));
-					dprint ("\n");
-					spawn_marker(self.origin, SPNMARK_YELLOW);
-					remove(self);
-				}
+				// Need to check exceptions because this could go badly
+				// wrong for certain types like bosses or special setups
+				// Highlight this an warning with marker and messages!
+				dprint ("\b[STUCK]\b "); dprint (self.classname);
+				dprint (" at "); dprint (vtos(self.origin));
+				dprint ("\n");
+				spawn_marker(self.origin, SPNMARK_YELLOW);
+				monster_remove_kill(self, FALSE, TRUE);
 				return;
 			}
 		}
@@ -857,10 +943,10 @@ void() monster_spawn =
 		// This is to prevent excessive damage to breakables
 		// Monsters can spawn in very wierd situations (inside things)
 		// if spawning damage is disabled (spawn_tdeath)
-		if (self.nospawndamage == 0) 
+		if (self.nospawndamage == 0)
 			spawn_tdeath(self.origin, self);	// 50K damage!
 		
-		// Don't show spawning effect if delay spawn + nogfx
+		// Don't show spawning effect if start of map spawning
 		if (self.spawnflags & MON_SPAWN_DELAY && !(self.spawnflags & MON_SPAWN_NOGFX)) 
 			spawn_tfog(self.origin);
 	}
@@ -893,12 +979,35 @@ void() monster_spawn =
 	}
 
 	//----------------------------------------------------------------------
+	// Floyd starts in special standby mode (front facing lights out)
+	// Will wait for a trigger or damage from player/monster
+	// Floyd starts in a death/rolling animation (lower HP)
+	// ** Has unique use/think function
+	//----------------------------------------------------------------------
+	if (self.classtype == CT_MONFLOYD && self.spawnflags & MON_FLOYDCUSTOM) {
+		self.nextthink = time + 0.1 + random()*0.5;
+		self.think = self.th_stand;			// custom function
+		return;
+	}
+	
+	//----------------------------------------------------------------------
 	// Start in special standby mode with a blue halo glowing shield
 	// Will wait for a trigger before reverted back to normal gameplay
 	// ** Has unique use/think function
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_MONSEEKER && self.spawnflags & MON_SEEK_SHIELD) {
 		self.takedamage = DAMAGE_NO;		// No damage till wakeup
+		self.nextthink = time + 0.1 + random()*0.5;
+		self.think = self.th_stand;			// statue function
+		return;
+	}
+	//----------------------------------------------------------------------
+	// Start in special standby mode with a blue halo glowing shield
+	// Will wait for a trigger before reverted back to normal gameplay
+	// ** Has unique use/think function
+	//----------------------------------------------------------------------
+	if (self.classtype == CT_MONSWEEPER && self.spawnflags & MON_SWEEPER_SHIELD) {
+		self.takedamage = DAMAGE_YES;		// Resist damage only till wakeup
 		self.nextthink = time + 0.1 + random()*0.5;
 		self.think = self.th_stand;			// statue function
 		return;
@@ -914,7 +1023,15 @@ void() monster_spawn =
 	}
 	//----------------------------------------------------------------------
 	// No more spawn exception check for targets
-	monster_targets();
+	// If monster has died, don't reset any timers
+	if (self.health > 0) monster_targets();
+};
+
+//======================================================================
+void() monster_spawndelay =
+{
+	self.think = monster_spawn;
+	self.nextthink = time + self.spawndelay;
 };
 
 //----------------------------------------------------------------------
@@ -926,6 +1043,12 @@ void() monster_bbox =
 	else if (self.bboxtype == BBOX_TINY)
 		// Lost Soul, Scorpion, Spider, Voreling
 		{ self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 16'; }
+	else if (self.bboxtype == BBOX_BRKTINY)
+		// Tiny spawn for breakables
+		{ self.bbmins = '-15 -15 -24'; self.bbmaxs = '15 15 16'; }
+	else if (self.bboxtype == BBOX_SQUARE)
+		// Turret
+		{ self.bbmins = '-20 -20 -20'; self.bbmaxs = '20 20 20'; }
 	else if (self.bboxtype == BBOX_SHORT)
 		// Player, Death Guards, Knights, Crossbow Knights, 
 		// Army, Army_Rocket, Army_Grenade, Army_Plasma, Jim
@@ -936,6 +1059,8 @@ void() monster_bbox =
 		// Enforcer, Defender, Eliminator, Pyro, Centurion
 		// Skull Wizard, Wizard, Gargoyles, Tarbaby, Wraith
 		{ self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 40'; }
+	else if (self.bboxtype == BBOX_XTALL)
+		{ self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 64'; }
 	else if (self.bboxtype == BBOX_WIDE)
 		// Demon, Ogre, Hunter Ogre, _Mace, _Hammer, Shalrath
 		{ self.bbmins = '-24 -24 -24'; self.bbmaxs = '24 24 40'; }
@@ -945,8 +1070,11 @@ void() monster_bbox =
 	else if (self.bboxtype == BBOX_MASSIVE)
 		// Shambler, ID Ogre
 		{ self.bbmins = '-32 -32 -24'; self.bbmaxs = '32 32 64'; }
-
-		// Some monsters are custom sizes
+	else if (self.bboxtype == BBOX_XMASSIVE)
+		// Judicator
+		{ self.bbmins = '-32 -32 -24'; self.bbmaxs = '32 32 80'; }
+	
+	// Some monsters are custom sizes
 	else if (self.bboxtype == BBOX_DOG)
 		{ self.bbmins = '-20 -20 -24'; self.bbmaxs = '20 20 16'; }
 	else if (self.bboxtype == BBOX_FISH)
@@ -957,11 +1085,34 @@ void() monster_bbox =
 		{ self.bbmins = '-16 -16 -16'; self.bbmaxs = '16 16 16'; }
 	else if (self.bboxtype == BBOX_HYDRA)
 		{ self.bbmins = '-20 -20 -16'; self.bbmaxs = '20 20 16'; }
+	else if (self.bboxtype == BBOX_JUSTICE)
+		{ self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 56'; }
 	else if (self.bboxtype == BBOX_GOLEM)
 		{ self.bbmins = '-28 -28 -24'; self.bbmaxs = '28 28 80'; }
+	else if (self.bboxtype == BBOX_PSYDER)
+		{ self.bbmins = '-32 -32 16'; self.bbmaxs = '32 32 168'; }
 	
 	// default bounding box = TALL
 	else { self.bbmins = '-16 -16 -24'; self.bbmaxs = '16 16 40'; }
+};
+
+//======================================================================
+// monster_checkspawn - check all spawn conditions
+// return TRUE = do NOT spawn, got a problem
+//======================================================================
+float() monster_checkspawn =
+{
+	// Classic exception - Multiplayer (modes 1 & 2)
+	if (deathmatch) { remove(self); return TRUE; }
+	// This will break progression if monster is used with a counter
+	if (cvar("nomonsters") != 0) { remove(self); return TRUE; }
+	// Check for spawning (entity keys) conditions (nightmare, coop)
+	// uses entity_hide instead of remove(self) - done in check
+	if (check_nightmare() == TRUE) return TRUE;
+	if (check_coop() == TRUE) return TRUE;
+
+	// No more execeptions
+	return FALSE;
 };
 
 /*======================================================================
@@ -971,12 +1122,9 @@ void() monster_bbox =
 void() monster_start =
 {
 	self.flags = FL_MONSTER;			// Always reset this flag
+	self.ticktimer = 0.1;				// Model animations at 10fps
 	self.skin_override = self.skin;		// Save for later
 	self.frame_override = self.frame;
-	
-	// Check for spawning conditions (nightmare, coop)
-	if (check_nightmare() == TRUE) return;
-	if (check_coop() == TRUE) return;
 	
 	// Warning if effects flag is active before spawning
 	if (self.effects) {
@@ -1005,9 +1153,7 @@ void() monster_start =
 
 	// Setup bounding box based on presets
 	monster_bbox();
-	// Cannot have multiple upgrade restrictions on monsters
-	remove_duplicate_upgrades();
-
+	
 	// Cannot delay spawn a monster if nothing can trigger it!?!
 	if (self.spawnflags & MON_SPAWN_DELAY && self.targetname == "") {
 		dprint("\b[MONSTER]\b Cannot delay spawn without targetname!\n");
@@ -1016,33 +1162,19 @@ void() monster_start =
 		return;
 	}
 	
-	// Check for Axe / Shotgun upgrade monster exceptions?
-	// Don't add these kind of monster to the count until spawned
-	if (self.upgrade_axe || self.upgrade_ssg || self.upgrade_lg) {
-		if ( !(self.spawnflags & MON_SPAWN_DELAY) ) {
-			dprint("\b[MONSTER]\b need spawn delay for axe/shotgun/lg\n");
-			spawn_marker(self.origin, SPNMARK_YELLOW);
-			remove(self);
-			return;
+	// Allow mappers to spawn monsters that don't affect monster count
+	// I know this can be a dangerous if used incorrectly, but good for statues
+	// delaymonstercount = update count on spawn instead of death
+	if (self.nomonstercount > 0 || self.delaymonstercount > 0) 	{
+		// Some maps have way too many no monster counts
+		if (world.no_moncountdevmsg <= 0) {
+			dprint("\b[MONSTER]\b ("); dprint(self.targetname);
+			dprint(") - no monster count\n");
 		}
-		// make sure the monster has no nomonstercount exceptions
-		if (self.nomonstercount) self.nomonstercount = 0;
 	}
-	else {
-		// Allow mappers to spawn monsters that don't affect monster count
-		// I know this can be a dangerous if used incorrectly, but good for statues
-		// delaymonstercount = update count on spawn instead of death
-		if (self.nomonstercount > 0 || self.delaymonstercount > 0)
-		{
-			if (developer > 1) {
-				dprint("\b[MONSTER]\b ("); dprint(self.targetname);
-				dprint(") - no monster count\n");
-			}
-		}
-		// Default state - update monster total
-		// HUD update done with client setup
-		else total_monsters = total_monsters + 1;
-	}
+	// Default state - update monster total
+	// HUD update done with client setup
+	else total_monsters = total_monsters + 1;
 	
 	//----------------------------------------------------------------------
 	// Detect monster armour map hack
@@ -1057,14 +1189,14 @@ void() monster_start =
 		self.solid = SOLID_NOT;				// No world interaction
 		self.use = monster_spawn;			// Wait for trigger
 		
-		if (developer > 0 && !query_configflag(SVR_DEVHELPER)) {
-			self.movetype = MOVETYPE_NONE;
-			self.solid = SOLID_NOT;
-			setmodel(self, MODEL_BROKEN);
-			if (self.nomonstercount == 1) self.skin = SPNMARK_GREEN;
-			else self.skin = SPNMARK_BLUE;
-			self.frame = 0;
+		// Check for triggered spawndelay
+		if (self.spawndelay != 0) {
+			if (self.spawndelay <= 0) self.spawndelay = 0.1 + random()*0.4;
+			self.use = monster_spawndelay;
 		}
+	
+		// Display debug diamonds
+		monster_devmarker(self);
 	}
 	else {
 		// Variable start delay on all monsters to reduce packet errors
@@ -1081,67 +1213,132 @@ void() walkmonster_start_go = { remove(self); return; };
 void() flymonster_start_go = { remove(self); return; };
 void() swimmonster_start_go = { remove(self); return; };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_x (1 0 0) (x y z) (x y z) AMBUSH x x NOSIGHT NOIDLE NOGFX STARTOFF ANGRY Not_Easy Not_Normal Not_Hard Not_DM
 XXX, x health points.
 -------- KEYS --------
-targetname : monster/trigger name
-target : Starting position or path_corner to walk towards (always define)
-target2 : Additional trigger function (need target to be defined as well)
-angrytarget : something (monster/player) to get angry at once spawned
-deathtarget : entity to trigger upon death (useful if target field already in use)
-health : Override default health settings
-exactskin : Override default skin selection of 0 (no error checking)
-upgrade_ssg : 1 = will only spawn if shotgun upgrade active on server
-upgrade_axe : 1 = will only spawn if axe upgrade active on server
-upgrade_lg : 1 = will only spawn if lightning gun upgrade active on server
-nomonstercount : will not be included in any monster count functionality
+targetname   : Name of monster used for triggering/reference
+target       : A path_corner to walk towards or a trigger event on death
+target2      : Additional trigger events to fire on death of monster
+angrytarget  : something (monster/player) to get angry at once spawned
+deathtarget  : entity to trigger upon death (use if target field in use)
+health       : Override default health settings
+exactskin    : Override default skin selection of 0 (no error checking)
+nomonstercount : Exclude from initial monster count, will add if killed
 infightextra : Damage multiplier for infighting damage
-pain_ignore : 1 = Ignore pain when hit by other monsters
+pain_ignore  : 1 = Ignore pain when hit by other monsters
 noinfighting : Will not react to any infighting (it can look stupid)
 no_liquiddmg : Blocks all liquid (slime/lava) damage checks
-no_zaware : All Z Aware projectiles will be disabled
-bboxtype : Change bbox 1=Tiny,4=Short,5=Tall,7=Wide,8=Giant,10=Massive
-gibondeath : 1 = always explode in a shower of gibs on death
+no_zaware    : All Z Aware projectiles will be disabled
+bboxtype     : Change bbox 1=Tiny,4=Short,5=Tall,7=Wide,8=Giant,10=Massive
+gibondeath   : 1 = always explode in a shower of gibs on death
 bodyfadeaway : Time (secs) before body/head will fade away (default=0)
-movespeed : -1 = no movement(turret), =0/1 free movement (default)
-turrethealth : = 0.0->1.0; % of HP when monster turret is released 
-turrettarget : Target(s) to fire when turret % HP is released
-
---- Knights ---
-frame: statue frame to be frozen in. (default 44)
-STATUE : Stone statue until triggered
-NOTFROZEN : Will start active (works with statue spawnflag)
-
---- Hell Knight ---
-frame: statue frame to be frozen in. (default 73)
-STATUE : Stone statue until triggered
-NOTFROZEN : Will start active (works with statue spawnflag)
-
---- Crossbow Knight ---
-SNIPER : no max range limitations for enemies (sniper mode)
-TRACKING : Enable tracking for the firing of bolts (really hard)
-
---- Golem ---
-frame: statue frame to be frozen in. (default 48)
-STATUE : Stone statue until triggered
-
---- Tarbaby ---
-death_dmg : Damage on Death (def=120)
-poisonous : 0=Jump attack (default, 1=Poison attack
-exactskin : 0-1=Blue, 2-3=Green1, 4-5=Green2, 6-7=Green3
-
---- Skull Wizards ---
-bodyphased   : Spawn phased out and wait to see player
-bodystatic   : Prevents skull wizard from teleporting
-
+movespeed    : -1 = no movement(turret), =0/1 free movement (default)
+turrethealth : = 0.0->1.0; % of HP when monster is released 
+turrettarget : Target(s) to fire when monster % HP is reached
 -------- SPAWNFLAGS --------
-AMBUSH : the monster will only wake up on seeing the player, not by another monster
-NOSIGHT : No sight sound
-NOIDLE : No idle sound
-NOGFX : No spawn effect or sound when triggered
+AMBUSH   : Only wake up on seeing the player, not by other monsters
+NOSIGHT  : No sight sound
+NOIDLE   : No idle sound
+NOGFX    : No spawn effect or sound when triggered
 STARTOFF : Trigger Spawn
-ANGRY : Trigger Spawn angry at the player
+ANGRY    : Trigger Spawn angry at the player
+
 -------- NOTES --------
 XXX, x health points.
+
+
+// Can be added to monsters (there are plenty of exceptions)
+//--------------------------------------------------------------------------
+attack_sniper: Wakes up a monster on sight of player at distance
+attack_instant: Will instantly attack enemy, good for setup behind breakables
+sighttarget  : Creates a group of monster that get angry together
+height       : Amount of height (flying only) to be above player (def=128)
+passive_state: Enable passive monster system (-1=DISABLE, 0=OFF, 1=ON)
+poisonous    : Special skin + Poison debuff melee/range attack
+jump_flag    : (-1 = no jump) Stops a jumping monster from jumping
+tethertarget : target entity (path_corner) for tether system
+tetherrange  : The circular range around tether entity (def=300)
+tetherwait   : Amount of time to wait before returning (def=30)
+minion_maxcount : Max amount of active minions allowed (def=5)
+turrethealth  : % HP for a trigger event to happen (+releases turret monsters)
+turrettarget  : Targets to fire when % HP turrethealth is reached
+turrethealth2 : % HP for a trigger event to happen (must be < turrethealth)
+turrettarget2 : Targets to fire when % HP turrethealth2 is reached
+
+// Other entity keys that affect most monsters
+// Not included in def because these are rare functionality
+//--------------------------------------------------------------------------
+spawndelay       : Time to wait before spawning (reqs start off spawnflag)
+delaymonstercount: Exclude from initial monster count, wait for delay spawn
+spawnnotelefrag  : Will wait for spawn location to be empty before spawning
+spawnnosight     : Will only spawn if cannot see the player (timeout does exist)
+spawnnosighttime : Time (def=30s) to wait before giving up and spawning
+proj_noskycheck  : Stop checking for sky brushes (fps issue on large maps only)
+
+// Extra stuff for certain monster types
+//--------------------------------------------------------------------------
+monster_boil
+wait         : time between random squirts of blood (def = wait + rnd x wait)
+t_width      : Trigger radius for detecting a player (def = 80 / 120)
+death_dmg    : Explosive radius damage on death (def = 60)
+poisonous    : Green blood, gibs and poison debuff attack with radius damage
+
+monster_dprince
+attack_lifetime : Time that plasma will stay active on floor for damage
+
+monster_golem
+frame        : statue frame to be frozen in. (default 48)
+
+monster_knight
+frame        : statue frame to be frozen in. (default 44)
+
+monster_hell_knight
+frame        : statue frame to be frozen in. (default 73)
+
+monster_hell_pointknight
+target       : target for electricity
+target2      : trigger to fire when electricity stopped
+pos1         : XYZ offset to start lightning (uses v_forward/v_right/v_up)
+pos2         : XYZ random offset to start lightning (uses v_forward/v_right/v_up)
+pos3         : Animation lightning frame set (Start/Finish/Direction)
+t_length     : random wobble to electricity target origin (0=def 5)
+dmg          : amount of contact damage with electricity (0=def 5)
+
+monster_seeker
+state        : start with one arm removed 1=Left, 2=Right
+
+monster_shambler
+poisonous    : Green skin + Poison debuff attack on melee claws
+attack_sniper: 1 = Lightning attack has no range limit (previous 600 units)
+
+monster_skullwiz
+target2      : A chain of info_skullwiz_destination entities for exact teleports
+bodyphased   : Spawn phased out and wait to see player
+bodystatic   : Prevents skull wizard from teleporting
+height       : Maximum Z distance to search for teleport destination
+distmin      : Minimum XY distance to search for teleport destination
+destmax      : Maximum XY distance to search for teleport destination
+
+monster_tarbaby
+death_dmg    : Damage on Death (def=120)
+poisonous    : 0=Jump attack (default, 1=Poison attack)
+exactskin    : 0-1=Blue, 2-3=Green1, 4-5=Green2, 6-7=Green3
+
+monster_turretbal
+t_length      : Axis restriction for ceiling/floor version
+t_width       : 2nd axis restriction for wall version
+attack_count  : =-1 to disable increased fire rate
+turretclosing : target(s) fired when turret hides back wall/ceil/floor
+turretopening : target(s) fired when turret is coming out to play
+turretlocked  : Turret will not hide and remain in combat
+distance      : The range at which the turret will hide (def=600)
+waitmin       : Time (def=2s) will pause before hiding if cannot see enemy
+waitmin2      : Time (def=2s) to wait hidden before coming out again
+waitmin3      : Time (def=2s) startup delay when spawning at start of map
+wakeup_angle  : Angle lock boundary adjustment when turret is closed
+
+monster_zombiek
+aflag        : 0 = random, 1 = Facing down, 2 = Facing up - only for onfloor setup
+
 ======================================================================*/

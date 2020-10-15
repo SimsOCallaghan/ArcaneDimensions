@@ -26,6 +26,7 @@ void() player_axeb1;
 void() player_axec1;
 void() player_axed1;
 void() player_axee1;
+void() player_grapple1;			// Grapple Hook
 void() player_sg1;				// Shotgun
 void() player_supersg1;			// Super Shotgun
 void() player_nail1;			// Nailgun
@@ -35,8 +36,9 @@ void() player_grenade1;			// Grenade Launcher
 void() player_light1;			// Thunderbolt
 void() player_plasma1;			// Plasma Gun
 
-void() player_ssgreset;			// Reset weaponframe
+void() player_ghreset;			// Reset weaponframes
 void() player_sgreset;
+void() player_ssgreset;
 void() player_grenreset;
 void() player_rockreset;
 
@@ -107,8 +109,12 @@ void() W_FireAxe =
 	
 	org = trace_endpos - v_forward*4;	// Back 4 units to spawn blood
 
-	// Only stuff that can be damaged has unique impact sounds
-	if (trace_ent.takedamage) {
+	//----------------------------------------------------------------------
+	// REFLECTION stuff like blue shields
+	if (trace_ent.reflectaxe) Resist_Axe(self, org);
+	//----------------------------------------------------------------------
+	// BLEEDING/DAMAGE stuff with unique impact sounds
+	else if (trace_ent.takedamage) {
 		// Mark the monster with type of axe used and change damage
 		if (self.moditems & IT_UPGRADE_AXE) {
 			axedmg = DAMAGE_PLAYAXE2; trace_ent.axhitme = 2; }
@@ -132,6 +138,8 @@ void() W_FireAxe =
 				sound (self, CHAN_WEAPON, SOUND_AXE_GLASS, 1, ATTN_NORM);
 			else if (trace_ent.style == BTYPE_METAL) 
 				sound (self, CHAN_WEAPON, SOUND_AXE_METAL, 1, ATTN_NORM);
+			else if (trace_ent.style == BTYPE_FLESH) 
+				sound (self, CHAN_WEAPON, SOUND_AXE_FLESH, 1, ATTN_NORM);
 			else
 				sound (self, CHAN_WEAPON, SOUND_AXE_STONE, 1, ATTN_NORM);
 		}
@@ -148,8 +156,7 @@ void() W_FireAxe =
 		}
 	}
 	//----------------------------------------------------------------------
-	// WORLD OBJECT : Target does not bleed, play stone hitting sound
-	//----------------------------------------------------------------------
+	// WORLD (probably) does not bleed, play stone hitting sound
 	else {
 		sound (self, CHAN_WEAPON, SOUND_AXE_STONE, 1, ATTN_NORM);
 		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
@@ -520,6 +527,7 @@ PLASMA
 void() W_FirePlasma =
 {
 	local vector org, dir;
+	local float cells;
 	
 	// If run out of ammo, switch weapons to next best
 	if (self.attack_finished > time) return;
@@ -527,8 +535,24 @@ void() W_FirePlasma =
 
 	// Do nothing if weapon is under water
 	if (self.waterlevel > 1) {
-		self.attack_finished = time + 0.2;
-		sound (self, CHAN_WEAPON, "weapons/nofire.wav", 1, ATTN_NORM);
+		// Air tank vania item wil explode weapon instead
+		if (self.moditems & IT_ARTAIRTANK) {
+			// Use all cells
+			cells = self.ammo_cells;
+			// Update inventory
+			self.ammo_cells = 0;
+			W_SetCurrentAmmo (self);
+			// Impact avoidance sound
+			PlayBlastBeltSound(self);
+			// Death to everything around, except players!
+			T_RadiusDamage (self, self, 35*cells, self, IGNORECLASS);
+			// Reduce player HP down to 50%, no armour saves!
+			T_Damage(self, world, world, self.health*0.5, NOARMOR);
+		}
+		else {
+			self.attack_finished = time + 0.2;
+			sound (self, CHAN_WEAPON, SOUND_MISFIRE, 1, ATTN_NORM);
+		}
 		return;
 	}
 	
@@ -774,10 +798,22 @@ void() W_FireLightning =
 
 	// explode if under water
 	if (self.waterlevel > 1) {
+		// Use all cells
 		cells = self.ammo_cells;
+		// Update inventory
 		self.ammo_cells = 0;
 		W_SetCurrentAmmo (self);
-		T_RadiusDamage (self, self, 35*cells, world, DAMAGEALL);
+		// Air tank vania item saves player from death
+		if (self.moditems & IT_ARTAIRTANK) {
+			// Impact avoidance sound
+			PlayBlastBeltSound(self);
+			// Death to everything around, except players!
+			T_RadiusDamage (self, self, 35*cells, self, IGNORECLASS);
+			// Reduce player HP down to 50%, no armour saves!
+			T_Damage(self, world, world, self.health*0.5, NOARMOR);
+		}
+		// Default behaviour, death to everything!
+		else T_RadiusDamage (self, self, 35*cells, world, DAMAGEALL);
 		return;
 	}
 
@@ -827,15 +863,19 @@ void() W_FireLightning =
 void(entity targ) W_SetCurrentAmmo =
 {
 	if (intermission_running > 0) return;	// intermission or finale
-	remoteplayer_run (targ);			// get out of any weapon firing states
+	if (cinematic_running > 0) return;		// Remote camera active
+	remoteplayer_run (targ);				// get out of any weapon firing states
 
 	// Reset all Ammo types for gfx on sbar (engine code hack - sbar.c)
 	targ.items = targ.items - ( targ.items & (IT_SHELLS | IT_NAILS | IT_ROCKETS | IT_CELLS) );
 		
+	// Check for all weapon types
 	if (targ.weapon == IT_AXE) {
 		targ.currentammo = 0;
 		targ.weaponframe = 0;	// reset before setting model
-		if (targ.moditems & IT_UPGRADE_AXE) 
+		if (targ.moditems & IT_UPGRADE_GHOOK)
+			targ.weaponmodel = MODEL_VWEAP_GHOOK;
+		else if (targ.moditems & IT_UPGRADE_AXE) 
 			targ.weaponmodel = MODEL_VWEAP_UPAXE;
 		else targ.weaponmodel = MODEL_VWEAP_AXE;
 	}
@@ -886,10 +926,11 @@ void(entity targ) W_SetCurrentAmmo =
 		targ.items = targ.items | IT_CELLS;
 	}
 	else {
-		// Bad situation no viewmodel
-		targ.currentammo = 0;
+		// This is also a no axe startup option
+		// no weapon found, reset viewmodel
+		targ.currentammo = 0;	// Used on hud as well
 		targ.weaponframe = 0;	// reset before setting model
-		targ.weaponmodel = "";
+		targ.weaponmodel = "";	// no viewmodel
 	}
 };
 
@@ -900,15 +941,18 @@ float(entity targ) W_BestWeapon =
 {
 	if (targ.waterlevel < 2 && targ.ammo_cells > 0 && (targ.items & IT_LIGHTNING) )
 			return IT_LIGHTNING;
-	if(targ.ammo_nails > 1 && (targ.items & IT_SUPER_NAILGUN) )
+	else if(targ.ammo_nails > 1 && (targ.items & IT_SUPER_NAILGUN) )
 		return IT_SUPER_NAILGUN;
-	if(targ.ammo_shells > 1 && (targ.items & IT_SUPER_SHOTGUN) )
+	else if(targ.ammo_shells > 1 && (targ.items & IT_SUPER_SHOTGUN) )
 		return IT_SUPER_SHOTGUN;
-	if(targ.ammo_nails > 0 && (targ.items & IT_NAILGUN) )
+	else if(targ.ammo_nails > 0 && (targ.items & IT_NAILGUN) )
 		return IT_NAILGUN;
-	if(targ.ammo_shells > 0 && (targ.items & IT_SHOTGUN) )
+	else if(targ.ammo_shells > 0 && (targ.items & IT_SHOTGUN) )
 		return IT_SHOTGUN;
-	return IT_AXE;
+	// No axe found, return nothing!
+	else if(!(targ.items & IT_AXE)) return FALSE;
+	// Default is Axe
+	else return IT_AXE;
 };
 
 //----------------------------------------------------------------------
@@ -930,6 +974,8 @@ W_Attack
 void() W_Attack =
 {
 	if (intermission_running > 0) return;	// intermission or finale
+	if (cinematic_running > 0) return;		// Remote camera active
+	if (self.weapon == 0) return;			// No weapons available
 	if ( !W_CheckNoAmmo(self) ) return;		// Out of ammo?
 
 	makevectors	(self.v_angle);		// calculate forward angle for velocity
@@ -939,20 +985,24 @@ void() W_Attack =
 	// Axe - Mighty chopper
 	//----------------------------------------------------------------------
 	if (self.weapon == IT_AXE) {
-		if (random() < 0.5) sound (self, CHAN_WEAPON, SOUND_AXE_SWIPE1, 1, ATTN_NORM);
-		else sound (self, CHAN_WEAPON, SOUND_AXE_SWIPE2, 1, ATTN_NORM);
-		// Work out which axe swing to play (never play swing twice in a row)
-		self.lip = self.meleeattack;
-		while (self.meleeattack == self.lip) {
-			self.lip = rint(random()*4.4);
+		// Check grapple hook replacement first
+		if (self.moditems & IT_UPGRADE_GHOOK) player_grapple1();
+		else {
+			if (random() < 0.5) sound (self, CHAN_WEAPON, SOUND_AXE_SWIPE1, 1, ATTN_NORM);
+			else sound (self, CHAN_WEAPON, SOUND_AXE_SWIPE2, 1, ATTN_NORM);
+			// Work out which axe swing to play (never play swing twice in a row)
+			self.lip = self.meleeattack;
+			while (self.meleeattack == self.lip) {
+				self.lip = rint(random()*4.4);
+			}
+			self.meleeattack = self.lip;
+			if (self.meleeattack == 0) player_axe1();
+			else if (self.meleeattack == 1) player_axeb1();
+			else if (self.meleeattack == 2) player_axec1();
+			else if (self.meleeattack == 3) player_axed1();
+			else player_axee1();	
+			self.attack_finished = time + 0.5;
 		}
-		self.meleeattack = self.lip;
-		if (self.meleeattack == 0) player_axe1();
-		else if (self.meleeattack == 1) player_axeb1();
-		else if (self.meleeattack == 2) player_axec1();
-		else if (self.meleeattack == 3) player_axed1();
-		else player_axee1();	
-		self.attack_finished = time + 0.5;
 	}
 	//----------------------------------------------------------------------
 	else if (self.weapon == IT_SHOTGUN) player_sg1();
@@ -961,6 +1011,7 @@ void() W_Attack =
 	else if (self.weapon == IT_SUPER_NAILGUN) player_snail1();
 	else if (self.weapon == IT_GRENADE_LAUNCHER) player_grenade1();
 	else if (self.weapon == IT_ROCKET_LAUNCHER) player_rocket1();
+	//----------------------------------------------------------------------
 	else if (self.weapon == IT_LIGHTNING) {
 		if (self.moditems & IT_UPGRADE_LG) player_plasma1();
 		else {
@@ -979,6 +1030,7 @@ void(entity targ) W_ChangeWeapon =
 	local float it, am, fl;
 	
 	if (intermission_running > 0) return;	// intermission or finale
+	if (cinematic_running > 0) return;		// Remote camera active
 	it = targ.items;
 	am = FALSE;
 	
@@ -1018,8 +1070,17 @@ void(entity targ) W_ChangeWeapon =
 	// FL = don't have the weapon
 	// AM = out of ammo
 	//----------------------------------------------------------------------
-	if (!(targ.items & fl)) sprint (targ, "no weapon.\n");
-	else if (am) sprint (targ, "not enough ammo.\n");
+	if (!(targ.items & fl)) {
+		if (fl & IT_AXE) sprint(targ, "No Axe available\n");
+		else if (fl & IT_SHOTGUN) sprint(targ, "No Shotgun available\n");
+		else if (fl & IT_SUPER_SHOTGUN) sprint(targ, "No Super Shotgun available\n");
+		else if (fl & IT_NAILGUN) sprint(targ, "No Nailgun available\n");
+		else if (fl & IT_SUPER_NAILGUN) sprint(targ, "No Super Nailgun available\n");
+		else if (fl & IT_GRENADE_LAUNCHER) sprint(targ, "No Grenade Launcher available\n");
+		else if (fl & IT_ROCKET_LAUNCHER) sprint(targ, "No Rocket Launcher available\n");
+		else if (fl & IT_LIGHTNING) sprint(targ, "No Lightning Gun available\n");
+	}
+	else if (am) sprint (targ, "Not enough ammo\n");
 	else {
 		targ.weapon = fl;		// Switch to weapon (internal number)
 		W_SetCurrentAmmo (targ);
@@ -1031,10 +1092,12 @@ CycleWeaponCommand
 ======================================================================*/
 void() CycleWeaponCommand =
 {
-	local	float	am;
+	local float am;
 	
-	if (intermission_running > 0) return;// intermission or finale
-	self.impulse = 0;			// reset impulse
+	self.impulse = 0;						// reset impulse
+	if (intermission_running > 0) return;	// intermission or finale
+	if (cinematic_running > 0) return;		// Remote camera active
+	if (self.weapon == 0) return;			// No weapons available
 
 	// Keep cycling around weapon list until found a weapon with ammo
 	while (1) {
@@ -1051,8 +1114,14 @@ void() CycleWeaponCommand =
 			if (self.ammo_shells < 2) am = 1;
 		}		
 		else if (self.weapon == IT_SUPER_SHOTGUN) {
-			self.weapon = IT_NAILGUN;
-			if (self.ammo_nails < 1) am = 1;
+			// Skip over the nailgun and go straight to SNG!!!
+			if (self.items & IT_SUPER_NAILGUN && self.ammo_nails > 2) {
+				self.weapon = IT_SUPER_NAILGUN;
+			}
+			else {
+				self.weapon = IT_NAILGUN;
+				if (self.ammo_nails < 1) am = 1;
+			}
 		}
 		else if (self.weapon == IT_NAILGUN) {
 			self.weapon = IT_SUPER_NAILGUN;
@@ -1084,10 +1153,12 @@ CycleWeaponReverseCommand
 ======================================================================*/
 void() CycleWeaponReverseCommand =
 {
-	local	float	am;
+	local float am;
 	
-	if (intermission_running > 0) return;		// intermission or finale
-	self.impulse = 0;			// reset impulse
+	self.impulse = 0;						// reset impulse
+	if (intermission_running > 0) return;	// intermission or finale
+	if (cinematic_running > 0) return;		// Remote camera active
+	if (self.weapon == 0) return;			// No weapons available
 
 	// Keep cycling around weapon list until found a weapon with ammo
 	while (1) {
@@ -1105,8 +1176,14 @@ void() CycleWeaponReverseCommand =
 			if (self.ammo_nails < 2) am = 1;
 		}
 		else if (self.weapon == IT_SUPER_NAILGUN) {
-			self.weapon = IT_NAILGUN;
-			if (self.ammo_nails < 1) am = 1;
+			// Skip over the nailgun and go straight to SSG!!!
+			if (self.items & IT_SUPER_SHOTGUN && self.ammo_shells > 2) {
+				self.weapon = IT_SUPER_SHOTGUN;
+			}
+			else {
+				self.weapon = IT_NAILGUN;
+				if (self.ammo_nails < 1) am = 1;
+			}
 		}
 		else if (self.weapon == IT_NAILGUN) {
 			self.weapon = IT_SUPER_SHOTGUN;

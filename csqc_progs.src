@@ -1,0 +1,7 @@
+../csprogs.dat
+
+csqc_defsclient.qc
+csqc_defs.qc
+// Pick AD or ID1 vers
+csqc_hudad.qc
+//csqc_hudvanilla.qc

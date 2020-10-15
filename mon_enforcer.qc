@@ -77,9 +77,10 @@ void() enforcer_fire =
 	local vector org, vec;
 
 	if (!self.enemy) return;
+	if (self.health < 1) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
-	sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);
+	sound (self, CHAN_WEAPON, SOUND_LASER_FIRE, 1, ATTN_NORM);
 
 	makevectors (self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
@@ -94,13 +95,11 @@ void()	enf_atk2	=[	$attack2,	enf_atk3	] {monster_footstep(FALSE);ai_face();};
 void()	enf_atk3	=[	$attack3,	enf_atk4	] {ai_face();};
 void()	enf_atk4	=[	$attack4,	enf_atk5	] {ai_face();};
 void()	enf_atk5	=[	$attack5,	enf_atk6	] {ai_face();};
-void()	enf_atk6	=[	$attack6,	enf_atk7	] {
-	if (self.health > 1) enforcer_fire();};
+void()	enf_atk6	=[	$attack6,	enf_atk7	] {enforcer_fire();};
 void()	enf_atk7	=[	$attack7,	enf_atk8	] {};
 void()	enf_atk8	=[	$attack8,	enf_atk9	] {};
 void()	enf_atk9	=[	$attack5,	enf_atk10	] {ai_face();};
-void()	enf_atk10	=[	$attack6,	enf_atk11	] {ai_face();
-	if (self.health > 1) enforcer_fire();};
+void()	enf_atk10	=[	$attack6,	enf_atk11	] {ai_face();enforcer_fire();};
 void()	enf_atk11	=[	$attack7,	enf_atk12	] {};
 void()	enf_atk12	=[	$attack8,	enf_atk13	] {};
 void()	enf_atk13	=[	$attack9,	enf_atk14	] {ai_face();};
@@ -133,8 +132,7 @@ void()	def_atkssg2	=[	$attack2,	def_atkssg3	] {monster_footstep(FALSE);ai_face()
 void()	def_atkssg3	=[	$attack3,	def_atkssg4	] {ai_face();};
 void()	def_atkssg4	=[	$attack4,	def_atkssg5	] {ai_face();};
 void()	def_atkssg5	=[	$attack5,	def_atkssg6	] {ai_face();};
-void()	def_atkssg6	=[	$attack6,	def_atkssg7	] {ai_face();
-	if (self.health > 1) defender_ssg();};
+void()	def_atkssg6	=[	$attack6,	def_atkssg7	] {ai_face();defender_ssg();};
 void()	def_atkssg7	=[	$attack7,	def_atkssg8	] {};
 void()	def_atkssg8	=[	$attack8,	def_atkssg9	] {};
 void()	def_atkssg9	=[	$attack9,	def_atkssg10] {ai_face();};
@@ -169,9 +167,10 @@ void() eliminator_fire =
 	local vector org, vec;
 
 	if (!self.enemy) return;
+	if (self.health < 1) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
-	sound (self, CHAN_WEAPON, "weapons/plasma_fire.wav", 1, ATTN_NORM);
+	sound (self, CHAN_WEAPON, SOUND_PLASMA_FIRE, 1, ATTN_NORM);
 
 	makevectors (self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
@@ -187,13 +186,11 @@ void()	elim_atk2	=[	$attack2,	elim_atk3	] {monster_footstep(FALSE);ai_face();};
 void()	elim_atk3	=[	$attack3,	elim_atk4	] {ai_face();};
 void()	elim_atk4	=[	$attack4,	elim_atk5	] {ai_face();};
 void()	elim_atk5	=[	$attack5,	elim_atk6	] {ai_face();};
-void()	elim_atk6	=[	$attack6,	elim_atk7	] {ai_face();
-	if (self.health > 1) eliminator_fire();};
+void()	elim_atk6	=[	$attack6,	elim_atk7	] {ai_face();eliminator_fire();};
 void()	elim_atk7	=[	$attack7,	elim_atk8	] {};
 void()	elim_atk8	=[	$attack8,	elim_atk9	] {};
 void()	elim_atk9	=[	$attack5,	elim_atk10	] {ai_face();};
-void()	elim_atk10	=[	$attack6,	elim_atk11	] {ai_face();
-	if (self.health > 1) eliminator_fire();};
+void()	elim_atk10	=[	$attack6,	elim_atk11	] {ai_face();eliminator_fire();};
 void()	elim_atk11	=[	$attack7,	elim_atk12	] {};
 void()	elim_atk12	=[	$attack8,	elim_atk13	] {};
 void()	elim_atk13	=[	$attack9,	elim_atk14	] {ai_face();};
@@ -371,7 +368,10 @@ void() monster_base_enforcer =
 //----------------------------------------------------------------------
 void() monster_enforcer =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.classtype = CT_MONENFORCER;
 	precache_model (MODEL_PROJ_LASER); // Originally - progs/laser.mdl
@@ -383,8 +383,9 @@ void() monster_enforcer =
 		precache_model (MODEL_PROJ_LASERGRN);
 	}
 	
-	if (self.health < 1) self.health = 80;
-	self.ammo_cells = rint(1 + random()*2);
+	if (self.health < 1) self.health = HP_MONENFORCER;
+	if (self.ammo_cells < 0) self.ammo_cells = 0;
+	else if (self.ammo_cells == 0) self.ammo_cells = 3;
 	self.exactskin = rint((random()*3)-0.5);
 	self.gib1skin = 0;
 
@@ -401,8 +402,8 @@ void() monster_enforcer =
 	precache_sound (self.sight_sound4);
 
 	// Projectile fire and impact (used in projectiles)
-	precache_sound ("enforcer/enfire.wav");
-	precache_sound ("enforcer/enfstop.wav");
+	precache_sound (SOUND_LASER_FIRE);
+	precache_sound (SOUND_LASER_HIT);
 	
 	self.th_missile = enf_atk1;
 
@@ -412,7 +413,8 @@ void() monster_enforcer =
 //----------------------------------------------------------------------
 void() monster_defender =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.classtype = CT_MONDEFENDER;
 	precache_model (MODEL_PROJ_GRENADE);
@@ -425,7 +427,8 @@ void() monster_defender =
 	}
 	
 	if (self.health < 1) self.health = 100;
-	self.ammo_shells = rint(4 + random()*4);
+	if (self.ammo_shells < 0) self.ammo_shells = 0;
+	else if (self.ammo_shells == 0) self.ammo_shells = 5;
 	self.exactskin = 3 + rint((random()*3)-0.5);
 	self.gib1skin = 1;
 
@@ -453,7 +456,8 @@ void() monster_defender =
 //----------------------------------------------------------------------
 void() monster_eliminator =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.classtype = CT_MONELIMATOR;
 	precache_model (MODEL_PROJ_PLASMA);
@@ -466,7 +470,8 @@ void() monster_eliminator =
 	}
 
 	if (self.health < 1) self.health = 120;
-	self.ammo_cells = rint(2 + random()*2);
+	if (self.ammo_cells < 0) self.ammo_cells = 0;
+	else if (self.ammo_cells == 0) self.ammo_cells = 5;
 	self.exactskin = 6 + rint((random()*3)-0.5);
 	self.gib1skin = 2;
 

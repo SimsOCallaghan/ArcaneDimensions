@@ -84,7 +84,7 @@ void(float side) pinch_melee =
 		
 	ai_charge(10);							// Get closer for extra bite
 	ai_damagebreakable(10);					// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEESCORPION)) return;	// Too far away
+	if (!ai_checkmelee(MONAI_MELEESCORPION,FALSE)) return;	// Too far away
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
@@ -184,7 +184,7 @@ void()	pinch_jumptouch =
 
 	// Do not damage other scorpions with jump attacks
 	// Prevents packs from killing themselves
-	if (self.classtype != other.classtype && other.takedamage) {
+	if (self.classgroup != other.classgroup && other.takedamage) {
 		sound (self, CHAN_VOICE, "scorpion/jumphit.wav", 1, ATTN_NORM);
 		BleedDeBuff(other);
 		spawn_touchblood (self, self.enemy, 100);
@@ -214,14 +214,15 @@ void() pinch_leap2	=[	$attackC3, pinch_leap3	] {ai_face(); };
 void() pinch_leap3	=[	$attackC5, pinch_leap4	] {ai_face();
 	// This is a crazy idea, throw the scorpion like a grenade!
 	// Using the same logic as the ogre grenade zware system
-	self.attack_speed = 575 + random()*50;
-	// Aiming the scorpion at the players head (+24 z axis)
+	self.attack_speed = self.jumpdist_x + (random()*self.jumpdist_z);
+	// Aiming at the players head (+24 z axis)
 	self.pos2 = self.enemy.origin + '0 0 24';
 	self.attack_elev = SUB_Elevation(ELEV_DEFAULT, self.origin, self.pos2, self.attack_speed);
 	self.pos1 = vectoangles(self.pos2 - self.origin);
 	self.pos1_x = -self.attack_elev;
 	makevectors (self.pos1);
 	self.velocity = v_forward * self.attack_speed;
+	
 	self.jump_flag = time + MONAI_JUMPSCORPTIME;
 	self.touch = pinch_jumptouch;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
@@ -247,7 +248,7 @@ void() pinch_leap10	=[	$attackC12, pinch_leap11] {ai_charge(4);};
 void() pinch_leap11	=[	$attackC14, pinch_leap12] {ai_charge(4);};
 void() pinch_leap12	=[	$attackC16, pinch_leap13] {ai_charge(4);};
 void() pinch_leap13	=[	$attackC18, pinch_leap14] {
-	if (ai_checkmelee(MONAI_MELEESCORPION) && self.enemy.health > 0) 
+	if (ai_checkmelee(MONAI_MELEESCORPION,FALSE) && self.enemy.health > 0) 
 		self.think = pinch_claw2;
 };
 void() pinch_leap14	=[	$attackC20, pinch_run1 ] {};
@@ -353,18 +354,19 @@ void() pinch_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_VOICE, "scorpion/death1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		pinch_die1();
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_scorpion (1 0 0) (-16 -16 -24) (16 16 24) Ambush
 ======================================================================*/
 void() setup_scorpion;
 void() monster_scorpion =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_scorpion.mdl";
 	self.headmdl = "progs/h_scorpion.mdl";		// Front Jaws
@@ -415,11 +417,12 @@ void() monster_scorpion =
 	precache_sound (self.sight_sound);
 
 	// death/pain/attack sounds
-	precache_sound("scorpion/death1.wav");
 	self.pain_sound = "scorpion/pain1.wav";
 	self.pain_sound2 = "scorpion/pain2.wav";
 	precache_sound(self.pain_sound);
 	precache_sound(self.pain_sound2);
+	self.death_sound = "scorpion/death1.wav";
+	precache_sound(self.death_sound);
 
 	precache_sound("scorpion/clawattack1.wav");
 	precache_sound("scorpion/clawattack2.wav");
@@ -451,6 +454,11 @@ void() setup_scorpion =
 	self.poisonous = FALSE;				// Scorpions have bleeding debuff
 	self.deathstring = " was stung by a Scorpion\n";
 	
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '575 0 50';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPSCORPNEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPSCORPFAR;
+
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;

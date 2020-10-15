@@ -337,7 +337,7 @@ void()	dcrossbow_fire12 =[	$tfire12,	dcrossbow_fire13] {};
 void()	dcrossbow_fire13 =[	$tfire13,	dcrossbow_fire14] {};
 void()	dcrossbow_fire14 =[	$tfire14,	dcrossbow_fire15] {};
 void()	dcrossbow_fire15 =[	$tfire15,	dcrossbow_fire16] {
-	sound (self, CHAN_WEAPON, "weapons/crossbow_rdy.wav", 1, ATTN_NORM);};
+	sound (self, CHAN_WEAPON, self.sight_sound, 1, ATTN_NORM);};
 void()	dcrossbow_fire16 =[	$tfire16,	dcrossbow_fire18] {};
 void()	dcrossbow_fire18 =[	$tfire18,	dcrossbow_fire20] {};
 void()	dcrossbow_fire20 =[	$tfire20,	dcrossbow_fire22] {};
@@ -366,7 +366,7 @@ void() dcrossbow_checkattack =
 			// Is the enemy blocked by another enemy?
 			if (!visblocked_wide(self.enemy, self.attack_offset, '0 0 0')) {
 				// Is the enemy within melee range?
-				if (ai_checkmelee(MONAI_MELEEKNIGHT)) self.th_melee();
+				if (ai_checkmelee(MONAI_MELEEKNIGHT,FALSE)) self.th_melee();
 				else {
 					// Skill level adjustment for bolt speed
 					boltspeed = SPEED_DCROSS + (skill*SPEED_BOLTSKILL);
@@ -518,7 +518,7 @@ void() dcrossbow_checkmelee =
 	else {
 		// Is the enemy within melee range?
 		// If not then do a quick hipshot at the player
-		if (!ai_checkmelee(MONAI_MELEEKNIGHT)) {
+		if (!ai_checkmelee(MONAI_MELEEKNIGHT,FALSE)) {
 			self.attack_chance = -1;	// Start with higher percentage
 			dcrossbow_ready1();			// Raise up crossbow ready
 		}
@@ -635,7 +635,8 @@ QUAKED monster_dcrossbow (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
 void() monster_dcrossbow =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_dcrossbow.mdl";			// crossbow guy
 	self.headmdl = "progs/h_dcrossbow.mdl";

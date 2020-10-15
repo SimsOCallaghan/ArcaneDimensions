@@ -128,13 +128,16 @@ void() army_fire_rocket =
 	if (!self.enemy) return;
 	if (self.health < 1) return;
 	
-	// check for enemy origin (based on sight test)
-	// if cannot see enemy fire at last known location
-	ai_trackenemy();
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	sound (self, CHAN_WEAPON, "soldier/rocket_fire.wav", 1, ATTN_NORM);	
 
-	self.attack_speed = 250;
+	// Maximum speed, initial speed set in Launch_Missile
+	self.attack_speed = SPEED_ARMYROCKPROJ + (skill * SPEED_ARMYROCKPROJSKILL);
+
+	// check for enemy origin (based on sight test)
+	// if cannot see enemy fire at last known location
+	ai_trackenemy();
+
 	makevectors (self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
 	dir = normalize(self.attack_track - org);
@@ -143,56 +146,26 @@ void() army_fire_rocket =
 };
 
 //----------------------------------------------------------------------
-void() army_rocket_think =
-{
-	// Only do a limited amount of updates to the missile
-	self.count = self.count + 1;
-	if (self.count < (5+skill)) {
-		// Keep ticking (slowly)
-		self.nextthink = time + 0.1;
-		// If enemy active, track them down (slow turn)
-		if (self.enemy && self.count < 5) {
-			// Speed up and steer towards enemy
-			self.attack_speed = self.attack_speed + 100;
-			self.attack_track = normalize(self.enemy.origin - self.origin);
-			self.velocity = self.attack_track * self.attack_speed;
-			self.angles = vectoangles(self.velocity);
-		}
-		// Fire at original location
-		else self.velocity = self.velocity * 1.15;
-	}
-	else {
-		// Remove missile after a while
-		self.nextthink = time + LIFE_ROCKET;
-		self.think = SUB_Remove;
-	}
-};
-
-//----------------------------------------------------------------------
-void()	army_rocket_atk1 =[	$load1,	army_load2	] {ai_face();
-	self.pain_finished = time + 1.3;
+void()	army_rocket_atk1 =[	$load2,	army_rocket_atk2 ] {ai_face();
+	self.pain_finished = time + 1;
 	self.attack_track = self.enemy.origin;
 	sound (self, CHAN_WEAPON, "soldier/rocket_load.wav", 1, ATTN_NORM);
 };
-void()	army_load2	=[	$load2,	army_load3	] {ai_trackenemy();};
-void()	army_load3	=[	$load3,	army_load4	] {ai_trackenemy();};
-void()	army_load4	=[	$load4,	army_load5	] {ai_trackenemy();};
-void()	army_load5	=[	$load5,	army_load6	] {ai_trackenemy();};
-void()	army_load6	=[	$load6,	army_load7	] {ai_trackenemy();};
-void()	army_load7	=[	$load7,	army_load8	] {ai_trackenemy();};
-void()	army_load8	=[	$load8,	army_load9	] {ai_trackenemy();};
-void()	army_load9	=[	$load9,	army_load10	] {ai_trackenemy();};
-void()	army_load10	=[	$load10,army_load11	] {ai_trackenemy();};
-void()	army_load11	=[	$load11,army_atkr5	] {ai_trackenemy();};
-void()	army_atkr5	=[	$shoot5,army_atkr6	] {army_fire_rocket();};
-void()	army_atkr6	=[	$shoot6,army_atkr7	] {};
-void()	army_atkr7	=[	$shoot7,army_atkr8	] {SUB_CheckRefire (army_rocket_atk1);};
-void()	army_atkr8	=[	$shoot8,army_atkr9	] {};
-void()	army_atkr9	=[	$shoot9,army_run1	] {ai_face();};
+void()	army_rocket_atk2 =[ $load3, army_rocket_atk3 ] {ai_trackenemy();};
+void()	army_rocket_atk3 =[ $load4, army_rocket_atk4 ] {ai_trackenemy();};
+void()	army_rocket_atk4 =[ $load5, army_rocket_atk5 ] {ai_trackenemy();};
+void()	army_rocket_atk5 =[ $load6, army_rocket_atk6 ] {ai_trackenemy();};
+void()	army_rocket_atk6 =[ $load7, army_rocket_atk7 ] {ai_trackenemy();};
+void()	army_rocket_atk7 =[ $load8, army_rocket_atk8 ] {ai_trackenemy();};
+void()	army_rocket_atk8 =[ $load9, army_rocket_atk9 ] {ai_trackenemy();};
+void()	army_rocket_atk9 =[ $shoot6, army_rocket_atk10 ] {army_fire_rocket();};
+void()	army_rocket_atk10 =[ $shoot7, army_rocket_atk11 ] {};
+void()	army_rocket_atk11 =[ $shoot8, army_rocket_atk12 ] {SUB_CheckRefire (army_rocket_atk1);};
+void()	army_rocket_atk12 =[ $shoot9, army_run1 ] {ai_face();};
 
 //======================================================================
-void()	army_grenade_atk1 =[	$shoot1, army_grenade_atk2	] {
-	ai_face();
+void()	army_grenade_atk1 =[	$shoot1, army_grenade_atk2	] {ai_face();
+	self.pain_finished = time + 1;
 	// Check enemy for grenade resistance?
 	if (self.enemy.bouncegrenade) army_atk1();
 };
@@ -210,7 +183,7 @@ void()	army_grenade_atk5 =[	$shoot5, army_grenade_atk6	] {ai_face();
 };
 void()	army_grenade_atk6 =[	$shoot6, army_grenade_atk7	] {};
 void()	army_grenade_atk7 =[	$shoot7, army_grenade_atk8	] {ai_face();};
-void()	army_grenade_atk8 =[	$shoot8, army_grenade_atk9	] {};
+void()	army_grenade_atk8 =[	$shoot8, army_grenade_atk9	] {SUB_CheckRefire (army_grenade_atk1);};
 void()	army_grenade_atk9 =[	$shoot9, army_run1	] {ai_face();};
 
 //======================================================================
@@ -232,16 +205,17 @@ void() army_plasma_fire =
 };
 
 //----------------------------------------------------------------------
-void()	army_plasma_atk1 =[	$shoot1, army_plasma_atk2	] {
-	self.pain_finished = time + 1.3;
-	sound (self, CHAN_WEAPON, "enforcer/elim_pg_load.wav", 1, ATTN_NORM);};
+void()	army_plasma_atk1 =[	$shoot1, army_plasma_atk2	] {ai_face();
+	self.pain_finished = time + 1;
+	sound (self, CHAN_WEAPON, "enforcer/elim_pg_load.wav", 1, ATTN_NORM);
+};
 void()	army_plasma_atk2 =[	$shoot2, army_plasma_atk3	] {ai_face();};
 void()	army_plasma_atk3 =[	$shoot3, army_plasma_atk4	] {ai_face();};
 void()	army_plasma_atk4 =[	$shoot4, army_plasma_atk5	] {ai_face();};
 void()	army_plasma_atk5 =[	$shoot5, army_plasma_atk6	] {ai_face();army_plasma_fire();};
 void()	army_plasma_atk6 =[	$shoot6, army_plasma_atk7	] {};
-void()	army_plasma_atk7 =[	$shoot7, army_plasma_atk8	] {ai_face();SUB_CheckRefire (army_plasma_atk1);};
-void()	army_plasma_atk8 =[	$shoot8, army_plasma_atk9	] {};
+void()	army_plasma_atk7 =[	$shoot7, army_plasma_atk8	] {ai_face();};
+void()	army_plasma_atk8 =[	$shoot8, army_plasma_atk9	] {SUB_CheckRefire (army_plasma_atk1);};
 void()	army_plasma_atk9 =[	$shoot9, army_run1	] {ai_face();};
 
 //======================================================================
@@ -365,12 +339,15 @@ void() army_die =
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_army (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
 void() monster_army =
-{	
-	if (deathmatch) { remove(self); return; }
+{
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_soldier.mdl";
 	self.headmdl = "progs/h_soldier.mdl";
@@ -414,7 +391,7 @@ void() monster_army =
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
-	if (self.health < 1) self.health = 30;
+	if (self.health < 1) self.health = HP_MONARMY;
 	self.gibhealth = -35;				// Easy to gib
 	self.gibbed = FALSE;				// Still together
 	self.pain_flinch = 20;				// Easy to pain
@@ -438,7 +415,8 @@ void() monster_army =
 
 	if (!self.classtype) {
 		self.classtype = CT_MONARMY;
-		if (self.ammo_shells < 1) self.ammo_shells = rint(2 + random()*4);
+		if (self.ammo_shells < 0) self.ammo_shells = 0;
+		else if (self.ammo_shells == 0) self.ammo_shells = 5;
 		// If no skin override is defined, pick a random one instead
 		if (!self.exactskin) self.randomskin = 4;
 	}
@@ -451,7 +429,8 @@ void() monster_army =
 //----------------------------------------------------------------------
 void() monster_army_rocket =
 {	
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.classtype = CT_MONARMYROCKET;
 	precache_model (MODEL_PROJ_ROCKET);
@@ -461,7 +440,9 @@ void() monster_army_rocket =
 	// There are two red jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 4;
 	else self.exactskin = 5;
-	if (random() < 0.35 && self.ammo_rockets < 1) self.ammo_rockets = 1;
+	if (self.ammo_rockets < 0) self.ammo_rockets = 0;
+	else if (self.ammo_rockets == 0) self.ammo_rockets = 1;
+	self.attack_explosive = TRUE;			// Has explosive attack
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("soldier/rocket_load.wav");
@@ -469,7 +450,6 @@ void() monster_army_rocket =
 	precache_sound ("soldier/rocket_hit.wav");
 	
 	self.th_missile = army_rocket_atk1;
-	self.th_updmissile = army_rocket_think;	// Update flying rocket
 	self.th_melee = army_runback1;
 	self.deathstring = " was blown up by a Rocketeer\n";
 	
@@ -479,7 +459,8 @@ void() monster_army_rocket =
 //----------------------------------------------------------------------
 void() monster_army_grenade =
 {	
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.classtype = CT_MONARMYGRENADE;
 	precache_model (MODEL_PROJ_GRENADE);
@@ -489,7 +470,9 @@ void() monster_army_grenade =
 	// There are two green jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 6;
 	else self.exactskin = 7;
-	if (random() < 0.35 && self.ammo_rockets < 1) self.ammo_rockets = 1;
+	if (self.ammo_rockets < 0) self.ammo_rockets = 0;
+	else if (self.ammo_rockets == 0) self.ammo_rockets = 1;
+	self.attack_explosive = TRUE;			// Has explosive attack
 
 	self.th_missile = army_grenade_atk1;
 	self.th_melee = army_runback1;
@@ -503,7 +486,8 @@ void() monster_army_grenade =
 //----------------------------------------------------------------------
 void() monster_army_plasma =
 {	
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.classtype = CT_MONARMYPLASMA;
 	precache_model (MODEL_PROJ_PLASMA);
@@ -513,7 +497,8 @@ void() monster_army_plasma =
 	// There are two blue jacket skins to pick from
 	if (random() < 0.5) self.exactskin = 8;
 	else self.exactskin = 9;
-	if (random() < 0.35 && self.ammo_cells < 1) self.ammo_cells = 1;
+	if (self.ammo_cells < 0) self.ammo_cells = 0;
+	else if (self.ammo_cells == 0) self.ammo_cells = 2;
 
 	// Extra load/fire sounds (from Quoth MOD)
 	precache_sound ("enforcer/elim_pg_load.wav");

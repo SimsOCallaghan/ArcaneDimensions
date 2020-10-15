@@ -18,13 +18,17 @@ float BREAKWALL_START_ON = 1;	// Switchable bmodel for breakable setups
 float BREAKWALL_SOLID = 2;		// Solid player collision when active
 float BREAKWALL_FADEOUT = 4;	// Will fade out after a certain amount of time
 
+float BREAK_DEFCOUNT = 4;		// Default amount of rubble
+float BREAK_DEFCNT = 4;			// Random amount of rubble
+
 float BTYPE_ROCK = 1;			// Default rock/brick
 float BTYPE_WOOD = 2;
 float BTYPE_GLASS = 3;
 float BTYPE_METAL = 4;
 float BTYPE_BRICK = 5;
-float BTYPE_CERAMIC = 6;
+float BTYPE_FLESH = 6;			// Added 1.7 patch 2
 float BTYPE_MAX = 6;
+float BTYPE_CERAMIC = 9;		// Not used anymore
 float BTYPE_CUSTOM = 10;
 
 float BMODTYPE_SELF = 1;		// Single self models
@@ -35,9 +39,13 @@ float BMODTYPE_ROCK3 = 12;		// ID rock3_8 (light vertical)
 float BMODTYPE_ROCK4 = 13;		// ID city5_3 (white plaster)
 float BMODTYPE_ROCK5 = 14;		// ID stone1_7b (dark blue ver)
 float BMODTYPE_ROCK6 = 15;		// ID cliff4 (black rock)
+float BMODTYPE_ROCK7 = 16;		// Mak cliff_grey_6 (white rock)
+float BMODTYPE_ROCK8 = 17;		// Mak cliff_blck_4 (dark rock)
+float BMODTYPE_ROCK9 = 18;		// ID city3_2 (red plaster)
 float BMODTYPE_WOOD1 = 20;		// ID dung01_3 (dark)
 float BMODTYPE_WOOD2 = 21;		// ID dung01_2 (light)
 float BMODTYPE_WOOD3 = 22;		// ID wizwood1_7 (mouldy)
+float BMODTYPE_WOOD4 = 23;		// ID wood1_1 (E4 light)
 float BMODTYPE_GLASS1 = 30;		// ID window1_2 (blue sqr)
 float BMODTYPE_GLASS2 = 31;		// ID window01_4 (red stain)
 float BMODTYPE_GLASS3 = 32;		// ID window02_1 (yellow stain)
@@ -54,7 +62,11 @@ float BMODTYPE_BRICK4 = 53;		// ID wiz1_4 (large white)
 float BMODTYPE_BRICK5 = 54;		// ID city2_1 (small red brick)
 float BMODTYPE_BRICK6 = 55;		// ID city1_6 (small brown brick)
 float BMODTYPE_BRICK7 = 56;		// ID city4_5 (small blue brick)
-float BMODTYPE_CERAMIC1 = 60;	// Blank atm
+float BMODTYPE_BRICK8 = 57;		// ID egypt01b (medium sandy brick)
+float BMODTYPE_FLESH1 = 60;		// Blood Gib 4/5 models
+float BMODTYPE_FLESH2 = 61;		// Poison Gib 4/5 models
+float BMODTYPE_FLESH3 = 62;		// Stone Gib 4/5 models
+float BMODTYPE_CERAMIC1 = 90;	// Blank atm
 
 //----------------------------------------------------------------------
 // Breakable objects explosion/impact sounds
@@ -62,6 +74,7 @@ string SOUND_BRK_ROCK = "break/rock_impact.wav";
 string SOUND_BRK_WOOD = "break/wood_impact.wav";
 string SOUND_BRK_GLASS = "break/glass_impact.wav";
 string SOUND_BRK_METAL = "break/metal_impact.wav";
+string SOUND_BRK_FLESH = "break/flesh_impact.wav";
 string SOUND_BRK_CERAMIC = "break/ceramic_impact.wav";
 
 string SOUND_IMP_ROCK1 = "break/rock_i1.wav";
@@ -80,6 +93,14 @@ string SOUND_IMP_METAL1 = "break/metal_i1.wav";
 string SOUND_IMP_METAL2 = "break/metal_i2.wav";
 string SOUND_IMP_METAL3 = "break/metal_i3.wav";
 string SOUND_IMP_METAL4 = "break/metal_i4.wav";
+string SOUND_IMP_FLESH1 = "gibs/gibhit1.wav";
+string SOUND_IMP_FLESH2 = "gibs/gibhit2.wav";
+string SOUND_IMP_FLESH3 = "gibs/gibhit3.wav";
+string SOUND_IMP_FLESH4 = "gibs/gibhit4.wav";
+string SOUND_IMP_STONE1 = "gibs/gibstone1.wav";
+string SOUND_IMP_STONE2 = "gibs/gibstone3.wav";
+string SOUND_IMP_STONE3 = "gibs/gibstone5.wav";
+string SOUND_IMP_STONE4 = "gibs/gibstone1.wav";
 string SOUND_IMP_CERAMIC1 = "break/ceramic_i1.wav";
 string SOUND_IMP_CERAMIC2 = "break/ceramic_i2.wav";
 string SOUND_IMP_CERAMIC3 = "break/ceramic_i3.wav";
@@ -112,6 +133,18 @@ string MODEL_BRK_ROCK6A = "maps/ad_brk/rock21.bsp";
 string MODEL_BRK_ROCK6B = "maps/ad_brk/rock22.bsp";
 string MODEL_BRK_ROCK6C = "maps/ad_brk/rock23.bsp";
 string MODEL_BRK_ROCK6D = "maps/ad_brk/rock24.bsp";
+string MODEL_BRK_ROCK7A = "maps/ad_brk/rock25.bsp";
+string MODEL_BRK_ROCK7B = "maps/ad_brk/rock26.bsp";
+string MODEL_BRK_ROCK7C = "maps/ad_brk/rock27.bsp";
+string MODEL_BRK_ROCK7D = "maps/ad_brk/rock28.bsp";
+string MODEL_BRK_ROCK8A = "maps/ad_brk/rock29.bsp";
+string MODEL_BRK_ROCK8B = "maps/ad_brk/rock30.bsp";
+string MODEL_BRK_ROCK8C = "maps/ad_brk/rock31.bsp";
+string MODEL_BRK_ROCK8D = "maps/ad_brk/rock32.bsp";
+string MODEL_BRK_ROCK9A = "maps/ad_brk/rock33.bsp";
+string MODEL_BRK_ROCK9B = "maps/ad_brk/rock34.bsp";
+string MODEL_BRK_ROCK9C = "maps/ad_brk/rock35.bsp";
+string MODEL_BRK_ROCK9D = "maps/ad_brk/rock36.bsp";
 // ID dung01_3 (dark), dung01_2 (light), wizwood1_7 (mouldy)
 string MODEL_BRK_WOOD1A = "maps/ad_brk/wood01.bsp";
 string MODEL_BRK_WOOD1B = "maps/ad_brk/wood02.bsp";
@@ -125,6 +158,10 @@ string MODEL_BRK_WOOD3A = "maps/ad_brk/wood09.bsp";
 string MODEL_BRK_WOOD3B = "maps/ad_brk/wood10.bsp";
 string MODEL_BRK_WOOD3C = "maps/ad_brk/wood11.bsp";
 string MODEL_BRK_WOOD3D = "maps/ad_brk/wood12.bsp";
+string MODEL_BRK_WOOD4A = "maps/ad_brk/wood13.bsp";
+string MODEL_BRK_WOOD4B = "maps/ad_brk/wood14.bsp";
+string MODEL_BRK_WOOD4C = "maps/ad_brk/wood15.bsp";
+string MODEL_BRK_WOOD4D = "maps/ad_brk/wood16.bsp";
 // ID window1_2 (blue sqr), window01_4 (red stain), 
 // window02_1 (yellow stain), window01_3 (purple dragon)
 string MODEL_BRK_GLASS1A = "maps/ad_brk/glass01.bsp";
@@ -196,6 +233,23 @@ string MODEL_BRK_BRICK7A = "maps/ad_brk/brick25.bsp";
 string MODEL_BRK_BRICK7B = "maps/ad_brk/brick26.bsp";
 string MODEL_BRK_BRICK7C = "maps/ad_brk/brick27.bsp";
 string MODEL_BRK_BRICK7D = "maps/ad_brk/brick28.bsp";
+string MODEL_BRK_BRICK8A = "maps/ad_brk/brick29.bsp";
+string MODEL_BRK_BRICK8B = "maps/ad_brk/brick30.bsp";
+string MODEL_BRK_BRICK8C = "maps/ad_brk/brick31.bsp";
+string MODEL_BRK_BRICK8D = "maps/ad_brk/brick32.bsp";
+// 4 = Small gib, 5 = Large gib, 3 = Slice gib
+string MODEL_BRK_FLESH1A = "progs/gib_4.mdl";
+string MODEL_BRK_FLESH1B = "progs/gib_5.mdl";
+string MODEL_BRK_FLESH1C = "progs/gib_4.mdl";
+string MODEL_BRK_FLESH1D = "progs/gib_3.mdl";
+string MODEL_BRK_FLESH2A = "progs/gib_p4.mdl";
+string MODEL_BRK_FLESH2B = "progs/gib_p5.mdl";
+string MODEL_BRK_FLESH2C = "progs/gib_p4.mdl";
+string MODEL_BRK_FLESH2D = "progs/gib_p3.mdl";
+string MODEL_BRK_FLESH3A = "progs/gib_s4.mdl";
+string MODEL_BRK_FLESH3B = "progs/gib_s5.mdl";
+string MODEL_BRK_FLESH3C = "progs/gib_s4.mdl";
+string MODEL_BRK_FLESH3D = "progs/gib_s3.mdl";
 
 //----------------------------------------------------------------------
 // Axe impact/swipe/miss sounds
@@ -204,6 +258,7 @@ string SOUND_AXE_SWIPE2 = "weapons/axe_swoosh2.wav";	// Faster swipe
 string SOUND_AXE_WOOD = "weapons/axe_wood.wav";			// wood impact
 string SOUND_AXE_GLASS = "weapons/axe_glass.wav";		// glass impact
 string SOUND_AXE_METAL = "weapons/axe_metal.wav";		// metal impact
+string SOUND_AXE_FLESH = "weapons/axe_flesh.wav";		// Squish impact
 string SOUND_AXE_CERAMIC = "weapons/axe_ceramic.wav";	// ceramic impact
 string SOUND_AXE_PLAYER = "player/axhit1.wav";			// ax hit meat (another player)
 string SOUND_AXE_STONE = "player/axhit2.wav";			// stone impact
@@ -214,10 +269,10 @@ Spawn breakable objects from a bmodel
 -------- KEYS --------
 target     : targets to fire when breakable is dead/used (only used once)
 target2    : Additional trigger function (need target to be defined as well)
-style      : pre-defined sound/model types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 6=ceramic, 10=custom
+style      : pre-defined sound/model types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 6=flesh, 10=custom
 brksound   : Initial breaking sound type (override style default)
 brkimpsound : Impact sound type (override style default)
-brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-42=metals, 50-54=brick, 60=ceramic)
+brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-42=metals, 50-54=brick, 60-62=flesh)
 noise     : Initial breaking sound (unique sound file)
 noise1    : Custom Rubble Impact sounds (unique sound files, must have 1 defined)
 noise2    : Custom Rubble Impact sound 2
@@ -239,10 +294,15 @@ brkfade   : Fade time before rubble fades away (def 4+random()x4)
 brkmondmg : Damage multiplier for monster damage against breakable
 angles    : direction to throw rubble (override default = impact direction)
 brkgravity     : Change the gravity for rubble, useful for underwater (Value = 0-1)
-brktrigjump    : Trigger if damaged by jumping monster attack
-brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg
+brktrigjump    : Trigger if damaged by jumping monster attack (-1/1=active)
+brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg (-1/1=active)
 brktrignoplayer: No player/clients can damage this breakable
 brkdelaydamage : Time pause before enabling damage on this breakable
+_dirt       : -1 = will be excluded from dirtmapping
+_minlight   : Minimum light level for any surface of the brush model
+_mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
+_shadow     : Will cast shadows on other models and itself
+_shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 STARTOFF  : Will wait for trigger to spawn
 NODAMAGE  : Cannot be damaged or shot, trigger only
@@ -262,10 +322,10 @@ Spawn breakable objects from a single point
 -------- KEYS --------
 target     : targets to fire when breakable is dead/used (only used once)
 target2    : Additional trigger function (need target to be defined as well)
-style      : pre-defined sound/model types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 6=ceramic, 10=custom
+style      : pre-defined sound/model types - 1=rock, 2=wood, 3=glass, 4=metal, 5=brick, 6=flesh, 10=custom
 brksound   : Initial breaking sound type (override style default)
-brkimpsound : Impact sound type (override style default)
-brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-42=metals, 50-54=brick, 60=ceramic)
+brkimpsound: Impact sound type (override style default)
+brkobjects : Breakable object model type (10-15=rocks, 20-22=woods, 30-32=glass, 40-42=metals, 50-54=brick, 60-62=flesh)
 noise      : Initial breaking sound (unique sound file)
 noise1    : Custom Rubble Impact sounds (unique sound files, must have 1 defined)
 noise2    : Custom Rubble Impact sound 2
@@ -280,15 +340,22 @@ count     : minimum quantity to spawn (def 4)
 cnt       : random quantity to spawn (def 4) =-1 no random qty
 dmg       : explosive radius damage (emits from center of func object)
 pos1      : x=start particle colour, y=random range, z=quantity
-brkvelbase : Base amount for velocity of broken parts (def "50 50 100")
+brkvelbase: Base amount for velocity of broken parts (def "50 50 100")
 brkveladd : Random additions for velocity of broken parts (def "100 100 150")
 brkavel   : Amount of breaking object angle velocity (def 200)
 brkfade   : Fade time before rubble fades away (def 4+random()x4)
 angles    : direction to throw rubble (override default = impact direction)
-brktrigjump    : Trigger if damaged by jumping monster attack
-brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg
 brkgravity     : Change the gravity for rubble, useful for underwater (Value = 0-1)
-brkvol    : Spawning volume vector for breakable point entity
+brktrigjump    : Trigger if damaged by jumping monster attack (-1/1=active)
+brktrigmissile : Trigger if damaged by rocket/grenade/shalball/radiusdmg (-1/1=active)
+brktrignoplayer: No player/clients can damage this breakable
+brkdelaydamage : Time pause before enabling damage on this breakable
+brkvol      : Spawning volume vector for breakable point entity
+_dirt       : -1 = will be excluded from dirtmapping
+_minlight   : Minimum light level for any surface of the brush model
+_mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
+_shadow     : Will cast shadows on other models and itself
+_shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 EXPLOSION : trigger sprite/particle explosion
 SILENT    : No initial breakage sound
@@ -403,7 +470,7 @@ void() funcbreakable_delayexplode =
 void() funcbreakable_use =
 {
 	local vector dirvec, rorg, gvel, dirorg;
-	local float content_loop, content_flag;
+	local float content_loop, content_flag, bbox_over;
 
 	if (self.waitmin == TRUE) return;	// Trigger once block
 	if (self.waitmin2 > time) return;	// Spawn damage block
@@ -414,7 +481,7 @@ void() funcbreakable_use =
 		sound (self.attachment, CHAN_BODY, self.noise, 1, ATTN_NORM);
 
 	//----------------------------------------------------------------------
-	// Hide breakable func model (ignore if point entity)
+	// BMODEL breakable (brushwork)
 	if (self.classtype == CT_FUNCBREAK) {
 		self.waitmin = TRUE;			// Only fire breakable ONCE
 		self.use = SUB_Null;			// No more triggers
@@ -426,12 +493,48 @@ void() funcbreakable_use =
 		// Work out bottom corner of min/max bounding box
 		self.oldorigin = self.attachment.origin - (self.size*0.5);
 	}
+	// MODEL breakable (.mdl file)
 	else if (self.classtype == CT_FUNCBREAKMDL) {
+		// Check for explosive puff + dust
+		if (self.brkpuff) {
+			SpawnExplosion(EXPLODE_BURST_SMOKE, self.origin, "");
+			if (random() > 0.5) SpawnProjectileSmoke(self.origin, 200, 50, 250);
+		}
+		self.movetarget = find(world, targetname, self.target);
+		if (self.movetarget.flags & FL_MONSTER) {
+			if (self.jumpsquash) {
+				// Always force the spawning of the telefrag (death) triggers
+				// When the player is jumping onto the breakable model.
+				// The player will touch the death trigger and automatically
+				// kill the owner of this trigger (the spawning monster)
+				self.movetarget.nospawndamage = FALSE;
+			}
+			else {
+				bbox_over = FALSE;
+				// No Z comparision because brk/monster can start at diff heights
+				// XY for all monsters are always the same because of rotation
+				if (self.movetarget.bbmins_x < self.bbmins_x) bbox_over = TRUE;
+				else if (self.movetarget.bbmins_y < self.bbmins_y) bbox_over = TRUE;
+				else if (self.movetarget.bbmaxs_x > self.bbmaxs_x) bbox_over = TRUE;
+				else if (self.movetarget.bbmaxs_y > self.bbmaxs_y) bbox_over = TRUE;
+				// If bounding box same size as breakable, no telefrag dmg/check
+				if (bbox_over == FALSE) self.movetarget.nospawndamage = TRUE;
+				else {
+					// Warn the mapper that the spawning monster is too big!
+					dprint ("\b[SPAWN]\b "); dprint (self.movetarget.classname);
+					dprint (" at "); dprint (vtos(self.origin));
+					dprint (" larger than breakable!\n");
+					spawn_marker(self.origin, SPNMARK_YELLOW);
+				}
+			}
+		}
+		
 		self.waitmin = TRUE;			// Only fire breakable ONCE
 		self.use = SUB_Null;			// No more triggers
 		self.takedamage = DAMAGE_NO;	// No more pain/damage
 		self.modelindex = 0;			// Make sure no model
 		self.model = "";				// hide model
+		self.frame = self.skin = 0;		// reset skin/frames
 		self.solid = SOLID_NOT;			// no world interaction
 		self.movetype = MOVETYPE_NONE;
 	}
@@ -457,12 +560,19 @@ void() funcbreakable_use =
 	// Work out direction of impact (using activate passed from combat.qc or trigger.qc)
 	// All bmodels are labelled with .bsporigin flag (origin = 0,0,0)
 	// attachment points to self if funcbreakable_wall active
-	if (self.spawnflags & BREAK_MOVEDIR) dirvec = self.movedir;
+	if (self.spawnflags & BREAK_MOVEDIR) { dirvec = self.movedir; }
+	// No activate condition? usually trigger events
 	else if (!self.activate) dirvec = '0 0 1';
 	else {
+		// DEFAULT option
 		if (self.activate.bsporigin) dirorg = bmodel_origin(self.activate);
 		else dirorg = self.activate.origin;
 		dirvec = vectoangles(self.attachment.origin - dirorg);
+	}
+	// Show impact direction for breakable
+	if (developer > 0) {
+		if (self.bsporigin) spawn_arrow(bmodel_origin(self), dirvec, 0);
+		else spawn_arrow(self.origin, dirvec, 0);
 	}
 	
 	//----------------------------------------------------------------------
@@ -512,6 +622,9 @@ void() funcbreakable_use =
 			// Setup origin based on previous content checks
 			setorigin (newmis, rorg);	
 			setsize (newmis, VEC_ORIGIN, VEC_ORIGIN);
+	
+			// Mirror the skin (exact) on the pot to the breakable chunks
+			if (self.classtype == CT_FUNCBREAKMDL) newmis.skin = self.exactskin;
 	
 			//----------------------------------------------------------------------
 			// Setup movement and spin parameters
@@ -615,8 +728,8 @@ void(entity inflictor, entity attacker, float damage) funcbreakable_pain =
 	if (inflictor.classtype == CT_PROJ_GL) return;
 	if (inflictor == attacker) return;
 	// Check for player exception on damage to breakable
-	if (inflictor.flags & FL_CLIENT && self.brktrignoplayer) return;
-	if (attacker.flags & FL_CLIENT && self.brktrignoplayer) return;
+	if (inflictor.flags & FL_CLIENT && self.brktrignoplayer != 0) return;
+	if (attacker.flags & FL_CLIENT && self.brktrignoplayer != 0) return;
 	
 	// Something is trying to wear down the breakable with damage
 	// work out facing angle and project particles upward
@@ -633,7 +746,7 @@ void() funcbreakable_death =
 {
 	if (self.spawnflags & BREAK_NOSHOOT) return;
 	// Check for player exception on damage to breakable
-	else if (self.activate.flags & FL_CLIENT && self.brktrignoplayer) return;
+	else if (self.activate.flags & FL_CLIENT && self.brktrignoplayer != 0) return;
 	else funcbreakable_use();
 };
 
@@ -677,6 +790,11 @@ void() breakable_cache =
 		if (!self.brkvelbase) self.brkvelbase = '50 50 100';
 		if (!self.brkveladd) self.brkveladd = '100 100 150';
 	}
+	else if (self.brksound == BTYPE_FLESH) {
+		self.noise = SOUND_BRK_FLESH;
+		if (!self.brkvelbase) self.brkvelbase = '0 0 50';
+		if (!self.brkveladd) self.brkveladd = '100 100 100';
+	}
 	else if (self.brksound == BTYPE_CERAMIC) {
 		self.noise = SOUND_BRK_CERAMIC;
 		if (!self.brkvelbase) self.brkvelbase = '50 50 50';
@@ -719,6 +837,12 @@ void() breakable_cache =
 		if (self.noise2 == "") self.noise2 = SOUND_IMP_METAL2;
 		if (self.noise3 == "") self.noise3 = SOUND_IMP_METAL3;
 		if (self.noise4 == "") self.noise4 = SOUND_IMP_METAL4;
+	}
+	else if (self.brkimpsound == BTYPE_FLESH) {
+		if (self.noise1 == "") self.noise1 = SOUND_IMP_FLESH1;
+		if (self.noise2 == "") self.noise2 = SOUND_IMP_FLESH2;
+		if (self.noise3 == "") self.noise3 = SOUND_IMP_FLESH3;
+		if (self.noise4 == "") self.noise4 = SOUND_IMP_FLESH4;
 	}
 	else if (self.brkimpsound == BTYPE_CERAMIC) {
 		if (self.noise1 == "") self.noise1 = SOUND_IMP_CERAMIC1;
@@ -815,11 +939,32 @@ void() breakable_cache =
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_ROCK5D;
 	}
 	else if (self.brkobjects == BMODTYPE_ROCK6) {
-		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '1 8 1';	// Black
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '1 4 1';	// Black
 		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_ROCK6A;
 		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_ROCK6B;
 		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_ROCK6C;
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_ROCK6D;
+	}
+	else if (self.brkobjects == BMODTYPE_ROCK7) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '1 4 1';	// Light Grey
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_ROCK7A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_ROCK7B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_ROCK7C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_ROCK7D;
+	}
+	else if (self.brkobjects == BMODTYPE_ROCK8) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '0 2 1';	// Dark Grey
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_ROCK8A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_ROCK8B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_ROCK8C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_ROCK8D;
+	}
+	else if (self.brkobjects == BMODTYPE_ROCK9) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '96 8 1';	// Red/Brown
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_ROCK9A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_ROCK9B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_ROCK9C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_ROCK9D;
 	}
 	else if (self.brkobjects == BMODTYPE_WOOD1) {
 		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '16 8 1';	// Dark Brown
@@ -841,6 +986,13 @@ void() breakable_cache =
 		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_WOOD3B;
 		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_WOOD3C;
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_WOOD3D;
+	}
+	else if (self.brkobjects == BMODTYPE_WOOD4) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '24 8 1';	// Green/Brown
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_WOOD4A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_WOOD4B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_WOOD4C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_WOOD4D;
 	}
 	else if (self.brkobjects == BMODTYPE_GLASS1) {
 		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '32 8 1';	// Blue
@@ -954,6 +1106,34 @@ void() breakable_cache =
 		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_BRICK7C;
 		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_BRICK7D;
 	}
+	else if (self.brkobjects == BMODTYPE_BRICK8) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '16 8 1';	// Brown
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_BRICK8A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_BRICK8B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_BRICK8C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_BRICK8D;
+	}
+	else if (self.brkobjects == BMODTYPE_FLESH1) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '64 8 1';	// Red
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_FLESH1A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_FLESH1B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_FLESH1C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_FLESH1D;
+	}
+	else if (self.brkobjects == BMODTYPE_FLESH2) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '48 8 1';	// Green
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_FLESH2A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_FLESH2B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_FLESH2C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_FLESH2D;
+	}
+	else if (self.brkobjects == BMODTYPE_FLESH3) {
+		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '168 8 1';	// Whiteish
+		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_FLESH3A;
+		if (self.brkobj2 == "") self.brkobj2 = MODEL_BRK_FLESH3B;
+		if (self.brkobj3 == "") self.brkobj3 = MODEL_BRK_FLESH3C;
+		if (self.brkobj4 == "") self.brkobj4 = MODEL_BRK_FLESH3D;
+	}
 	else if (self.brkobjects == BMODTYPE_CERAMIC1) {
 		if (self.pos1_x + self.pos1_y == 0) self.pos1 = '96 8 1';	// Pink/Yellow
 		if (self.brkobj1 == "") self.brkobj1 = MODEL_BRK_GLASS3A;
@@ -984,9 +1164,9 @@ void() breakable_defaults =
 	self.waitmin = self.waitmin2 = FALSE;
 
 	// Setup rubble counter = count + random*cnt
-	if (self.count <= 0) self.count = 4;
-	if (self.cnt == 0) self.cnt = 4;
-	
+	if (self.count <= 0) self.count = BREAK_DEFCOUNT;
+	if (self.cnt == 0) self.cnt = BREAK_DEFCNT;
+
 	// If cnt = -1 then don't do any random factor, just exact amount
 	if (self.cnt < 0) self.height = self.count;
 	else self.height = self.count + rint(random()*self.cnt);
@@ -995,7 +1175,7 @@ void() breakable_defaults =
 	self.count = self.height;	
 	
 	// Special conditions - jump only, missile only, no health
-	if (self.brktrigjump < 0 || self.brktrigmissile < 0 || self.health < 0) 
+	if (self.brktrigjump != 0 || self.brktrigmissile != 0 || self.health < 0) 
 		self.spawnflags = self.spawnflags | BREAK_NOSHOOT;
 
 	// Setup default health
@@ -1017,7 +1197,8 @@ void() breakable_defaults =
 
 	// angles has to be 0 0 0 otherwise brush model is twisted
 	// Is there any angle direction defined for impact force direction
-	if (self.angles_y) {
+	// Exception: breakable models have random rotation on the model!
+	if (self.angles_y && self.classtype != CT_FUNCBREAKMDL) {
 		self.movedir_y = self.angles_y;
 		self.spawnflags = self.spawnflags | BREAK_MOVEDIR;
 	}
@@ -1036,6 +1217,23 @@ void() funcbreakable_damageon =
 	self.takedamage = DAMAGE_YES;
 	self.th_pain = funcbreakable_pain;
 	self.th_die = funcbreakable_death;
+};
+
+//----------------------------------------------------------------------
+void() breakable_trigger_touch =
+{ if (other.flags & FL_CLIENT) dprint("Client "); };
+
+//----------------------------------------------------------------------
+void(entity targ) breakable_trigger_field =
+{
+	targ.trigger_field = spawn();
+	targ.trigger_field.classtype = CT_TEMPTRIG;
+	targ.trigger_field.movetype = MOVETYPE_NONE;
+	targ.trigger_field.solid = SOLID_TRIGGER;
+	targ.trigger_field.owner = targ;
+	targ.trigger_field.touch = breakable_trigger_touch;
+	setsize(targ.trigger_field, targ.bbmins, targ.bbmaxs);
+	setorigin(targ.trigger_field, targ.origin);
 };
 
 //----------------------------------------------------------------------
@@ -1064,6 +1262,10 @@ void() breakable_on =
 		setorigin (self, self.origin);	
 		setsize (self, self.bbmins , self.bbmaxs);
 		self.angles = self.pos2;
+		self.skin = self.exactskin;
+		// Vase 0-9 = combined models; Pot 10-29 = single models
+		if (self.brkmdltype < 10) self.frame = self.brkmdltype;
+		else self.frame = 0;
 		
 		// Used for sound, radius damage and explosion
 		self.attachment = self;
@@ -1123,17 +1325,23 @@ void() func_breakable =
 
 	// No point setting up a breakable if it cannot be triggered or shoot
 	if (self.targetname == "" && self.spawnflags & BREAK_NOSHOOT) {
-		dprint("\b[BRKMDL]\b Cannot be triggered or shoot, removed\n");
-		setmodel (self, self.model);	// set size and link into world
-		setorigin (self, self.origin);	
-		setsize (self, self.mins , self.maxs);
-		self.oldorigin = bmodel_origin(self);
-		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
-		dprint("\b[BRKMDL]\b Origin - ");
-		dprint(vtos(self.oldorigin));
-		dprint("\n");
-		remove(self);
-		return;
+		// Check for external event triggers and warn on console
+		if (self.brktrigjump != 0 || self.brktrigmissile != 0) {
+			dprint("\b[BRKMDL]\b trigger jump/missile exception!\n");
+		}
+		else {
+			dprint("\b[BRKMDL]\b Cannot be triggered or shoot, removed\n");
+			setmodel (self, self.model);	// set size and link into world
+			setorigin (self, self.origin);	
+			setsize (self, self.mins , self.maxs);
+			self.oldorigin = bmodel_origin(self);
+			spawn_marker(self.oldorigin, SPNMARK_YELLOW);
+			dprint("\b[BRKMDL]\b Origin - ");
+			dprint(vtos(self.oldorigin));
+			dprint("\n");
+			remove(self);
+			return;
+		}
 	}
 
 	self.classtype = CT_FUNCBREAK;
@@ -1173,6 +1381,8 @@ void() func_breakable_spawner =
 	if (self.brkvol_x < 8) self.brkvol_x = 8;
 	if (self.brkvol_y < 8) self.brkvol_y = 8;
 	if (self.brkvol_z < 8) self.brkvol_z = 8;
+	// Not used, but should be defined for later
+	self.exactskin = self.brkmdltype = 0;
 	
 	// Already a point entity, don't need to generate anything else
 	self.attachment = self;
@@ -1355,61 +1565,69 @@ void() trigger_monsterbreak =
 	self.estate = ESTATE_ON;
 };
 
-/*======================================================================
-/*QUAKED misc_breakable_pot1 (1 .5 .25) (-24 -24 -32) (24 24 32) STARTOFF NODAMAGE EXPLOSION SILENT DAMAGE NOMOSTER NOSOUND NOROTATE
-{ model(":progs/misc_pot1.mdl"); }
-Breakable ceramic Pot 1 with handles
+//======================================================================
+/*QUAKED func_breakable_vase (1 .5 .25) (-16 -16 -16) (16 16 24) STARTOFF NODAMAGE EXPLOSION SILENT DAMAGE NOMOSTER NOSOUND NOROTATE
+{ model(":progs/brk_vase1.mdl"); }
+Breakable ceramic vase (model)
 -------- KEYS --------
-target    : Additional targets to fire when model breaks
-mangle    : Override model orientation (Pitch Yaw Roll)
-exactskin : 0=Default, 1=pattern 2, 2=pattern 3, 3= pattern 4
-health    : amount of damage to take before breaking (def 1)
-count     : minimum quantity to spawn (def 4)
-cnt       : random quantity to spawn (def 4) final qty = count + random(cnt)
-dmg       : explosive radius damage (emits from center of func object)
-pos1      : x=start particle colour, y=random range, z=quantity
-brkvelbase : Base amount for velocity of broken parts (def "50 50 100")
-brkveladd : Random additions for velocity of broken parts (def "100 100 150")
-brkavel   : Amount of breaking object angle velocity (def 200)
-brkfade   : Fade time before rubble fades away (def 4+random()x4)
-angles    : direction to throw rubble (override default = impact direction)
+mdl        : Name of model to display (def = 'progs/brk_vase1.mdl')
+brkobj1    : Breakable rubble 1 (def = 'progs/brk_vase1part1.mdl')
+brkobj2    : Breakable rubble 2 (def = 'progs/brk_vase1part2.mdl')
+brkobj3    : Breakable rubble 3 (def = 'progs/brk_vase1part3.mdl')
+brkobj4    : Breakable rubble 4 (def = 'progs/brk_vase1part4.mdl')
+exactskin  : Skin override of model (def 0, cannot be negative)
+target     : Additional triggers to fire when model breaks
+angle      : Yaw rotation of model (-1/0 = random rotation)
+health     : amount of damage to take before breaking (def 1)
+count      : minimum quantity to spawn (def 4)
+cnt        : random quantity to spawn (def 4) final qty = count + random(cnt)
+dmg        : explosive radius damage (emits from center of func object)
+pos1       : x=start particle colour, y=random range, z=quantity (def '168 8 1')
+bbmins     : Model bounding box MINIMUM size (def '-8 -8 -16')
+bbmaxs     : Model bounding box MAXIMUM size (def '8 8 16')
+brkvol     : Volume size for spawning pieces inside of (def '16 16 32')
+brkmdltype : Predefined sizes (0/1 = '16 16 32' and 2/3 = '24 24 40')
+brkpuff    : Spawn explosive puff of smoke and extra particles (-1 = disable)
+brkvelbase : Base amount for velocity of broken parts (def '50 50 100')
+brkveladd  : Random additions for velocity of broken parts (def '100 100 150')
+brkavel    : Amount of breaking object angle velocity (def 200)
+brkfade    : Fade time before rubble fades away (def 4+random()x4)
 brkgravity : will change the gravity for rubble, useful for underwater
 -------- SPAWNFLAGS --------
-STARTOFF  : Will wait for trigger to spawn
-NODAMAGE  : Cannot be damaged or shot, trigger only
-EXPLOSION : trigger sprite/particle explosion
-SILENT    : No initial breakage sound
-DAMAGE    : Spawning rubble can damage (def = 2, use dmg key for touch damage)
-NOMONSTER : monsters cannot damage this breakable and/or spawning rubble will not damage monsters
-NOSOUND   : Spawning rubble has no impact sounds
-NOROTATE  : Spawning rubble has No Y rotation
+STARTOFF   : Will wait for trigger to spawn
+NODAMAGE   : Cannot be damaged or shot, trigger only
+EXPLOSION  : trigger sprite/particle explosion
+SILENT     : No initial breakage sound
+DAMAGE     : Spawning rubble can damage (def = 2, use dmg key for touch damage)
+NOMONSTER  : monsters cannot damage this breakable and/or spawning rubble will not damage monsters
+NOSOUND    : Spawning rubble has no impact sounds
+NOROTATE   : Spawning rubble has No Y rotation
 -------- NOTES --------
-Breakable ceramic Pot 1 with handles
+Breakable ceramic vase (model)
+
 ======================================================================*/
-void() misc_breakable_pot1 = 
+void() func_breakable_ceramic_model =
 {
+	// Setup object defaults
 	self.classtype = CT_FUNCBREAKMDL;
 	self.classgroup = CG_BREAKABLE;
-	self.bbmins = '-16 -16 -24';
-	self.bbmaxs = '16 16 24';
-	self.brkvol = '32 32 48';
-	self.mdl = "progs/misc_pot1.mdl";
-	precache_model(self.mdl);
-	self.skin = self.exactskin;
-
 	self.style = BTYPE_CERAMIC;
 	self.brkobjects = BMODTYPE_CUSTOM;
-	self.brkobj1 = "progs/misc_potshard1.mdl";
-	self.brkobj2 = "progs/misc_potshard2.mdl";
-	self.brkobj3 = "progs/misc_potshard3.mdl";
-	self.brkobj4 = "progs/misc_potshard4.mdl";
-	self.pos1 = '16 8 1';	// Brown
-	self.wait = -1;			// Only break once
 
-	// Save any custom angles, otherwise random Y rotation
-	self.pos2 = '0 0 0';
-	if (CheckZeroVector(self.mangle) == FALSE) self.pos2 = self.mangle;
-	else self.pos2_y = rint(random()*359);
+	// Setup particle dust colour
+	if (CheckZeroVector(self.pos1)) self.pos1 = '168 8 1'; // Whiteish
+	
+	// Check for exactskin range errors, will be copied to rubble
+	if (self.exactskin <= 0) self.exactskin = 0;
+	self.skin = self.exactskin;
+
+	// Setting the angle key in the editor to UP/DOWN = random rotation	
+	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
+	self.pos2 = self.angles;	// Save for later
+	self.wait = -1;				// Only break once
+	// Setup default puff of smoke on break
+	if (self.brkpuff < 1) self.brkpuff = 0;
+	else self.brkpuff = 1;
 	
 	// precache all sound/model stuff
 	breakable_cache();
@@ -1417,4 +1635,173 @@ void() misc_breakable_pot1 =
 
 	if (self.spawnflags & BREAK_STARTOFF) self.use = breakable_on;
 	else breakable_on();
+};
+
+//----------------------------------------------------------------------
+void() misc_breakable_vase1 =
+{
+	// Default model/skin
+	if (self.mdl == "") self.mdl = "progs/brk_vase1.mdl";
+	precache_model(self.mdl);
+
+	if (self.brkobj1 == "") self.brkobj1 = "progs/brk_vase1part1.mdl";
+	if (self.brkobj2 == "") self.brkobj2 = "progs/brk_vase1part2.mdl";
+	if (self.brkobj3 == "") self.brkobj3 = "progs/brk_vase1part3.mdl";
+	if (self.brkobj4 == "") self.brkobj4 = "progs/brk_vase1part4.mdl";
+
+	// Make sure no out of range errors
+	if (self.brkmdltype <= 0) self.brkmdltype = 0;
+	// pre-defined large version (2/3)
+	if (self.brkmdltype == 2 || self.brkmdltype == 3) {
+		// 2 = large, 3 = large (animated)
+		self.bbmins = '-16 -16 -16';
+		self.bbmaxs = '16 16 24';
+		self.brkvol = '32 32 40';
+	}
+	else {
+		// Default bounding box and volume
+		if (CheckZeroVector(self.bbmins)) self.bbmins = '-8 -8 -16';
+		if (CheckZeroVector(self.bbmaxs)) self.bbmaxs = '8 8 16';
+		if (CheckZeroVector(self.brkvol)) self.brkvol = '16 16 32';
+	}
+	// Default setup
+	func_breakable_ceramic_model();
+};
+
+// Re-direct (old entity format)
+void() func_breakable_vase = { misc_breakable_vase1(); };
+
+//----------------------------------------------------------------------
+void() misc_breakable_pot_setup =
+{
+	// Check for random model setup
+	if (self.brkmdltype == -1) self.brkmdltype = rint(11+(random()*3.5));
+	if (self.brkmdltype < -1) self.brkmdltype = rint(21+(random()*3.5));
+	// Check for errors
+	if (self.brkmdltype < 11) self.brkmdltype = 11;
+	else if (self.brkmdltype > 25) self.brkmdltype = 25;
+	else if (self.brkmdltype > 15 && self.brkmdltype < 21) self.brkmdltype = 15;
+
+	// Pick model
+	if (self.brkmdltype == 11) self.mdl = "progs/brk_pot1a.mdl";
+	else if (self.brkmdltype == 12) self.mdl = "progs/brk_pot1b.mdl";
+	else if (self.brkmdltype == 13) self.mdl = "progs/brk_pot1c.mdl";
+	else if (self.brkmdltype == 14) self.mdl = "progs/brk_pot1d.mdl";
+	else if (self.brkmdltype == 15) self.mdl = "progs/brk_pot1aflr.mdl";
+	else if (self.brkmdltype == 21) self.mdl = "progs/brk_pot2a.mdl";
+	else if (self.brkmdltype == 22) self.mdl = "progs/brk_pot2b.mdl";
+	else if (self.brkmdltype == 23) self.mdl = "progs/brk_pot2c.mdl";
+	else if (self.brkmdltype == 24) self.mdl = "progs/brk_pot2d.mdl";
+	else if (self.brkmdltype == 25) self.mdl = "progs/brk_pot2aflr.mdl";
+	precache_model(self.mdl);
+	
+	// Pot 1a and 2a
+	if (self.brkmdltype == 11 || self.brkmdltype == 21) {
+		if (CheckZeroVector(self.bbmins)) self.bbmins = '-16 -16 -16';
+		if (CheckZeroVector(self.bbmaxs)) self.bbmaxs = '16 16 32';
+		if (CheckZeroVector(self.brkvol)) self.brkvol = '32 32 48';
+	}
+	// Pot 1b and 2b
+	else if (self.brkmdltype == 12 || self.brkmdltype == 22) {
+		if (CheckZeroVector(self.bbmins)) self.bbmins = '-10 -10 -16';
+		if (CheckZeroVector(self.bbmaxs)) self.bbmaxs = '10 10 16';
+		if (CheckZeroVector(self.brkvol)) self.brkvol = '20 20 32';
+	}
+	// Pot 1c and 2c
+	else if (self.brkmdltype == 13 || self.brkmdltype == 23) {
+		if (CheckZeroVector(self.bbmins)) self.bbmins = '-16 -16 -16';
+		if (CheckZeroVector(self.bbmaxs)) self.bbmaxs = '16 16 32';
+		if (CheckZeroVector(self.brkvol)) self.brkvol = '32 32 48';
+	}
+	// Pot 1d and 2d
+	else if (self.brkmdltype == 14 || self.brkmdltype == 24) {
+		if (CheckZeroVector(self.bbmins)) self.bbmins = '-12 -12 -16';
+		if (CheckZeroVector(self.bbmaxs)) self.bbmaxs = '12 12 32';
+		if (CheckZeroVector(self.brkvol)) self.brkvol = '24 24 48';
+	}
+	else if (self.brkmdltype == 15 || self.brkmdltype == 25) {
+		// Find out any random rotation of the pot early for this setup
+		if (self.angles_y <= 0) self.angles_y = rint(random()*359);
+		// Calculate the true rotation of XY bounding box
+		self.bbmins = mathlib_vectorotateZ('-20 -12 -16', self.angles_y);
+		// The vector should have a minimum size, otherwise odd sizes
+		if (self.bbmins_x > -16) self.bbmins_x = -16;
+		if (self.bbmins_y > -16) self.bbmins_y = -16;
+		// Calculate the true rotation of XY bounding box
+		self.bbmaxs = mathlib_vectorotateZ('20 12 12', self.angles_y);
+		// The vector should have a minimum size, otherwise odd sizes
+		if (self.bbmaxs_x < 16) self.bbmaxs_x = 16;
+		if (self.bbmaxs_y < 16) self.bbmaxs_y = 16;
+		// Pot2a floor version is flatter on top (lower Z)
+		if (self.brkmdltype == 25) self.bbmaxs_z = 8;
+		// Volume is the same for breakable parts
+		self.brkvol = '32 32 32';
+	}
+	
+	
+	// Setup breakable parts for each model type
+	if (self.brkmdltype >= 11 && self.brkmdltype <= 15) {
+		self.brkobj1 = "progs/brk_pot1part1.mdl";
+		self.brkobj2 = "progs/brk_pot1part2.mdl";
+		self.brkobj3 = "progs/brk_pot1part3.mdl";
+		self.brkobj4 = "progs/brk_pot1part4.mdl";
+	}
+	else if (self.brkmdltype >= 21 && self.brkmdltype <= 25) {
+		self.brkobj1 = "progs/brk_pot2part1.mdl";
+		self.brkobj2 = "progs/brk_pot2part2.mdl";
+		self.brkobj3 = "progs/brk_pot2part3.mdl";
+		self.brkobj4 = "progs/brk_pot2part4.mdl";
+	}
+	func_breakable_ceramic_model();
+};
+
+//----------------------------------------------------------------------
+void() misc_breakable_pot1a = {
+	if (self.brkmdltype < 0) self.brkmdltype = -1;
+	else self.brkmdltype = 11;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot1b = {
+	if (self.brkmdltype < 0) self.brkmdltype = -1;
+	else self.brkmdltype = 12;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot1c = {
+	if (self.brkmdltype < 0) self.brkmdltype = -1;
+	else self.brkmdltype = 13;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot1d = {
+	if (self.brkmdltype < 0) self.brkmdltype = -1;
+	else self.brkmdltype = 14;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot1aflr = {
+	self.brkmdltype = 15;
+	misc_breakable_pot_setup();
+};
+//----------------------------------------------------------------------
+void() misc_breakable_pot2a = {
+	if (self.brkmdltype < 0) self.brkmdltype = -2;
+	else self.brkmdltype = 21;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot2b = {
+	if (self.brkmdltype < 0) self.brkmdltype = -2;
+	else self.brkmdltype = 22;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot2c = {
+	if (self.brkmdltype < 0) self.brkmdltype = -2;
+	else self.brkmdltype = 23;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot2d = {
+	if (self.brkmdltype < 0) self.brkmdltype = -2;
+	else self.brkmdltype = 24;
+	misc_breakable_pot_setup();
+};
+void() misc_breakable_pot2aflr = {
+	self.brkmdltype = 25;
+	misc_breakable_pot_setup();
 };

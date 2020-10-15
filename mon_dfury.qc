@@ -263,7 +263,7 @@ void()	dfury_rswing5	=[	$rswing5,	dfury_rswing6	] {ai_charge(7);ai_melee();};
 void()	dfury_rswing6	=[	$rswing6,	dfury_rswing7	] {ai_charge(5);ai_melee(); dfury_sword_sound();};
 void()	dfury_rswing7	=[	$rswing7,	dfury_rswing8	] {ai_charge(2);monster_footstep(FALSE);};
 void()	dfury_rswing8	=[	$rswing8,	dfury_run1	] {ai_charge(1);
-	if (ai_checkmelee(MONAI_MELEEFRONT) && self.enemy.health > 0) self.think = dfury_lswing3;
+	if (ai_checkmelee(MONAI_MELEEFRONT,FALSE) && self.enemy.health > 0) self.think = dfury_lswing3;
 };
 
 //----------------------------------------------------------------------
@@ -275,7 +275,7 @@ void()	dfury_lswing5	=[	$lswing5,	dfury_lswing6	] {ai_charge(7);ai_melee();};
 void()	dfury_lswing6	=[	$lswing6,	dfury_lswing7	] {ai_charge(5);ai_melee(); dfury_sword_sound();};
 void()	dfury_lswing7	=[	$lswing7,	dfury_lswing8	] {ai_charge(2);monster_footstep(FALSE);};
 void()	dfury_lswing8	=[	$lswing8,	dfury_run1	] {ai_charge(1);
-	if (ai_checkmelee(MONAI_MELEEFRONT) && self.enemy.health > 0) self.think = dfury_rswing3;
+	if (ai_checkmelee(MONAI_MELEEFRONT,FALSE) && self.enemy.health > 0) self.think = dfury_rswing3;
 };
 
 //----------------------------------------------------------------------
@@ -323,7 +323,7 @@ void()	dfury_lunge4	=[	$lunge4,	dfury_lunge5	] {
 	self.jump_flag = time + MONAI_JUMPFURYTIME;
 	self.touch = dfury_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * 500 + '0 0 250';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
 };
@@ -350,7 +350,7 @@ void()	dfury_lunge13	=[	$lunge13,	dfury_lunge14	] {ai_charge(1);ai_melee();monst
 void()	dfury_lunge14	=[	$lunge14,	dfury_lunge15	] {ai_charge(1);};
 void()	dfury_lunge15	=[	$lunge15,	dfury_run1	] {ai_resetangles();
 	// If close enough starting swinging left+right ELSE return to run cycle
-	if (ai_checkmelee(MONAI_MELEEFRONT) && self.enemy.health > 0) self.think = dfury_rswing3;
+	if (ai_checkmelee(MONAI_MELEEFRONT,FALSE) && self.enemy.health > 0) self.think = dfury_rswing3;
 };
 
 //----------------------------------------------------------------------
@@ -382,8 +382,8 @@ void()	dfury_watk22=[	$w_attack22,dfury_run1	] {ai_charge(21);
 	// this is a long animations set for chasing the player
 	// Quick check if within melee range, close melee range or random magic attack!
 	if (self.enemy.health > 0) {
-		if (ai_checkmelee(MONAI_MELEEFRONT)) self.think = dfury_rswing3;
-		else if (ai_checkmelee(MONAI_JUMPFURYNEAR)) self.think = dfury_slice1;
+		if (ai_checkmelee(MONAI_MELEEFRONT,FALSE)) self.think = dfury_rswing3;
+		else if (ai_checkmelee(MONAI_JUMPFURYNEAR,FALSE)) self.think = dfury_slice1;
 		else if (random() < 0.3) self.think = dfury_magic;
 	}
 };
@@ -713,11 +713,12 @@ QUAKED monster_dfury (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
 void() monster_dfury =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
-	self.mdl = "progs/mon_dfury.mdl";
-	self.headmdl = "progs/h_dfury.mdl";
-	self.weaponglow = "progs/mon_dfury_glow.mdl";
+	self.mdl = "progs/mon_dfury.mdl";				// New death knight model
+	self.headmdl = "progs/h_dfury.mdl";				// Matching head
+	self.weaponglow = "progs/mon_dfury_glow.mdl";	// Weapon glow effect
 	self.gib1mdl = "progs/w_dfurysword1.mdl";		// Unique sword L
 	self.gib2mdl = "progs/w_dfurysword2.mdl";		// Unique sword R
 	self.gib3mdl = "progs/gib_knfoot_r.mdl";		// right foot
@@ -784,13 +785,18 @@ void() monster_dfury =
 	self.pain_flinch = 80;
 	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// High pain level
-	if (!self.infightextra) self.infightextra = 2;	// 2x infighting dmg
+	if (self.infightextra <= 0) self.infightextra = 2; // 2x infighting dmg
 	self.steptype = FS_TYPEMEDIUM;
 	self.meleecontact = FALSE;			// Smash contact
 	self.meleerange = MONAI_MELEEFRONT;	// Smash attack
 	self.meleeoffset = '24 0 16';		// Jump attack offset
 	self.attack_offset = '20 0 10';		// Average of both attacks
 	self.deathstring = " was sliced by a Fury Knight\n";
+
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '500 0 250';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPFURYNEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPFURYFAR;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

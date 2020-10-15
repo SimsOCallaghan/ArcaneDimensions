@@ -25,6 +25,7 @@ lip    : lip remaining at end of move. (def=4)
 sounds : 0=steam metal, 1=wooden, 2=metallic, 3=in-out, 4=Silent, 5=Custom
 noise  : custom sound - 1st movement
 noise1 : custom sound - 2nd movement ('buttons/switch21.wav')
+volume : Volume for all custom sounds played (def=1, range=0-1)
 message: Centerprint Message to display when triggered
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
@@ -58,7 +59,7 @@ void() func_pswitch_return =
 		if (self.presstimersound < time) {
 			self.presstimersound = time + 1;
 			// 2nd movement sound - going up
-			sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+			sound (self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
 		}
 		self.ltime = time;
 		self.state = STATE_MOVING;
@@ -107,7 +108,7 @@ void() func_pswitch_use =
 		if (self.presstimersound < time) {
 			self.presstimersound = time + 1;
 			// 1st movement sound - going down
-			sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+			sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 		}
 		// Move pressure pad into down position
 		self.ltime = time;
@@ -181,6 +182,7 @@ void() func_pressureswitch =
 	
 	if (self.noise1 == "") self.noise1 = self.noise;
 	precache_sound (self.noise1);
+	trigger_bmodel_volume(1);
 	
 	self.classtype = CT_FUNCPSWITCH;
 	self.classgroup = CG_FUNCMOVER;

@@ -12,31 +12,31 @@
  * Added target2 to func_rotate_door to allow alternative start positions
  
 ------------------------------------------------------------------------
-/*QUAKED info_rotate (0 0.5 0) (-4 -4 -4) (4 4 4)
+//QUAKED info_rotate (0 0.5 0) (-4 -4 -4) (4 4 4)
 Used as the point of rotation for rotatable objects.
  
-/*QUAKED func_rotate_entity (0 .5 .8) (-8 -8 -8) (8 8 8) TOGGLE START_ON
+//QUAKED func_rotate_entity (0 .5 .8) (-8 -8 -8) (8 8 8) TOGGLE START_ON
 Creates an entity that continually rotates.  Can be toggled on and
 off if targeted.
  
-/*QUAKED path_rotate (0.5 0.3 0) (-8 -8 -8) (8 8 8) ROTATION ANGLES STOP NO_ROTATE DAMAGE MOVETIME SET_DAMAGE
+//QUAKED path_rotate (0.5 0.3 0) (-8 -8 -8) (8 8 8) ROTATION ANGLES STOP NO_ROTATE DAMAGE MOVETIME SET_DAMAGE
  Path for rotate_train.
  
-/*QUAKED func_rotate_train (0 .5 .8) (-8 -8 -8) (8 8 8) x
+//QUAKED func_rotate_train (0 .5 .8) (-8 -8 -8) (8 8 8) x
 Trains are moving platforms that players can ride.
 If the train is the target of a button or trigger, it will not begin 
 moving until activated.
 The func_rotate_train entity is the center of rotation of all objects 
 targeted by it.
 
-/*QUAKED func_movewall (0 .5 .8) ? VISIBLE TOUCH NONBLOCKING
+//QUAKED func_movewall (0 .5 .8) ? VISIBLE TOUCH NONBLOCKING
 Used to emulate collision on rotating objects.
 
-/*QUAKED rotate_object (0 .5 .8) ?
+//QUAKED rotate_object (0 .5 .8) ?
 This defines an object to be rotated.
 Used as the target of func_rotate_door.
 
-/*QUAKED func_rotate_door (0 .5 .8) (-8 -8 -8) (8 8 8) STAYOPEN
+//QUAKED func_rotate_door (0 .5 .8) (-8 -8 -8) (8 8 8) STAYOPEN
 Creates a door that rotates between two positions around a point of
 rotation each time it's triggered.
 

@@ -95,7 +95,7 @@ void() fish_melee =
 
 	if (!self.enemy) return;				// removed before stroke
 	ai_damagebreakable(5);					// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEEFISH)) return;	// Too far away
+	if (!ai_checkmelee(MONAI_MELEEFISH,FALSE)) return;	// Too far away
 		
 	// Fish bites man! 1-6 Damage
 	ldmg = (random() + random() + random()) * 2;
@@ -212,7 +212,10 @@ QUAKED monster_fish (1 0 0) (-16 -16 -24) (16 16 24) Ambush
 ======================================================================*/
 void() monster_fish =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_fish.mdl";	// Using new model
 	precache_model (self.mdl);
@@ -252,7 +255,7 @@ void() monster_fish =
 	// Tiny fish are easier to kill
 	if (self.spawnflags & MON_FISH_SMALL) {
 		if (self.bboxtype < 1) self.bboxtype = BBOX_FISHS;
-		if (self.health < 1) self.health = 15;
+		if (self.health < 1) self.health = HP_MONFISH/2;
 		// The small fish moving really fast looks odd
 		// reverted speed and movement back to original
 		//self.move_state = '0 12 16';
@@ -260,7 +263,7 @@ void() monster_fish =
 	}
 	else {
 		if (self.bboxtype < 1) self.bboxtype = BBOX_FISH;
-		if (self.health < 1) self.health = 25;
+		if (self.health < 1) self.health = HP_MONFISH;
 		self.move_state = '0 8 12';
 	}
 	

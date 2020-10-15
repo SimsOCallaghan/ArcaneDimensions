@@ -12,6 +12,7 @@ entity		part_end;
 entity		part_free;			// Current particle entity
 float		part_total;			// Currently active particles
 float		part_max;			// Maximum active particles
+float		part_multiplier;	// Advanced / Standard engine multiplier
 entity		part;				// Spawning particle emitters and particles
 
 //----------------------------------------------------------------------
@@ -25,16 +26,40 @@ float PARTICLE_WEATHER_SNOW = 8;	// Weather snow - White
 .entity		part_emitter;		// Particle emitter link on any entity
 .entity		pemit_source;		// Source/owner of particle emitter
 .entity		pemit_target;		// Particle emitter target entity
+.float		part_static;		// Source entity is/was static entity
 .float		target_valid;		// Test condition for valid target entity (not self or world)
 .float		part_style;			// Pre-defined particle styles
 .float		pemit_tcount;		// Particle emitter, total active particles 
-.float		part_active;		// Is the particle active or not
+.float		part_active;		// Is the particle emitter active? or not
 .float		start_delay;		// Particle emitter start delay
 .float		dpp_only;			// Is the particle a DPP only effect?
 .string		dpp_name;			// DP particle effect name in effectinfo.txt file
 .float		dpp_wait;			// DP particle re-trigger timer
 .float		dpp_rnd;			// DP particle random multiplier for time
 .vector		dpp_vel;			// Direction of DP particles to move towards
+.float		dpp_flame;			// % chance to generate FX for flames -1=disabled
+
+//----------------------------------------------------------------------
+// QC generated particle trail
+.float		part_qctrail;		// Custom trail active?
+.float		part_trstyle;		// Pre-defined particle styles
+.float		part_qcspeed;		// Tick timer for generated particles
+.vector		part_qcdir;			// Velocity direction of particles
+.float		part_qccol1;		// Particle colour 1
+.float		part_qccol2;		// Particle colour 2 (Alternative)
+.float		part_qcgrow;		// Projectile grows while travelling?
+.float		part_qcgrowtimer;	// Timer to check when to increase frame
+.entity		part_qctarget;		// Entity to use as origin for particles
+.vector		part_qcorigin;		// Origin location for particles
+.float		part_sectimer;		// Secondary function timer
+.void()		part_secfunc;		// Secondary function to call
+.string		part_soundtouch;	// On touch, sound to play locally
+.string		part_soundmiss;		// On touch and nodamage, play locally
+.float		part_soundtimer;	// Timer to replay sound
+.float		part_exitpuff;		// On death, spawn puff of smoke
+.float		part_exitfade;		// On death, fade out model gradually
+.float		part_exitsound;		// On death, kill all sound channels
+.float		part_exitbusy;		// Stop particle if owner is busy
 
 //----------------------------------------------------------------------
 // Particle style parameters
@@ -42,6 +67,7 @@ float PARTICLE_WEATHER_SNOW = 8;	// Weather snow - White
 .string		spr_name2;			// Sprite string name 2
 .string		spr_name3;			// Sprite string name 3
 .float		spr_frame;			// Sprite frame type 1=all, 2=light, 3=dark
+.float		spr_color;			// Alt colour styles (defined in part_emitter.qc)
 .float		part_limit;			// Maximum amount of particles to emit
 .float		part_life;			// Life time
 .vector		part_ofs;			// Offset from emitter
@@ -57,6 +83,12 @@ float PARTICLE_WEATHER_SNOW = 8;	// Weather snow - White
 .float		wakeup_timer;		// How often to check distance check
 .float		spawn_base;			// Spawn rate - base value
 .float		spawn_rand;			// Spawn rate - random adjustment
+
+//----------------------------------------------------------------------
+// Extra parameters for hazard particle emitter
+.float		part_chance;		// Chance of spawning particles
+.float		part_base;			// Particle quantity base
+.float		part_rand;			// Particle quantity random
 
 // Compiler forward links
 void() setup_particleprecache;
@@ -304,7 +336,7 @@ float PARTICLE_BURST_BLUE = 8;			// blue, grey, blue
 float PARTICLE_BURST_PURPLE = 16;		// purple, grey, purple
 float PARTICLE_BURST_FIRE = 32;			// gold, red, grey (used by ogre)
 float PARTICLE_BURST_WHITE = 64;		// white, grey, grey
-
+// Particle BURST styles
 float PARTICLE_BURST_RING = 256;		// Circular particle burst
 float PARTICLE_BURST_CENTER = 512;		// Central particle burst
 float PARTICLE_BURST_UPWARD = 1024;		// Drifting upward burst
@@ -312,6 +344,16 @@ float PARTICLE_BURST_SHOCKWAVE = 4096;	// Floor impact shockwave
 float PARTICLE_BURST_SKULLUP = 8192;	// Skull wizard teleport
 float PARTICLE_BURST_LOSTUP = 16384;	// Lost souls particle burn
 float PARTICLE_BURST_MINOTAUR = 32768;	// Minotaur magic attack over
+//----------------------------------------------------------------------
+float PARTICLE_TRAIL_YELLOW = 1;		// gold, yellow, yellow
+float PARTICLE_TRAIL_GREEN = 2;			// light green, green, green
+float PARTICLE_TRAIL_RED = 3;			// grey, red, red
+float PARTICLE_TRAIL_BLUE = 4;			// blue, grey, blue
+float PARTICLE_TRAIL_PURPLE = 5;		// purple, grey, purple
+float PARTICLE_TRAIL_FIRE = 6;			// gold, red, grey
+float PARTICLE_TRAIL_WHITE = 7;			// white, grey, grey
+float PARTICLE_TRAIL_PLASMA = 10;		// Plasma weapons
+float PARTICLE_TRAIL_POISON = 11;		// Poisonous weapons
 //----------------------------------------------------------------------
 // Map referenced particles
 float PARTICLE_STYLE_CUSTOM = 1;		// Custom particle defined in map
@@ -352,10 +394,14 @@ float PARTICLE_STYLE_SUIT = 200;		// Green dots rising up
 float PARTICLE_STYLE_PENT = 210;		// Red/Black dots from center
 float PARTICLE_STYLE_SRING = 220;		// Yellow dots falling down
 float PARTICLE_STYLE_QUAD = 230;		// Blue dots from center
-float PARTICLE_STYLE_TOMEOFP = 240;		// Yellow explosion from skull
-float PARTICLE_STYLE_SHARP = 250;		// Purple dots from center
-float PARTICLE_STYLE_PIERCE = 260;		// Purple dots from center
-float PARTICLE_STYLE_WETSUIT = 270;		// Blue dots rising up
+float PARTICLE_STYLE_SHARP = 240;		// Purple dots from center
+float PARTICLE_STYLE_PIERCE = 250;		// Purple dots from center
+float PARTICLE_STYLE_LAVASHIELD = 260;	// Red dots from center
+float PARTICLE_STYLE_AIRTANK = 270;		// Blue dots rising up
+float PARTICLE_STYLE_BLASTBELT = 280;	// Blue dots from center
+float PARTICLE_STYLE_BLASTBELT2 = 285;	// Red dots from center
+float PARTICLE_STYLE_JUMPBOOTS = 290;	// Yellow dots falling down
+float PARTICLE_STYLE_TOMEOFP = 300;		// Yellow explosion from skull
 
 //----------------------------------------------------------------------
 // Darkplaces custom particles defined in effectinfo.txt
@@ -389,6 +435,7 @@ string DPP_PORTALSIDE = "DPP_ITSPORTALSIDE";	// 90,270 angle
 string DPP_PORTALDOWN = "DPP_ITSPORTALDOWN";	// -2 angle
 string DPP_PORTALUP = "DPP_ITSPORTALUP";		// -1 angle
 string DPP_FCIRCLE = "DPP_ITSFCIRCLE";
+string DPP_BFCIRCLE = "DPP_ITSBFCIRCLE";
 string DPP_JUMPPAD = "DPP_ITSJUMPPAD";
 string DPP_BOOKBLUE = "DPP_ITSBOOKBLUE";
 string DPP_BOOKRED = "DPP_ITSBOOKRED";
@@ -429,11 +476,15 @@ string DPP_SUIT = "DPP_ITSSUIT";
 string DPP_PENT = "DPP_ITSPENT";
 string DPP_SRING = "DPP_ITSSRING";
 string DPP_QUAD = "DPP_ITSQUAD";
-string DPP_TOMEOFP = "DPP_ITSTOMEOFP";
 string DPP_SHARP = "DPP_ITSSHARP";
 string DPP_SHARPG = "DPP_ITSSHARPG";
 string DPP_PIERCE = "DPP_ITSPIERCE";
-string DPP_WETSUIT = "DPP_ITSWETSUIT";
+string DPP_LAVASHIELD = "DPP_ITSLAVASHIELD";
+string DPP_AIRTANK = "DPP_ITSAIRTANK";
+string DPP_BLASTBELT = "DPP_ITSBLASTBELT";
+string DPP_BLASTBELT2 = "DPP_ITSBLASTBELT2";
+string DPP_JBOOTS = "DPP_ITSJBOOTS";
+string DPP_TOMEOFP = "DPP_ITSTOMEOFP";
 
 // Special trigger effects
 string DPP_TEVORESPIKE = "TE_VORESPIKE";
@@ -441,6 +492,7 @@ string DPP_WRAITHEXPLODE = "DPP_ITSWRAITHEXPLODE";
 string DPP_INTERACTIVE = "DPP_ITSINTERACTIVE";
 string DPP_BURSTFLAME = "DPP_ITSFLAME_BURST";
 string DPP_FCIRCLE_RING = "DPP_ITSFCIRCLE_RING";
+string DPP_FCIRCLE_BRING = "DPP_ITSFCIRCLE_BRING";
 string DPP_SIGILPICKUP = "DPP_ITSSIGIL_PICKUP";
 string DPP_BURSTSHOCKWAVE1 = "DPP_ITSBURSTSHOCKWAVE1";
 string DPP_BURSTSHOCKWAVE2 = "DPP_ITSBURSTSHOCKWAVE2";
@@ -458,7 +510,7 @@ string DPP_VELSMOKEPURPLE = "DPP_ITSVELSMOKEPURPLE";
 string DPP_VELSMOKERED = "DPP_ITSVELSMOKERED";
 string DPP_VELSMOKEFIRE = "DPP_ITSVELSMOKEFIRE";
 
-// Respawn effects
+// Generic particle ring colours
 string DPP_RINGPARTY = "DPP_ITSPART_RINGY";
 string DPP_RINGPARTG = "DPP_ITSPART_RINGG";
 string DPP_RINGPARTR = "DPP_ITSPART_RINGR";
@@ -466,13 +518,23 @@ string DPP_RINGPARTB = "DPP_ITSPART_RINGB";
 string DPP_RINGPARTP = "DPP_ITSPART_RINGP";
 string DPP_RINGPARTW = "DPP_ITSPART_RINGW";
 
+// Generic particle burst colours
 string DPP_BURSTPARTY = "DPP_ITSPART_BURSTY";
 string DPP_BURSTPARTG = "DPP_ITSPART_BURSTG";
 string DPP_BURSTPARTR = "DPP_ITSPART_BURSTR";
 string DPP_BURSTPARTB = "DPP_ITSPART_BURSTB";
 string DPP_BURSTPARTP = "DPP_ITSPART_BURSTP";
 string DPP_BURSTPARTW = "DPP_ITSPART_BURSTW";
-// Forcefield volumes
+
+// Generic particle trail colours
+string DPP_TRAILPARTY = "DPP_ITSPART_TRAILY";
+string DPP_TRAILPARTG = "DPP_ITSPART_TRAILG";
+string DPP_TRAILPARTR = "DPP_ITSPART_TRAILR";
+string DPP_TRAILPARTB = "DPP_ITSPART_TRAILB";
+string DPP_TRAILPARTP = "DPP_ITSPART_TRAILP";
+string DPP_TRAILPARTW = "DPP_ITSPART_TRAILW";
+
+// Generic forcefield volume colours
 string DPP_FFIELDPARTY = "DPP_ITSPART_FFIELDY";
 string DPP_FFIELDPARTG = "DPP_ITSPART_FFIELDG";
 string DPP_FFIELDPARTR = "DPP_ITSPART_FFIELDR";

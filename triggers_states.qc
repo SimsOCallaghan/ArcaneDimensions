@@ -1,16 +1,41 @@
-/*======================================================================
- TRIGGER STATE FUNCTIONS
-======================================================================*/
-float TRIG_NOTOUCH = 1;			// Touch functionality is disabled
-float TRIG_DEVMODE = 4;			// Will only trigger in dev model
-float TRIG_INVIEW = 8;			// player has to see trigger
-float TRIG_MODCHECK = 16;		// Will remove this entity if THIS mod is active
-float TRIG_MONSTERS = 32;		// Can be touched/triggered by monsters
-// float ENT_STARTOFF = 64;		// Global spawnflags setting
+//======================================================================
+// TRIGGER STATE FUNCTIONS
+//======================================================================
+
+float TRIG_NOTOUCH = 1;		// Touch functionality is disabled
+							// Will need special setup to avoid this!
+							// Active in the delay/restore functions
+
+float TRIG_DEVMODE = 4;		// Will only trigger in dev model
+							// Only affects trigger_ONCE & _MULTIPLE
+
+float TRIG_INVIEW = 8;		// player has to see trigger
+							// Only affects trigger_ONCE
+
+float TRIG_MODCHECK = 16;	// Will remove entity if mod version wrong
+							// Only affects trigger_ONCE, _MULTIPLE & _HURT
+							// Is checked before any trigger is spawned
+							// into the map
+
+float TRIG_MONSTERS = 32;	// Can be touched/triggered by monsters
+							// Used by many triggers to prevent monster use.
+							// Will need special setup to avoid this!
+							// Used in trigger_bmodel_touch function ONLY
+
+// float ENT_STARTOFF = 64;	// Global spawnflags setting
 
 // Added by functions, no map entity interaction
 float TRIG_NODAMAGE = 16384;	// Block trigger damage functionality
 float TRIG_ALWAYTOUCH = 32768;	// Always allow touch function to exist
+
+//----------------------------------------------------------------------
+void(float defvol) trigger_bmodel_volume =
+{
+	// Volume has to be within range of 0-1, otherwise engine errors
+	if (self.volume == 0) self.volume = defvol;	// Default
+	else if (self.volume < 0) self.volume = 0;	// Out of range
+	else if (self.volume > 1) self.volume = 1;	// Out of range
+};
 
 //----------------------------------------------------------------------
 void() trigger_bmodel_sounds =
@@ -23,6 +48,8 @@ void() trigger_bmodel_sounds =
 	else if (self.sounds == 6) self.noise = "misc/secret3.wav";
 	// precache any sounds that have been defined
 	if (self.noise != "") precache_sound(self.noise);
+	// setup default volume (entity key override)
+	trigger_bmodel_volume(1);
 };
 
 //----------------------------------------------------------------------
@@ -98,13 +125,15 @@ void() trigger_bmodel_fire =
 	//----------------------------------------------------------------------
 	// The Shotgun and Axe upgrades can make maps too easy, allow for
 	// triggers to not fire if the key is TRUE and inventory empty
+	// Was planning to remove this feature with AD 1.8 codebase
+	// Howver it seems someone did use it! - ad_magna
 	//----------------------------------------------------------------------
 	if ( self.bmodel_act.flags & FL_CLIENT ) {
 		if (self.upgrade_axe && !(self.bmodel_act.moditems & IT_UPGRADE_AXE)) return;
 		if (self.upgrade_ssg && !(self.bmodel_act.moditems & IT_UPGRADE_SSG) ) return;
 		if (self.upgrade_lg && !(self.bmodel_act.moditems & IT_UPGRADE_LG) ) return;
 	}
-
+	
 	// Trigger secrets only work for players
 	if (self.classtype == CT_TRIGSECRET) {
 		// If trigger_secret has NOTOUCH then check activator
@@ -116,9 +145,14 @@ void() trigger_bmodel_fire =
 			self.count = 0;	// Secrets only work once
 		}
 	}
+	// Switch off ability for trigger_mulitiple ONLY
+	else if (self.classtype == CT_TRIGMULTI && self.count > 0) {
+		self.count = self.count - 1;
+		if (self.count <= 0) self.wait = -1;
+	}
 
 	// Play the sound ON the trigger, NOT the activator
-	if (self.noise != "") sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+	if (self.noise != "") sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 
 	//----------------------------------------------------------------------
 	// One of the downside to trigger_multi and trigger_once is that they
@@ -133,13 +167,18 @@ void() trigger_bmodel_fire =
 
 	// Is the trigger repeatable?
 	if (self.wait > 0) {
+		// Double check trigger is turned on!?!
+		// The sequence and timing for QC is not always perfect
+		// Always check stuff before resetting think/nextthink
+		if (self.estate & ESTATE_BLOCK) return;
+		// Setup a re-trigger event
 		self.attack_finished = time + self.wait;
 		self.nextthink = self.attack_finished;
 		self.think = self.estate_on;
 	}
 	else {
 		// TRIGGER_ONCE functionality
-		self.attack_finished = LARGE_TIMER;
+		self.attack_finished = time + LARGE_TIMER;
 		self.estate_off();
 	}
 };
@@ -162,12 +201,14 @@ void() trigger_bmodel_touch =
 	if (self.estate & ESTATE_BLOCK) return;
 	if ( !(self.spawnflags & TRIG_MONSTERS) && !(other.flags & FL_CLIENT) ) return;
 	
+	// Check for any target entity tracking
+	TargetMovedir(self, FALSE);
+	
 	// Did the trigger have an angle key setup?
-	if (CheckZeroVector(self.movedir) == FALSE) {
+	if (!CheckZeroVector(self.movedir)) {
 		makevectors (other.angles);
 		if (v_forward * self.movedir < 0) return;		
 	}
-	
 	self.bmodel_act = other;
 	self.estate_fire();
 };
@@ -286,19 +327,12 @@ void() trigger_bmodel_on =
 //----------------------------------------------------------------------
 void() trigger_bmodel_off =
 {
+	self.oldorigin = bmodel_origin(self);
 	self.estate = ESTATE_OFF;
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
 	setsize(self, VEC_ORIGIN, VEC_ORIGIN);
 	self.estate_disable();
-};
-
-//----------------------------------------------------------------------
-void() trigger_bmodel_reset =
-{
-	// Reset trigger_once conditions
-	self.attack_finished = 0;
-	self.estate_on();
 };
 
 //----------------------------------------------------------------------
@@ -310,14 +344,25 @@ void() trigger_bmodel_disable =
 };
 
 //----------------------------------------------------------------------
+void() trigger_bmodel_reset =
+{
+	// Reset trigger_once conditions
+	self.attack_finished = 0;
+	self.estate_on();
+};
+
+//----------------------------------------------------------------------
 void() trigger_bmodel_default =
 {
+	self.classgroup = CG_TRIGGERS;
 	self.estate_on = trigger_bmodel_on;
 	self.estate_off = trigger_bmodel_off;
 	if (!self.estate_fire) self.estate_fire = trigger_bmodel_fire;
 	self.estate_disable = trigger_bmodel_disable;
 	self.estate_reset = trigger_bmodel_reset;
 	self.estate = ESTATE_ON;
+	// setup default sound volume
+	trigger_bmodel_volume(1);
 };
 
 //----------------------------------------------------------------------
@@ -334,6 +379,88 @@ void() trigger_bmodel_setup =
 	}
 	// The original functionality of the trigger is to pass through
 	else self.estate_use();
+};
+
+//======================================================================
+// Check for bmodel errors, model key empty (can crash engine)
+//----------------------------------------------------------------------
+float() check_bmodel_keys =
+{
+	if (self.model == "") {
+		// this error can be fatal for most engines, show warning
+		dprint ("\b[BMODEL]\b "); dprint (self.classname);
+		dprint (" ("); dprint (self.targetname);
+		dprint (") missing MODEL key!\n");
+		
+		self.classtype = CT_DEVMARKER;		// Useless entity
+		self.movetype = MOVETYPE_NONE;		// Stationary
+		self.solid = SOLID_NOT;				// no world interaction
+		
+		// If developer active show yellow diamond
+		if (developer > 0) setmodel(self, MODEL_BROKEN);
+		else setmodel(self,"");
+		
+		// Make sure no world interaction
+		setsize (self, VEC_ORIGIN, VEC_ORIGIN);
+		
+		// Randomly place debug diamond above 0,0,0
+		self.pos1 = '0 0 0';
+		self.pos1_z = random()*64;
+		setorigin(self, self.pos1);
+		
+		// Do nothing with this entity
+		return TRUE;
+	}
+	else return FALSE;
+};
+
+//----------------------------------------------------------------------
+float() check_bmodel_notouch =
+{
+	// Cannot have a no touch AND no targetname setup!!!
+	if (self.spawnflags & TRIG_NOTOUCH && self.targetname == "" && self.health < 1) {
+		dprint("\b[TRIGGER]\b NO touch + NO targetname!\n");
+		setmodel (self, self.model);
+		self.oldorigin = bmodel_origin(self);
+		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
+		entity_hide(self);
+		return TRUE;
+	}
+	else return FALSE;
+	
+};
+
+//----------------------------------------------------------------------
+// Check if the right mod version is active
+// return TRUE = delete trigger, everything ok, >= active version
+// return FALSE = error, show trigger message, < active version
+//----------------------------------------------------------------------
+float() check_bmodel_modver =
+{
+	// Is the trigger suppose to block/check the mod?
+	if (self.spawnflags & TRIG_MODCHECK) {
+		// Is the mod ver/patch/beta check set to zero?
+		// - no version check, then return TRUE (delete this trigger)
+		if (CheckZeroVector(self.modver_check)) {
+			entity_hide(self);
+			return TRUE;
+		}
+		else {
+			dprint("Test ("); dprint(vtos(self.modver_check));
+			dprint(") Mod ("); dprint(ftos(mod_version));
+			dprint(") Patch ("); dprint(ftos(mod_patch));
+			dprint(") Beta ("); dprint(ftos(mod_beta));
+			dprint(")\n");
+			// Is the trigger version/patch number correct?
+			if (self.modver_check_x > mod_version) return FALSE;
+			else if (self.modver_check_y > mod_patch) return FALSE;
+			else if (self.modver_check_z > mod_beta) return FALSE;
+			// Trigger no longer needed, current version is right
+			else { entity_hide(self); return TRUE; }
+		}
+	}
+	// AD MOD is not active, keep the trigger
+	return FALSE;
 };
 
 //----------------------------------------------------------------------

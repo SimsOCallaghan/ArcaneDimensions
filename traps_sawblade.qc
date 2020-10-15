@@ -7,7 +7,7 @@ float SAW_STARTON = 1;
 float SAW_XAXIS = 16;
 float SAW_REVERSE = 32;
 
-/*======================================================================
+//======================================================================
 /*QUAKED trap_sawbladex (0 .5 .8) (-18 -18 -18) (18 18 18) STARTON x x x x REVERSE STARTOFF x
 Rotating Saw Blade
 -------- KEYS --------

@@ -7,19 +7,25 @@ float BUTTON_STARTDIS = 32;			// Button starts in disabled state
 /*QUAKED func_button (0 .5 .8) ? x x x x x STARTDIS STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 Button (bmodel) with two states
 -------- KEYS --------
-targetname : trigger entity (works with entity state system)
-target : name of target(s) to trigger at the start of the wait phase
-angle  : determines the move direction, use "360" for angle 0
-speed  : Move Speed (def=40)
-wait   : wait before returning (def=1, -1 = never return)
-delay  : delay before button triggers
-lip    : lip remaining at end of move. (def=4)
-health : Can be damaged instead of touched
-sounds : 0=steam metal, 1=wooden, 2=metallic, 3=in-out, 4=Silent, 5=Custom
-noise  : custom sound - 1st movement
-noise1 : custom sound - 2nd movement ('buttons/switch21.wav')
-message: Centerprint Message to display when triggered
-estate : Override starting entity state 1=ON, 2=OFF, 4=DISABLE
+targetname  : trigger entity (works with entity state system)
+target      : name of target(s) to trigger at the start of the wait phase
+target2     : additional target(s) to trigger when activated
+angle       : determines the move direction, use "360" for angle 0
+angletarget : Entity (path_corner) to move towards (custom direction)
+speed       : Move Speed (def=40)
+yaw_speed   : return movement speed (def=speed)
+wait        : wait before returning (def=1, -1 = never return)
+delay       : delay before button triggers
+lip         : lip remaining at end of move. (def=4)
+height      : Exact distance to move (works like func_plat and uses angles)
+health      : Can be damaged instead of touched
+noradiusdmg : Can not be damaged by splashdamage, direct damage only
+sounds      : 0=steam metal, 1=wooden, 2=metallic, 3=in-out, 4=Silent, 5=Custom
+noise       : custom sound - 1st movement
+noise1      : custom sound - 2nd movement ('buttons/switch21.wav')
+volume      : Volume for all custom sounds played (def=1, range=0-1)
+message     : Centerprint Message to display when triggered
+estate      : Override starting entity state 1=ON, 2=OFF, 4=DISABLE
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -32,10 +38,92 @@ STARTOFF : Starts off and waits for trigger
 Button (bmodel) with two states
 */
 
-void() func_button_return;
+//----------------------------------------------------------------------
+void() func_button_angletarget =
+{
+	// Use sub function and return movetarget/dest1 values
+	TargetMovedir(self, TRUE);
+	// Need to use original spawn location because block functionality
+	// will have the func_button in between state positions (origin)
+	self.dest2 = self.oldorigin;
+	
+	// Check for height plat movement system instead
+	if (self.height) {
+		// Convert self dest2 to func_train corner bottom left offset)
+		self.dest2 = self.dest2 - (self.size*0.5);
+		// re-calculate the movedir (bec of self origin is different)
+		// dest1 should be setup in TargetMovedir function
+		self.movedir = normalize(self.dest1 - self.dest2);
+		// Simple movement along vector length (no lip changes)
+		// Not easy to predict in the editor because its the long side
+		// of a trangle (other corners are func_button/angletarget)
+		self.pos2 = self.pos1 + (self.movedir * self.height);
+	}
+	else {
+		// Work out destination (using func_train bottom left offset)
+		self.pos2 = self.pos1 + (self.dest1 - self.dest2) + (self.size*0.5);
+	}		
+};
+
+//----------------------------------------------------------------------
+void() func_button_final_setup =
+{
+	// Any angletarget entity key defined?
+	if (self.angletarget != "") {
+		// Upate second position based on angletarget
+		func_door_angletarget();		
+	}
+	
+	// Check for the easy way to start a button disabled
+	if (self.spawnflags & BUTTON_STARTDIS) self.estate_disable();
+	// Check for starting override for entity state
+	else if (self.estate & ESTATE_LOWER) {
+		if (self.estate == 1) self.estate_on();
+		// Check fixed values (not ideal bec estate value could change)
+		else if (self.estate == 2) {
+			// Make sure off function works, start with on state
+			self.estate = ESTATE_ON;
+			self.estate_off();
+		}
+		else if (self.estate == 4) self.estate_disable();
+	}
+	else {
+		// Check for starting off or default=on
+		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+		else self.estate_on();
+	}
+};
+
+//----------------------------------------------------------------------
+// Phase 4 - Button CLOSED
+//----------------------------------------------------------------------
+void() func_button_done =
+{ 
+	self.frame = 0;					// use normal textures
+	self.state = STATE_BOTTOM; 
+	if (self.health) self.takedamage = DAMAGE_YES;
+};
+
+//----------------------------------------------------------------------
+// Phase 3 - Button Closing
+//----------------------------------------------------------------------
+void() func_button_return =
+{
+	// Should the state be set outside of estate check?
+	self.state = STATE_DOWN;
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.noise1) sound (self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
+	// Add - return speed can now be different, 
+	// yaw_speed = speed if nothing defined
+	SUB_CalcMove (self.pos1, self.yaw_speed, func_button_done);
+};
+
+//----------------------------------------------------------------------
+// Phase 2 - Button OPEN
 //----------------------------------------------------------------------
 void() func_button_wait =
 {
+	// Should the state be set outside of estate check?
 	self.state = STATE_TOP;
 	if (self.estate & ESTATE_BLOCK) return;
 	self.nextthink = self.ltime + self.wait;
@@ -46,30 +134,28 @@ void() func_button_wait =
 };
 
 //----------------------------------------------------------------------
-void() func_button_done =
-{ 
-	self.frame = 0;					// use normal textures
-	self.state = STATE_BOTTOM; 
-	if (self.health) self.takedamage = DAMAGE_YES;
-};
-
-//----------------------------------------------------------------------
-void() func_button_return =
-{
-	self.state = STATE_DOWN;
-	if (self.estate & ESTATE_BLOCK) return;
-	if (self.noise1) sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
-	SUB_CalcMove (self.pos1, self.speed, func_button_done);
-};
-
+// Phase 1 - Button Opening
 //----------------------------------------------------------------------
 void() func_button_fire =
 {
 	if (self.estate & ESTATE_BLOCK) return;
 	if (self.state == STATE_UP || self.state == STATE_TOP) return;
 
+	// Check for custom movement angle
+	// Always re-calculate to allow for updated movement
+	if (self.angletarget != "") {
+		// Find the angle target entity
+		self.movetarget = find(world, targetname, self.angletarget);
+		// Find origins of source/target entities
+		self.dest1 = bmodel_origin(self);
+		if (self.movetarget.bsporigin) self.dest2 = bmodel_origin(self.movetarget);
+		else self.dest2 = self.movetarget.origin;
+		// Work out destination (using func_train bottom left offset)
+		self.pos2 = self.pos1 + (self.dest2 - self.dest1) + (self.size*0.5);
+	}
+
 	self.state = STATE_UP;
-	sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 	SUB_CalcMove (self.pos2, self.speed, func_button_wait);
 };
 
@@ -153,7 +239,7 @@ void() func_button_off =
 	setmodel (self, "");
 	
 	// Reset health, position and frame back to default
-	sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, SOUND_EMPTY, self.volume, ATTN_NORM);
 	self.takedamage = DAMAGE_NO;
 	setorigin(self, self.pos1);
 	self.state = STATE_BOTTOM;
@@ -189,48 +275,61 @@ void() func_button =
 	precache_sound (self.noise);
 	
 	if (self.noise1 != "") precache_sound (self.noise1);
+	trigger_bmodel_volume(1);
 	
 	self.classtype = CT_FUNCBUTTON;
 	self.classgroup = CG_FUNCMOVER;
 	self.bsporigin = TRUE;
 	self.mdl = self.model;
+	if (self.angles_y == 0) self.angles_y = 360;
 	SetMovedir ();	// Setup move direction base on angles
 
 	// Default parameters and states
 	if (!self.speed) self.speed = 40;
+	// Second movement speed can be different, yaw_speed
+	if (!self.yaw_speed) self.yaw_speed = self.speed;
 	if (!self.wait) self.wait = 1;
 	if (!self.lip) self.lip = 4;
 	self.state = STATE_BOTTOM;
 
-	// Setup the buttons two different state positions
-	// Got to add button to world for bmodel size parameter
-	self.movetype = MOVETYPE_PUSH;
+	//----------------------------------------------------------------------
+	// Add bmodel to world and work out movement positions
 	self.solid = SOLID_BSP;
+	self.movetype = MOVETYPE_PUSH;
 	setmodel (self, self.mdl);
+	setorigin (self, self.origin);	
+	setsize (self, self.mins , self.maxs);
 	self.pos1 = self.origin;
-	self.pos2 = self.pos1 + self.movedir*(fabs(self.movedir*self.size) - self.lip);
+	self.oldorigin = bmodel_origin(self);
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) { entity_hide(self); return; }
+	if (check_coop() == TRUE) { entity_hide(self); return; }
+
+	//----------------------------------------------------------------------
+	// Check if height is defined? (used by func_plat)
+	// Much easier system to setup, instead of voodoo lip magic!
+	if (self.height > 0) self.pos2 = self.pos1 + (self.movedir*self.height);
+	else {
+		// Default movement system = move direction * (size - lip)
+		self.pos2 = self.pos1 + self.movedir*(fabs(self.movedir*self.size) - self.lip);
+	}
 
 	// Cannot have a button start off or disabled
 	// with no targetname, how can it be actived!?!
 	if (self.spawnflags & BUTTON_STARTDIS && self.targetname == "") {
 		dprint("\b[BUTTON]\b Starting DISABLED with no targetname!\n");
-		self.oldorigin = bmodel_origin(self);
 		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
 		entity_hide(self);
 		return;
 	}	
 	if (self.spawnflags & ENT_STARTOFF && self.targetname == "") {
 		dprint("\b[BUTTON]\b Starting OFF with no targetname!\n");
-		self.oldorigin = bmodel_origin(self);
 		spawn_marker(self.oldorigin, SPNMARK_YELLOW);
 		entity_hide(self);
 		return;
 	}	
-
-	// Check for spawning conditions (nightmare, coop)
-	// Needs to exist after entity has been added to work for BSPorigin
-	if (check_nightmare() == TRUE) return;
-	if (check_coop() == TRUE) return;
 
 	// Can either shoot a button or touch it, never both
 	if (self.health) {
@@ -249,22 +348,13 @@ void() func_button =
 	self.estate_use = func_button_use;
 	self.estate_disable = func_button_disable;
 
-	// Check for the easy way to start a button disabled
-	if (self.spawnflags & BUTTON_STARTDIS) self.estate_disable();
-	// Check for starting override for entity state
-	else if (self.estate & ESTATE_LOWER) {
-		if (self.estate == 1) self.estate_on();
-		else if (self.estate == 2) {
-			// Make sure off function works, start with on state
-			self.estate = ESTATE_ON;
-			self.estate_off();
-		}
-		else if (self.estate == 4) self.estate_disable();
+	// Need spawn delay if using angletarget (target not ready)
+	if (self.angletarget != "") {
+		// Check for any final setup conditions
+		self.think = func_button_final_setup;
+		self.nextthink = self.ltime + 0.1;
 	}
-	else {
-		// Check for starting off or default=on
-		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
-		else self.estate_on();
-	}
+	// Original setup, no delay on spawn
+	else func_button_final_setup();
 };
 

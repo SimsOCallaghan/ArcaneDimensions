@@ -294,7 +294,7 @@ void() seek_punch =
 	if (self.health < 1) return;
 	ai_face ();						// Turn towards enemy target
 	ai_damagebreakable(50);			// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEESEEKER)) return;// Too far away
+	if (!ai_checkmelee(MONAI_MELEESEEKER, MONAI_MELEEZTALL)) return;// Too far away
 
 	// Melee hit sound
 	sound (self, CHAN_WEAPON, "seeker/punch1.wav", 1, ATTN_NORM);
@@ -356,7 +356,7 @@ void(vector leftofs, vector rightofs) seek_attack =
 					launch_plasma(org, dir, CT_MONSEEKER, self.attack_speed);
 				}
 				else {
-					sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);	
+					sound (self, CHAN_WEAPON, SOUND_LASER_FIRE, 1, ATTN_NORM);	
 					launch_projectile(org, dir, CT_PROJ_LASER, self.attack_speed);
 				}
 			}
@@ -381,7 +381,7 @@ void(vector leftofs, vector rightofs) seek_attack =
 					launch_plasma(org, dir, CT_PROJ_PLASMA, self.attack_speed);
 				}
 				else {
-					sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);	
+					sound (self, CHAN_WEAPON, SOUND_LASER_FIRE, 1, ATTN_NORM);	
 					launch_projectile(org, dir, CT_PROJ_LASER, self.attack_speed);
 				}
 			}
@@ -444,7 +444,7 @@ void() seek_fire = { self.walkframe = 0; seek_fireframe(); };
 //============================================================================
 void() seek_arm_explode =
 {
-	particle_dust(self.pos2, 10+random()*10, PARTICLE_BURST_YELLOW);
+	particle_dust(self.pos2, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 	SpawnExplosion(EXPLODE_BIG, self.pos2, "seeker/explode_major.wav");
 	SpawnProjectileSmoke(self.pos2, 150, 50, 150);
 	SpawnProjectileSmoke(self.pos2, 150, 50, 150);
@@ -501,7 +501,7 @@ void(entity inflictor, entity attacker, float damage) seek_pain =
 			}
 			else {
 				// Spawn dust and sprite explosion
-				particle_dust(inflictor.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+				particle_dust(inflictor.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 				SpawnProjectileSmoke(inflictor.origin, 150, 50, 150);
 				SpawnProjectileSmoke(inflictor.origin, 150, 50, 150);
 				SpawnProjectileSmoke(inflictor.origin, 150, 50, 150);
@@ -509,7 +509,7 @@ void(entity inflictor, entity attacker, float damage) seek_pain =
 		}
 		else {
 			// Once down to one arm, just sparks and dust
-			particle_dust(inflictor.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+			particle_dust(inflictor.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 			SpawnProjectileSmoke(inflictor.origin, 150, 50, 150);
 			SpawnProjectileSmoke(inflictor.origin, 150, 50, 150);
 			SpawnProjectileSmoke(inflictor.origin, 150, 50, 150);
@@ -603,7 +603,7 @@ void() seek_die =
 	// Spawn dust and sprite explosion from chest area
 	makevectors(self.angles);
 	self.pos1 = self.origin + attack_vector('8 0 24');
-	particle_dust(self.pos1, 10+random()*10, PARTICLE_BURST_YELLOW);
+	particle_dust(self.pos1, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 	SpawnExplosion(EXPLODE_BIG, self.pos1, "seeker/explode_major.wav");
 	SpawnProjectileSmoke(self.pos1, 200, 250, 100);
 	
@@ -665,7 +665,8 @@ void() seek_wakeup =
 	self.th_missile = seek_fire;		// Rockets incoming!
 	self.th_pain = seek_pain;
 	self.th_die = seek_die;
-	self.takedamage = DAMAGE_YES;		// Can receive damage
+	self.takedamage = DAMAGE_AIM;		// Can receive damage
+	self.reflectaxe = FALSE;			// Allow axe damage
 	monster_targets();					// Check for targets
 };
 
@@ -674,7 +675,8 @@ QUAKED monster_seeker (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_seeker =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_seeker.mdl";
 	self.headmdl = "progs/h_seeker.mdl";
@@ -718,8 +720,8 @@ void() monster_seeker =
 	// Range attack 2 - lasers
 	precache_model (MODEL_PROJ_LASER);
 	precache_sound("seeker/range_laser.wav");
-	precache_sound ("enforcer/enfire.wav");
-	precache_sound ("enforcer/enfstop.wav");
+	precache_sound (SOUND_LASER_FIRE);
+	precache_sound (SOUND_LASER_HIT);
 	// Range attack 3 - plasma
 	precache_model (MODEL_PROJ_PLASMA);
 	precache_sound ("seeker/range_plasma.wav");
@@ -782,6 +784,7 @@ void() monster_seeker =
 	self.steptype = FS_TYPECUSTOM;
 
 	if (self.spawnflags & MON_SEEK_SHIELD) {
+		self.reflectaxe = TRUE;			// Prevent axe damage
 		self.th_stand = seek_shield;	// Setup Shield
 		self.think1 = seek_wakeup;		// Wakeup function when triggered
 	}
@@ -802,3 +805,8 @@ void() monster_seeker =
 	
 	monster_start();
 };
+
+//======================================================================
+// Monster replacement for Travil MOD juggernaut
+//======================================================================
+void() monster_juggernaut = { monster_seeker(); };

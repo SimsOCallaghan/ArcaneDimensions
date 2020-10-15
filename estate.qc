@@ -88,8 +88,14 @@ void() entity_state_use =
 /*QUAKED trigger_entitystate_x (.7 .5 1) (-8 -8 -16) (8 8 16) x
 Switch the target(s) entity state X
 -------- KEYS --------
-target : target entities to switch x
+target  : target entities to switch x
 target2 : more target(s) to affect
+wait    : -1 = will only fire targets once
+delay   : delay before firing (after being triggered)
+cnt     : random amount of time to add to delay
+sounds  : 1=Secret,2=talk(def),3=switch,4=silent,5=custom,6=secret2
+noise   : custom sound to play when triggered
+volume  : Volume for all custom sounds played (def=1, range=0-1)
 -------- SPAWNFLAGS --------
 -------- NOTES --------
 Switch the target(s) entity state X
@@ -119,17 +125,40 @@ void(string targstr) trigger_entitystate_target =
 };
 
 //----------------------------------------------------------------------
-void() trigger_entitystate_use =
+void() trigger_entitystate_fire =
 {
+	// Play any trigger sounds
+	if (self.noise != "") 
+		sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 	// Check for multiple target commands
 	if (self.target != "") trigger_entitystate_target(self.target);
 	if (self.target2 != "") trigger_entitystate_target(self.target2);
+
+	// TRIGGER_ONCE functionality
+	if (self.wait < 0) self.attack_finished = time + LARGE_TIMER;
+};	
+
+//----------------------------------------------------------------------
+void() trigger_entitystate_use =
+{
+	// Is the trigger blocked? (trigger_once)
+	if (self.attack_finished > time) return;
+
+	// Check for delay fire functionality
+	if (self.delay > 0) {
+		self.think = trigger_entitystate_fire;
+		if (self.cnt <= 0) self.cnt = 0;
+		self.nextthink = time + self.delay + (random() * self.cnt);
+	}
+	// Fire/use straight away
+	else trigger_entitystate_fire();
 };	
 
 //----------------------------------------------------------------------
 void() trigger_entitystate_off =
 {
 	self.classtype = CT_ESTATE;
+	trigger_bmodel_sounds();			// Precache any sounds
 	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_OFF;
@@ -139,6 +168,7 @@ void() trigger_entitystate_off =
 void() trigger_entitystate_on =
 {
 	self.classtype = CT_ESTATE;
+	trigger_bmodel_sounds();			// Precache any sounds
 	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_ON;
@@ -148,6 +178,7 @@ void() trigger_entitystate_on =
 void() trigger_entitystate_disable =
 {
 	self.classtype = CT_ESTATE;
+	trigger_bmodel_sounds();			// Precache any sounds
 	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_DISABLE;
@@ -157,6 +188,7 @@ void() trigger_entitystate_disable =
 void() trigger_entitystate_reset =
 {
 	self.classtype = CT_ESTATE;
+	trigger_bmodel_sounds();			// Precache any sounds
 	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_RESET;
@@ -166,6 +198,7 @@ void() trigger_entitystate_reset =
 void() trigger_entitystate_aframe =
 {
 	self.classtype = CT_ESTATE;
+	trigger_bmodel_sounds();			// Precache any sounds
 	if (self.target == "") dprint("\b[ENTSTATE]\b Missing target!\n");
 	if (self.targetname != "") self.use = trigger_entitystate_use;
 	self.estate_trigger = ESTATE_AFRAME;

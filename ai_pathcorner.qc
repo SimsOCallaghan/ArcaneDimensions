@@ -1,12 +1,19 @@
-/*======================================================================
- Path_Corner FUNCTIONS
-======================================================================*/
-float PATHC_EXACT = 1;		// Exact route logic instead of random (def)
+//======================================================================
+// Path_Corner FUNCTIONS
+//======================================================================
+float PATHC_EXACT = 1;		// Exact route logic
 float PATHC_INSTANT = 2;	// Instantly move to this path_corner
 float PATHC_REVERSE = 4;	// Train direction is reversed at this corner
 float PATHC_NOPAUSE = 8;	// Train does not pause on this corner
 
 float PATHC_RESET = 15;		// Use to reset spawnflags
+
+float ARROW_PRIMARY = 1.5;	// Active route highlight
+float ARROW_GREEND = 0;
+float ARROW_BROWN = 1;
+float ARROW_GREENL = 2;
+float ARROW_WHITE = 3;
+float ARROW_RED   = 4;
 
 float PATHC_TARGET1 = 16;	// Has target been found
 float PATHC_TARGET2 = 32;	// Has target2 been found
@@ -19,7 +26,7 @@ float STATE_ROUTE3 = 3;		// Route 3 is the priority (backward)
 float STATE_EXACT = 4;		// Switch to exact route selection
 float STATE_RANDOM = 5;		// Switch to random route selection
 
-/*======================================================================
+//======================================================================
 /*QUAKED path_corner (0.5 0.3 0) (-8 -8 -24) (8 8 48) EXACT INSTANT REVERSE NOPAUSE
 Node based path routing system
 -------- KEYS --------
@@ -28,6 +35,7 @@ corner_event : Name of target(s) to trigger when used/touched
 corner_route : Change path_corner route (1-3 routes, 4=exact, 5=random)
 corner_switch: Change spawnflags REVERSE (-1=NO, 1=YES, 2=Toggle)
 corner_pause : Change spawnflags NOPAUSE (-1=NO, 1=YES, 2=Toggle)
+corner_pstate: Change passive state (-1=OFF, 1=ON, 2=TOGGLE)
 state        : Starting route (1=forward, 2=alt forward, 3=backward)
 target       : Targetname of FORWARD route
 target2      : Alternative FORWARD route
@@ -55,56 +63,63 @@ entity(string arrowmdl, vector arroworg) path_corner_spawnarrow =
 	setmodel(arrow, arrowmdl);
 	setorigin(arrow, arroworg);
 	setsize(arrow, VEC_ORIGIN, VEC_ORIGIN);
+
 	// If DP engine active remove particle shadow
 	if (engine == ENG_DPEXT) arrow.effects = arrow.effects + EF_NOSHADOW;
 
-	if (!self.alpha) arrow.alpha = 0.35;
-	else arrow.alpha = self.alpha;
 	return arrow;
 };
 
 //----------------------------------------------------------------------
+// Forward  - PATH_TARGET1  (self.attachment)
+// Forward2 - PATH_TARGET2  (self.attackment2)
+// Backward - PATH_BACKLINK (self.attachment3)
+// PATHC_DEADEND = Back link is missing
+// Original logic did not cope with broken or missing target/target2
+// Moved red arrow updates to the end to catch all broken links
+//----------------------------------------------------------------------
 void() path_corner_updatearrow =
 {
-	// Visual AI pathing only active in dev mode
-	if (developer == 0) return;
-	if (query_configflag(SVR_DEVHELPER)) return;
-	if ( !(self.spawnflags & PATHC_TARGET2) ) return;
-
-	// Switch colour of arrow based on route logic
-	if (self.spawnflags & PATHC_TARGET1 && self.state == STATE_ROUTE1) {
-		if (self.attachment) self.attachment.skin = 3;
-		if (self.attachment2) self.attachment2.skin = 2;
-		if (self.attachment3) self.attachment3.skin = 0;
+	// ROUTE 2 (forward2) active
+	if (self.spawnflags & PATHC_TARGET2 && self.state == STATE_ROUTE2) {
+		if (self.attachment) { self.attachment.skin = ARROW_GREENL; self.attachment.alpha = self.alpha; }
+		if (self.attachment2) { self.attachment2.skin = ARROW_WHITE; self.attachment2.alpha = self.alpha*ARROW_PRIMARY; }
+		if (self.attachment3) { self.attachment3.skin = ARROW_GREEND; self.attachment3.alpha = self.alpha; }
 	}
-	else if (self.spawnflags & PATHC_TARGET2 && self.state == STATE_ROUTE2) {
-		if (self.attachment) self.attachment.skin = 0;
-		if (self.attachment2) self.attachment2.skin = 3;
-		if (self.attachment3) self.attachment3.skin = 0;
-	}
+	// ROUTE 3 (backward) active
 	else if (self.spawnflags & PATHC_BACKLINK && self.state == STATE_ROUTE3) {
-		if (self.attachment) self.attachment.skin = 0;
-		if (self.attachment2) self.attachment2.skin = 2;
-		if (self.attachment3) self.attachment3.skin = 3;
+		if (self.attachment) { self.attachment.skin = ARROW_GREEND; self.attachment.alpha = self.alpha; }
+		if (self.attachment2) { self.attachment2.skin = ARROW_GREENL; self.attachment2.alpha = self.alpha; }
+		if (self.attachment3) { self.attachment3.skin = ARROW_WHITE; self.attachment3.alpha = self.alpha*ARROW_PRIMARY; }
 	}
+	// ROUTE 1 (forward) active (default)
 	else {
-		// Default - Random logic has no route highlight
-		if (self.attachment) self.attachment.skin = 0;
-		if (self.attachment2) self.attachment2.skin = 2;
-		if (self.attachment3) self.attachment3.skin = 0;
+		if (self.attachment) { self.attachment.skin = ARROW_WHITE; self.attachment.alpha = self.alpha*ARROW_PRIMARY; }
+		if (self.attachment2) { self.attachment2.skin = ARROW_GREENL; self.attachment2.alpha = self.alpha; }
+		if (self.attachment3) { self.attachment3.skin = ARROW_GREEND; self.attachment3.alpha = self.alpha; }
 	}
+
+	// Draw any broken/missing routes with RED arrows
+	if (!(self.spawnflags & PATHC_TARGET1) && self.attachment) {
+		self.attachment.skin = ARROW_RED; self.attachment.alpha = self.alpha; }
+	if (!(self.spawnflags & PATHC_TARGET2) && self.attachment2) {
+		self.attachment2.skin = ARROW_RED; self.attachment2.alpha = self.alpha; }
+	if (!(self.spawnflags & PATHC_BACKLINK) && self.attachment3) {
+		self.attachment3.skin = ARROW_RED; self.attachment3.alpha = self.alpha; }
 };
 
 //----------------------------------------------------------------------
 void() path_corner_setuparrow =
 {
 	// Visual AI pathing only active in dev mode
-	if (developer == 0) return;
 	if (query_configflag(SVR_DEVHELPER)) return;
 
+	// Setup default alpha for arrows
+	if (!self.alpha) self.alpha = 0.35;
+	
 	// Draw back link arrow
 	if (self.spawnflags & PATHC_BACKLINK) {
-		self.attachment3 = path_corner_spawnarrow( self.mdl, self.oldorigin);
+		self.attachment3 = path_corner_spawnarrow( self.mdl, self.oldorigin+'0 0 -8');
 		self.movedir = normalize(self.movetarget3.oldorigin - self.oldorigin);
 		self.attachment3.angles = vectoangles(self.movedir);
 	}
@@ -114,10 +129,10 @@ void() path_corner_setuparrow =
 		// There is no back link, so use forward target instead
 		if (self.spawnflags & PATHC_TARGET1) self.oldenemy = self.movetarget;
 		else self.oldenemy = self;
-		self.attachment3 = path_corner_spawnarrow( self.mdl, self.oldorigin);
+		
+		self.attachment3 = path_corner_spawnarrow( self.mdl, self.oldorigin+'0 0 -8');
 		self.movedir = normalize(self.oldenemy.oldorigin - self.oldorigin);
 		self.attachment3.angles = vectoangles(self.movedir);
-		self.attachment3.skin = 4;
 		makevectors(self.movedir);
 		self.attachment3.angles = self.attachment3.angles + vectoangles(v_up);
 	}
@@ -137,7 +152,6 @@ void() path_corner_setuparrow =
 		self.attachment = path_corner_spawnarrow( self.headmdl, self.oldorigin);
 		self.movedir = normalize(self.oldenemy.oldorigin - self.oldorigin);
 		self.attachment.angles = vectoangles(self.movedir);
-		self.attachment.skin = 4;
 		makevectors(self.movedir);
 		self.attachment.angles = self.attachment.angles + vectoangles(v_up);
 	}
@@ -147,7 +161,6 @@ void() path_corner_setuparrow =
 		self.attachment2 = path_corner_spawnarrow( self.headmdl, self.oldorigin);
 		self.movedir = normalize(self.movetarget2.oldorigin - self.oldorigin);
 		self.attachment2.angles = vectoangles(self.movedir);
-		self.attachment2.skin = 2;
 	}
 	
 	// Update arrows if route logic active
@@ -158,8 +171,13 @@ void() path_corner_setuparrow =
 void() path_corner_setuptargets =
 {
 	local entity fdest;
+	
+	// Reset primary, secondary and backlink target entities
+	self.movetarget = self.movetarget2 = self.movetarget3 = world;
 
-	// Cycle through list for TARGET path_corner
+	//------------------------------------------------------------
+	// PRIMARY TARGET (target / self.movetarget)
+	//------------------------------------------------------------
 	if (self.target != "") {
 		fdest = find (world, targetname, self.target);
 		while(fdest) {
@@ -167,12 +185,15 @@ void() path_corner_setuptargets =
 				// Update (spawnflags) path_corner and save entity
 				self.spawnflags = self.spawnflags | PATHC_TARGET1;
 				self.movetarget = fdest;
-				fdest = world;
+				fdest = world; // Exit loop
 			}
+			// Keep searching for path_corner entity
 			else fdest = find(fdest, targetname, self.target);
 		}
 	}
-	// Cycle through list for TARGET2 path_corner
+	//------------------------------------------------------------
+	// SECONDARY TARGET (target2 / self.movetarget2)
+	//------------------------------------------------------------
 	if (self.target2 != "") {
 		fdest = find (world, targetname, self.target2);
 		while(fdest) {
@@ -180,12 +201,16 @@ void() path_corner_setuptargets =
 				// Update (spawnflags) path_corner and save entity
 				self.spawnflags = self.spawnflags | PATHC_TARGET2;
 				self.movetarget2 = fdest;
-				fdest = world;
+				fdest = world; // Exit loop
 			}
+			// Keep searching for path_corner entity
 			else fdest = find(fdest, targetname, self.target2);
 		}
 	}
 
+	//------------------------------------------------------------
+	// BACKLINK TARGET (targetback / self.movetarget3)
+	//------------------------------------------------------------
 	// Has the path corner back link override key been used?
 	// If this override string does not exist, weird things will happen 
 	if (self.targetback != "") {
@@ -195,8 +220,9 @@ void() path_corner_setuptargets =
 			if (fdest.classtype == CT_PATHCORNER) {
 				self.spawnflags = self.spawnflags | PATHC_BACKLINK;
 				self.movetarget3 = fdest;
-				fdest = world;
+				fdest = world; // Exit loop
 			}
+			// Keep searching for path_corner entity
 			else fdest = find(fdest, targetname, self.targetback);
 		}
 	}
@@ -211,8 +237,9 @@ void() path_corner_setuptargets =
 			if (fdest.classtype == CT_PATHCORNER) {
 				self.spawnflags = self.spawnflags | PATHC_BACKLINK;
 				self.movetarget3 = fdest;
-				fdest = world;
+				fdest = world; // Exit loop
 			}
+			// Keep searching for path_corner entity
 			else fdest = find(fdest, target, self.targetback);
 		}
 	}
@@ -224,8 +251,9 @@ void() path_corner_setuptargets =
 			if (fdest.classtype == CT_PATHCORNER) {
 				self.spawnflags = self.spawnflags | PATHC_BACKLINK;
 				self.movetarget3 = fdest;
-				fdest = world;
+				fdest = world; // Exit loop
 			}
+			// Keep searching for path_corner entity
 			else fdest = find(fdest, target2, self.targetback);
 		}
 	}
@@ -249,6 +277,8 @@ void() path_corner_setuptargets =
 	
 };
 
+//----------------------------------------------------------------------
+// This is a TRIGGER entry point only!
 //----------------------------------------------------------------------
 void() path_corner_use =
 {
@@ -291,7 +321,7 @@ void() path_corner_use =
 				self.spawnflags = self.spawnflags - PATHC_REVERSE;
 		}
 	}
-	
+
 	// Change speed of train moving towards path_corner (default=100)
 	if (other.corner_speed > 0) self.speed = other.corner_speed;
 
@@ -324,13 +354,15 @@ void() path_corner_use =
 		// and the path corner has multiple routes available
 		if (self.spawnflags & PATHC_EXACT && self.spawnflags & PATHC_TARGET2) {
 			if (self.state == STATE_ROUTE1) self.state = STATE_ROUTE2;
-			else if (self.state == STATE_ROUTE2) self.state = STATE_ROUTE3;
+			// Should not be cycled to backward route and switching
+			// between forward routes only (1.7Patch 2 change)
+			//else if (self.state == STATE_ROUTE2) self.state = STATE_ROUTE3;
 			else self.state = STATE_ROUTE1;
 		}
 	}
 
-	// Update arrows if route logic active
-	path_corner_updatearrow();
+	// Visual AI pathing only active in dev mode
+	if (developer > 0) path_corner_updatearrow();
 };
 
 //----------------------------------------------------------------------
@@ -356,6 +388,13 @@ void() path_corner_touch =
 
 	// Fire any event targets (activator = monster)
 	if (self.corner_event) trigger_strs(self.corner_event,other);
+	// Check if passive state switch active (-1=OFF, 1=ON, 2=TOGGLE)
+	if (self.corner_pstate != 0) {
+		// Only use exact values (-1,1,2) no default/else functionality
+		if (self.corner_pstate == -1) change_passivestate(other,0);
+		else if (self.corner_pstate == 1) change_passivestate(other,1);
+		else if (self.corner_pstate == 2) change_passivestate(other,2);
+	}
 	// Check if this path_corner is a dead end? (no target)
 	if (self.spawnflags & PATHC_DEADEND) path_corner_stop();
 	// Has this path corner been linked yet? Try again?
@@ -371,9 +410,11 @@ void() path_corner_touch =
 				else other.goalentity = self.movetarget2;
 			}
 			else {
+				// Removed random option, its not useful
+				// Its better to use exact route changes
 				// Default = random routes
-				if (random() < 0.5) other.goalentity = self.movetarget;
-				else other.goalentity = self.movetarget2;
+				//if (random() < 0.5) other.goalentity = self.movetarget;
+				//else other.goalentity = self.movetarget2;
 			}
 		}
 		// Default, 1 path = 1 choice
@@ -399,7 +440,7 @@ void() path_corner_touch =
 };
 
 //----------------------------------------------------------------------
-
+// Used by monsters, func_trains and tether system
 //----------------------------------------------------------------------
 void() path_corner =
 {
@@ -466,6 +507,10 @@ void() path_corner =
 	}
 	// Origin is still in something solid, reset
 	if (self.lip != -1) self.oldorigin = self.origin;
+
+	// Check for alt corner speed (its really a duplicate of speed)
+	if (self.corner_speed > 0 && self.speed == 0)
+		self.speed = self.corner_speed;
 	
 	// Check for dead end path_corner
 	if (self.target == "") self.spawnflags = self.spawnflags | PATHC_DEADEND;

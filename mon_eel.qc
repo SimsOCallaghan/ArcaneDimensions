@@ -98,7 +98,7 @@ void(entity inflictor, entity attacker, float damage) eel_pain =
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
 		sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-		eel_pain1();
+		if (self.pain_check == 1 || self.pain_check == 2) eel_pain1();
 	}
 };
 
@@ -154,18 +154,13 @@ void() eel_die =
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_eel (1 0 0) (-16 -16 -16) (16 16 16)
 ======================================================================*/
 void() monster_eel =
 {
-	// ------------------------------------------------------------------
-	// ** Removed from MOD **
-	// Uses copyright content from Rogue Software & not fun to play with!
-	// This script works perfectly fine with Rogue Software assets
-	// Anyone can use this monster for their own MOD!
-	// ------------------------------------------------------------------
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_eel.mdl";
 	self.headmdl = "progs/h_eel.mdl";

@@ -135,7 +135,7 @@ void() dguardq_meleesmash =
 	ai_damagebreakable(melee_dmg * 3);
 	
 	// Check range and can damage? (bleed)
-	if (ai_checkmelee(MONAI_MELEEDGUARDQ) && CanDamage (self.enemy, self)) {
+	if (ai_checkmelee(MONAI_MELEEDGUARDQ,FALSE) && CanDamage (self.enemy, self)) {
 		// If the enemy health is less than the melee damage, gib them
 		if (self.enemy.health < melee_dmg) melee_dmg = melee_dmg * 3;
 		T_Damage (self.enemy, self, self, melee_dmg, DAMARMOR);
@@ -324,7 +324,8 @@ void() dguardq_sword_sound =
 ======================================================================*/
 void() monster_death_guard =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_dguardq.mdl";			// dguard.mdl (quoth)
 	self.headmdl = "progs/h_dguardq.mdl";		// h_dguard.mdl (quoth)
@@ -393,6 +394,7 @@ void() monster_death_guard =
 	self.pain_timeout = 1.25;				// Higher than a knight
 	self.pain_longanim = TRUE;				// can be chopped with shadow axe
 	self.steptype = FS_TYPEMEDIUM;			// Lighter than Hell Knight
+	self.attack_explosive = TRUE;			// Has explosive attack
 	self.attack_offset = '20 0 24';			// End of sword
 	self.poisonous = FALSE;					// No support for this
 	self.deathstring = " was slaughtered by a Death Guard\n";

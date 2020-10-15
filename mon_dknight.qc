@@ -631,7 +631,8 @@ QUAKED monster_dknight (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
 void() monster_dknight =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_dknight.mdl";			// New Hell Knight
 	self.headmdl = "progs/h_dknight.mdl";
@@ -642,9 +643,9 @@ void() monster_dknight =
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
 	precache_model (MODEL_PROJ_HKN);
+	precache_model (self.gib1mdl);
 	precache_model (self.gib2mdl);
 	precache_model (self.gib3mdl);
-	precache_model (self.gib1mdl);
 
 	self.gib1sound = GIB_IMPACT_METALA;
 	if (random() < 0.5) self.gib2mdl = "";
@@ -761,5 +762,12 @@ void() monster_dknight =
 void() monster_dknightghost =
 {
 	self.spawnflags = MON_GHOST_ONLY;
+	monster_dknight();
+};
+
+//----------------------------------------------------------------------
+// Re-direct all Quoth Death Knights requests to D Knights!
+void() monster_death_knight =
+{
 	monster_dknight();
 };

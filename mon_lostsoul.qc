@@ -89,6 +89,13 @@ void(float fstate) lost_update =
 				self.velocity_z = 2 * self.lip;
 			}
 		}
+		else {
+			// Slowdown the velocity (movement = no friction)
+			self.velocity = self.velocity * self.velocityfriction;
+			if (self.velocity_x > -5 && self.velocity_x < 5) self.velocity_x = 0;
+			if (self.velocity_y > -5 && self.velocity_y < 5) self.velocity_y = 0;
+			if (self.velocity_z > -5 && self.velocity_z < 5) self.velocity_z = 0;
+		}
 	}
 
 	// Lost sight of enemy during combat, wait and look around
@@ -340,7 +347,7 @@ void() lost_bite =
 		
 	ai_charge(10);							// Get closer for extra bite
 	ai_damagebreakable(10);					// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEELOSTSOUL)) return;	// Too far away
+	if (!ai_checkmelee(MONAI_MELEELOSTSOUL,FALSE)) return;	// Too far away
 
 	// Can the target bleed?
 	if (enemy_targ.takedamage < 1) return;
@@ -374,7 +381,7 @@ void() lost_melee2 =
 		self.think = self.th_run;
 		
 		// Check if enemy is still within range for another chop!
-//		if (ai_checkmelee(MONAI_MELEELOSTSOUL) && SUB_healthEnemyTarget() > 0)
+//		if (ai_checkmelee(MONAI_MELEELOSTSOUL,FALSE) && SUB_healthEnemyTarget() > 0)
 //			self.think = self.th_melee;
 //		else self.think = self.th_run;
 	}
@@ -487,6 +494,7 @@ void(entity inflictor, entity attacker, float damage) lost_pain =
 	self.state = LOST_STATE_PAIN;
 	// Reset pain and current frame counter
 	self.inpain = self.count = 0;
+	// Always do pain, no flinch
 	lost_inpain();
 };
 
@@ -521,7 +529,8 @@ QUAKED monster_lostsoul (1 0.2 0) (-16 -16 -24) (16 16 24)
 void() setup_lostsoul;
 void() monster_lostsoul =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_lostsoul.mdl";
 	precache_model (self.mdl);
@@ -567,13 +576,14 @@ void() setup_lostsoul =
 	self.mangle = self.angles;		// idle rotate left/right
 	self.idlebusy = 0;				// Tilt/turn head animations
 	self.idlereverse = FALSE;		// Reverse direction for idle
+	if (self.velocityfriction <= 0) self.velocityfriction = 0.8 + (random() * 0.1);
 	self.exactskin = rint(random()*5);	// Randomize eye glow
 	self.lostenemy = world;				// Setup old enemy
 	self.losttimer = LARGE_TIMER;		// Stop lost timer
 	self.lostsearch = FALSE;			// Not searching for an enemy
 	self.deathstring = " was found by a Lost Soul\n";
 	
-	// I can understand lost souls would be the perfect candidate for
+	// I can understand lost souls being the perfect candidate for
 	// poison attacks, but they are tricky already! default = disabled.
 	self.poisonous = FALSE;
 

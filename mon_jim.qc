@@ -143,6 +143,15 @@ void(float fstate) jim_update =
 				self.velocity_z = 2 * self.lip;
 			}
 		}
+		else {
+			// Slowdown the velocity (movement = no friction)
+			self.velocity = self.velocity * self.velocityfriction;
+			if (self.velocity_x > -5 && self.velocity_x < 5) self.velocity_x = 0;
+			if (self.velocity_y > -5 && self.velocity_y < 5) self.velocity_y = 0;
+			if (self.velocity_z > -5 && self.velocity_z < 5) self.velocity_z = 0;
+			// Don't go into attack straight away when velocity is active
+			self.attack_finished = time + 0.5;
+		}
 	}
 
 	// Check frame direction and update counter
@@ -174,12 +183,14 @@ void()	jim_walk1	=[	$idle1,	jim_walk1 ] {
 	// Movement is steps, not velocity
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
+	self.velocity = '0 0 0';
 	jim_update(JS_IDLE); ai_walk(8);
 };
 void()	jim_run1	=[	$idle1,	jim_run1 ] {
 	// Movement is steps, only velocity when firing weapon
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
+	self.velocity = '0 0 0';
 	jim_update(JS_IDLE);
 	ai_run(16);
 	if (self.movespeed != 0) ai_face();
@@ -200,7 +211,7 @@ void() jim_laser =
 	if ( !visxray(SUB_entEnemyTarget(), self.attack_offset, '0 0 12', FALSE) ) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
-	sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);
+	sound (self, CHAN_WEAPON, SOUND_LASER_FIRE, 1, ATTN_NORM);
 
 	makevectors (self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
@@ -322,7 +333,7 @@ void() jim_inpain =
 	// Start of pain cycle
 	if (self.inpain ==  0) {
 		// Spawn a pile of sparks and dust falling down
-		particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+		particle_dust(self.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 		self.pos1 = '0 0 0';
 		self.pos1_x = random() * self.lefty;	// Pitch away from dmg
 		self.pos1_z = crandom() * -10;			// Roll left / right
@@ -363,6 +374,7 @@ void(entity inflictor, entity attacker, float damage) jim_pain =
 	if (infront(attacker)) self.lefty = 10;	// Hit from infront
 	else self.lefty = -10;					// Hit from behind
 	
+	// Always do pain, no flinch
 	jim_inpain();
 };
 
@@ -437,7 +449,7 @@ void() jim_is_dead =
 	self.think = self.touch = SUB_Null;
 	
 	// Final fireworks!
-	particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+	particle_dust(self.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 	SpawnExplosion(EXPLODE_BIG, self.origin, "jim/explode_major.wav");
@@ -482,22 +494,28 @@ void() jim_die =
 	else self.lefty = 0;
 
 	// Spawn dust and sprite explosion
-	particle_dust(self.origin, 10+random()*10, PARTICLE_BURST_YELLOW);
+	particle_dust(self.origin, 10+random()*10, 16, PARTICLE_BURST_YELLOW);
 	SpawnExplosion(EXPLODE_BIG, self.origin, "jim/explode_minor.wav");
 	SpawnProjectileSmoke(self.origin, 150, 50, 150);
 
 	jim_dying1();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_jim (1 0 0) (-16 -16 -24) (16 16 24) Ambush
 ======================================================================*/
 void() monster_jim =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
-	if (self.spawnflags & MON_JIM_ROCKET) self.mdl = "progs/mon_jimrock.mdl";
-	else self.mdl = "progs/mon_jim.mdl";
+	// Allow for different models so mappers can change the skins
+	if (self.spawnflags & MON_JIM_ROCKET) {
+		if (self.mdl == "") self.mdl = "progs/mon_jimrock.mdl";
+	}
+	else {
+		if (self.mdl == "") self.mdl = "progs/mon_jim.mdl";
+	}
 	precache_model (self.mdl);
 	
 	// death/pain/attack sounds
@@ -517,7 +535,7 @@ void() monster_jim =
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_SHORT;
-	self.gibhealth = MON_NEVERGIB;		// Cannot be gibbed by weapons
+	self.gibhealth = MON_NEVERGIB;		// Special explosion death
 	self.gibbed = FALSE;
 	self.pain_flinch = 30;				// Sometimes flinch
 	self.steptype = FS_FLYING;			// Silent feet
@@ -525,6 +543,7 @@ void() monster_jim =
 	self.blockudeath = TRUE;			// No humanoid death sound
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	self.oldorigin = self.origin;		// Used for wing angles
+	if (self.velocityfriction <= 0) self.velocityfriction = 0.8 + (random() * 0.1);
 	self.idlebusy = 0;					// Rotate gun idle states
 	self.idlereverse = FALSE;			// Reverse direction for idle
 	self.attack_offset = '20 0 -10';	// front of laser/rocket
@@ -549,6 +568,7 @@ void() monster_jim =
 		self.classtype = CT_MONJIMROCKET;
 		if (self.health < 1) self.health = 50;
 		self.deathstring = " was blown away by Jim\n";
+		self.attack_explosive = TRUE;			// Has explosive attack
 
 		// Classic idle sound + new variant
 		self.idle_sound = "jim/idle1.wav";
@@ -574,13 +594,14 @@ void() monster_jim =
 
 		// Projectile fire and impact (used in projectiles)
 		precache_model (MODEL_PROJ_LASER);		// Enforcer laser model
-		precache_sound("jim/laser_load.wav");		// Wind up
-		precache_sound ("enforcer/enfire.wav");		// Fire
-		precache_sound ("enforcer/enfstop.wav");	// Impact
+		precache_sound("jim/laser_load.wav");	// Wind up
+		precache_sound (SOUND_LASER_FIRE);		// Fire
+		precache_sound (SOUND_LASER_HIT);		// Impact
 	}
 	
 	monster_start();
 };
 
+//----------------------------------------------------------------------
 // Re-direct all Quoth Bob requests to Jim!
 void() monster_bob = { monster_jim(); }

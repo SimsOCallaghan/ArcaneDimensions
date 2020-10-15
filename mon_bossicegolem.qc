@@ -73,7 +73,8 @@ float() iceg_FindTarget =
 	
 	// Get the obvious exception(s) done first
 	if (self.health < 1) return FALSE;
-	if (intermission_running) return FALSE;
+	if (intermission_running > 0) return FALSE;
+	if (cinematic_running > 0) return FALSE;
 
 	// Find a client in current PVS
 	client = checkclient ();
@@ -247,8 +248,9 @@ void() iceg_idleframe =
 	if (self.walkframe > 20) self.walkframe = 0;
 	self.frame = $wait1 + self.walkframe;
 	self.think = iceg_idleframe;
-	// Tick slower for idle
-	self.nextthink = time + 0.1;
+	// Tick slower (10fps) for idle
+	self.ticktimer = 0.1;
+	self.nextthink = time + self.ticktimer;
 
 	// Keep looking for a player
 	iceg_FindTarget ();
@@ -279,8 +281,9 @@ void() iceg_walkframe =
 	if (self.walkframe > 33) self.walkframe = 0;
 	self.frame = $walk1 + self.walkframe;
 	self.think = iceg_walkframe;
-	// Hexen 2 models are designed for lower time cycle
-	self.nextthink = time + 0.05;
+	// Hexen 2 models were designed for 20fps
+	self.ticktimer = 0.05;
+	self.nextthink = time + self.ticktimer;
 	
 	// Keep looking for a player
 	iceg_FindTarget ();
@@ -323,8 +326,9 @@ void() iceg_runframe =
 	if (self.walkframe > 23) self.walkframe = 0;
 	self.frame = $run1 + self.walkframe;
 	self.think = iceg_runframe;
-	// Hexen 2 models are designed for lower time cycle
-	self.nextthink = time + 0.05;
+	// Hexen 2 models were designed for 20fps
+	self.ticktimer = 0.05;
+	self.nextthink = time + self.ticktimer;
 	
 	// Check for tether system (cutom version)
 	if (self.movelast) {
@@ -342,7 +346,9 @@ void() iceg_run1 = { self.walkframe = 0; iceg_runframe(); };
 //============================================================================
 void(float dist) iceg_mcharge = { 
 	ai_charge(dist);
-	self.nextthink = time + 0.05;
+	// Hexen 2 models were designed for 20fps
+	self.ticktimer = 0.05;
+	self.nextthink = time + self.ticktimer;
 };
 
 //----------------------------------------------------------------------
@@ -505,7 +511,7 @@ void(entity targ) iceg_icestorm =
 };
 
 //----------------------------------------------------------------------
-void() iceg_magtime = {self.nextthink = time + 0.05;};
+void() iceg_magtime = {self.ticktimer = 0.05; self.nextthink = time + self.ticktimer;};
 
 void() iceg_magic1 = [ $magic1, iceg_magic2 ] {iceg_magtime();ai_face();
 	self.pain_finished = time + 1.5;
@@ -601,7 +607,7 @@ void() iceg_ceilingrubble =
 };
 
 //----------------------------------------------------------------------
-void() iceg_footstomp = {self.nextthink = time + 0.05;};
+void() iceg_footstomp = {self.ticktimer = 0.05;self.nextthink = time + self.ticktimer;};
 
 //----------------------------------------------------------------------
 void() iceg_stomp1 = [ $stomp1, iceg_stomp2 ] {iceg_footstomp();
@@ -665,7 +671,8 @@ void() iceg_aiturn =
 //----------------------------------------------------------------------
 void() iceg_waveface = {
 	// Hexen 2 quicktime!
-	self.nextthink = time + 0.05;
+	self.ticktimer = 0.05;
+	self.nextthink = time + self.ticktimer;
 	iceg_aiturn();
 };
 
@@ -742,8 +749,9 @@ void() iceg_turnframe =
 	self.walkframe = self.walkframe + 1;
 	if (self.walkframe > 33) self.walkframe = 0;
 	self.frame = $walk1 + self.walkframe;
-	// Hexen 2 models are designed for lower time cycle
-	self.nextthink = time + 0.05;
+	// Hexen 2 models were designed for 20fps
+	self.ticktimer = 0.05;
+	self.nextthink = time + self.ticktimer;
 	
 	// Facing the first target?
 	iceg_aiturn();
@@ -767,7 +775,8 @@ void() iceg_waveboundary =
 	if (!self.enemytarget) {
 		// Back to running!
 		self.think = self.th_run;
-		self.nextthink = time + 0.1;
+		self.ticktimer = 0.05;
+		self.nextthink = time + self.ticktimer;
 	}
 	else {
 		// Time to blow stuff up, switch on resistance and roar!
@@ -882,7 +891,9 @@ void() iceg_birth = {
 	if (random() < 0.4) SpawnProjectileSmoke(self.origin, 200, 100, 100);
 	if (random() < 0.8) SpawnProjectileSmoke(self.origin, 200, 50, 250);
 	if (random() < 0.1) ThrowGib(11, 1);	// Small Golem rock
-	self.nextthink = time + 0.05;
+	// Hexen 2 models were designed for 20fps
+	self.ticktimer = 0.05;
+	self.nextthink = time + self.ticktimer;
 };
 
 //----------------------------------------------------------------------
@@ -964,7 +975,7 @@ void() iceg_setup =
 {
 	self.use = SUB_Null;		// No more triggers
 	self.style = ICEG_PHASE1;	// Bursting intro sequence
-	self.flags = FL_MONSTER;	// Reset flag
+	self.flags = FL_MONSTER;	// Reset flag (no user settings)
 
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
@@ -994,6 +1005,7 @@ void() iceg_setup =
 	self.resist_shells = self.resist_cells = 0;
 	self.resist_nails = self.resist_rockets = 0.75;
 	self.reflectnails = TRUE;		// Reflect nail projectiles
+	self.reflectaxe = TRUE;			// Prevent axe damage
 	
 	//Resist_CheckRange(self);		// Double check values
 	Resist_Save(self);				// Save for Later
@@ -1048,12 +1060,13 @@ void() iceg_setup =
 	self.use = iceg_wake1;
 };
 
-/*======================================================================
-QUAKED monster_icegolem (1 0.2 0) (-32 -32 -24) (32 32 128)
+//======================================================================
+/*QUAKED monster_icegolem (1 0.2 0) (-32 -32 -24) (32 32 128)
 ======================================================================*/
 void() monster_icegolem =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_bossicegolem.mdl";
 	precache_model (self.mdl);
@@ -1126,10 +1139,16 @@ void() monster_icegolem =
 	self.bbmins = '-32 -32 -24';	// Special Size
 	self.bbmaxs = '32 32 128';
 	self.bboxtype = BBOX_CUSTOM;
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
 	self.deathstring = " was shattered by the Ice Golem\n";
+	self.lastorigin = self.origin;	// Origin for camera interpolation
+	self.ticktimer = 0.1;			// Model starts animations at 10fps
 
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
+	
 	self.steptype = FS_TYPEGIANT;	// Giant sound
 	self.health = self.max_health = MEGADEATH;
 	
@@ -1149,7 +1168,7 @@ void() monster_icegolem =
 	self.use = iceg_setup;
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_icegolem_wavetrig (0.75 0.25 1) (-32 -32 -8) (32 32 8) x
 Target for boss column smash wave event
 -------- KEYS --------

@@ -255,7 +255,8 @@ void() cent_die =
 ======================================================================*/
 void() monster_centurion =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 	
 	self.mdl = "progs/mon_centurion.mdl";
 	self.headmdl = "progs/h_centurion.mdl";
@@ -305,7 +306,8 @@ void() monster_centurion =
 	self.steptype = FS_FLYING;			// Silent feet
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
 	if (!self.exactskin) self.randomskin = 6;
-	self.ammo_cells = rint(random()*3);
+	if (self.ammo_cells < 0) self.ammo_cells = 0;
+	else if (self.ammo_cells == 0) self.ammo_cells = 3;
 	self.attack_offset = '28 8.5 24';
 	self.deathstring = " was vaporized by a Centurion\n";
 

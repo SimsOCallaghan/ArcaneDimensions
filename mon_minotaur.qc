@@ -65,6 +65,11 @@ $frame walk1 walk2 walk3 walk4 walk5 walk6 walk7 walk8
 $frame walk9 walk10 walk11 walk12 walk13 walk14 walk15 walk16
 $frame walk17 walk18 walk19 walk20 walk21 walk22 walk23 walk24
 
+// Spawning effect for projectiles has several skin colours
+float MINO_BLUE = 0;
+float MINO_GREEN = 1;
+float MINO_RED = 2;
+
 //============================================================================
 void() mino_stand1 =[ $stand1, mino_stand2 ] {monster_idle_sound();ai_stand();};
 void() mino_stand2 =[ $stand3, mino_stand3 ] {ai_stand();};
@@ -155,7 +160,7 @@ void(float side) mino_claw =
 	ai_face ();						// Turn towards enemy target
 	ai_damagebreakable(50);			// Damage any breakables
 
-	if (!ai_checkmelee(MONAI_MELEEMINOTAUR) || !self.enemy.takedamage) {
+	if (!ai_checkmelee(MONAI_MELEEMINOTAUR, MONAI_MELEEZTALL) || !self.enemy.takedamage) {
 		// Melee claw miss sound
 		sound (self, CHAN_WEAPON, "minotaur/swipe.wav", 1, ATTN_NORM);
 	}
@@ -189,7 +194,7 @@ void() mino_slapR4 =[ $bwalk13, mino_slapR5 ] {ai_charge(12);mino_claw(250);};
 void() mino_slapR5 =[ $bwalk15, mino_slapR6 ] {ai_charge(12);};
 void() mino_slapR6 =[ $bwalk17, mino_run ] {ai_charge(9);
 	// Check if enemy is close, alive and visible before doing more melee
-	if (random() < 0.5 && ai_checkmelee(MONAI_MELEEMINOTAUR) && 
+	if (random() < 0.5 && ai_checkmelee(MONAI_MELEEMINOTAUR, MONAI_MELEEZTALL) && 
 		self.enemy.health > 0 && visible(self.enemy)) self.think = mino_slapL1;
 };
 
@@ -266,7 +271,7 @@ void() mino_jump4 =[ $jump7, mino_jump5 ] {
 	self.jump_flag = time + MONAI_JUMPMINOTIME;
 	self.touch = mino_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * 450 + '0 0 250';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
 };
@@ -287,13 +292,25 @@ void() mino_jump8 =[ $jump15, mino_jump8 ] {
 void() mino_jump10 =[ $jump19, mino_jump12 ] {ai_charge(8);monster_footstep(FALSE);};
 void() mino_jump12 =[ $jump23, mino_run ] {ai_charge(10);ai_resetangles();
 	// If close enough start melee ELSE return to run cycle
-	if (ai_checkmelee(MONAI_MELEEMINOTAUR) && self.enemy.health > 0) 
+	if (ai_checkmelee(MONAI_MELEEMINOTAUR, MONAI_MELEEZTALL) && self.enemy.health > 0) 
 		self.think = mino_melee;
 };
 
 //============================================================================
 // RANGE ATTACK - Plasma Bolts (rocket)
 //============================================================================
+float(entity targ) minotaur_skin_type = 
+{
+	// Switch skin around for spawning effect
+	if (targ.spawnflags & MON_MINOTAUR_MINIONS) {
+		if (targ.poisonous) return MINO_GREEN;
+		else return MINO_RED;
+	}
+	// Default = blue version
+	return MINO_BLUE;
+};
+
+//----------------------------------------------------------------------
 void() minotaur_create_attachment =
 {
 	// Are the attachments setup yet?
@@ -350,7 +367,8 @@ void(entity handent, vector orgofs, float dbframe) minotaur_handball =
 		setsize (handent, VEC_ORIGIN, VEC_ORIGIN);
 		handent.movetype = MOVETYPE_NONE;
 		handent.solid = SOLID_NOT;
-		handent.skin = self.exactskin;
+		// Switch skin around for spawning effect
+		handent.skin = minotaur_skin_type(self);
 		handent.alpha = 0.85;
 	}
 	
@@ -383,21 +401,24 @@ void(vector leftofs, vector rightofs, float dbframe) minotaur_hands =
 //----------------------------------------------------------------------
 void(vector orgofs, float angofs) minotaur_fire =
 {
-	local vector org, angvec, dir;
+	local vector org, dir;
 
 	if (!self.enemy) return;
 	if (self.health < 1) return;
 
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	self.attack_speed = SPEED_MINOBOLT + (skill * SPEED_MINOSKILL);
+	
 	makevectors(self.angles);
 	org = self.origin + attack_vector(orgofs);
 	dir = (self.enemy.origin - org) + (v_right*(angofs*30));
 	dir = normalize (dir);
 
-	// The spawning minotaur has poison spikes instead
-	if (self.spawnflags & MON_MINOTAUR_MINIONS)
-		launch_projectile(org, dir, CT_PROJ_MPOISON, self.attack_speed);
+	// The DARK minotaur (spawner) has two types of spikes
+	if (self.spawnflags & MON_MINOTAUR_MINIONS) {
+		if (self.poisonous) launch_projectile(org, dir, CT_PROJ_MPOISON, self.attack_speed);
+		else launch_projectile(org, dir, CT_PROJ_MBLOOD, self.attack_speed);
+	}
 	else {
 		// Projectile behaves like plasma (light/trail/impact effects)
 		// The correct projectile model is switched in launch function
@@ -449,10 +470,10 @@ void() mino_magic16 =[ $magic31, mino_run ] {ai_face();};
 // Spawn particles from body that float upwards during summons
 //----------------------------------------------------------------------
 void() mino_sumeffect = 
-{ particle_debuff(self.origin+'0 0 64', 16, rint(4+random()*4), PARTICLE_BURST_GREEN);};
+{ particle_debuff(self.origin+'0 0 64', 16, rint(4+random()*4), self.part_style);};
 
 //----------------------------------------------------------------------
-// Display a green ball where the gargoyle is spawning
+// Display a ball where the gargoyle is spawning
 //----------------------------------------------------------------------
 void(float dbframe) mino_sumball =
 {
@@ -467,7 +488,7 @@ void(float dbframe) mino_sumball =
 		setsize (self.attachment, VEC_ORIGIN, VEC_ORIGIN);
 		self.attachment.movetype = MOVETYPE_NONE;
 		self.attachment.solid = SOLID_NOT;
-		self.attachment.skin = self.exactskin;
+		self.attachment.skin = minotaur_skin_type(self);
 	}
 	
 	// rotate and fade the ball as it grows
@@ -535,6 +556,7 @@ void() mino_magic =
 			// If template no available, warn and remove feature
 			dprint("\b[MINOTAUR]\b Cannot find minion template!\n");
 			self.spawnflags = self.spawnflags - MON_MINOTAUR_MINIONS;
+			spawn_marker(self.origin, SPNMARK_YELLOW);
 		}
 	}
 	
@@ -564,7 +586,7 @@ void(float dist) mino_chargecheck =
 	// turn, face and pursue enemy
 	ai_charge(dist);
 	// Close enough for melee combat?
-	if (ai_checkmelee(MONAI_MELEEMINOTAUR)) self.th_melee();
+	if (ai_checkmelee(MONAI_MELEEMINOTAUR, MONAI_MELEEZTALL)) self.th_melee();
 	// Enemy dead? run out of stamina or enemy not infront?
 	if (self.enemy.health < 1) self.think = mino_run;
 	else if (self.attack_finished < time) self.think = mino_run;
@@ -682,7 +704,8 @@ QUAKED monster_minotaur (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_minotaur =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_minotaur.mdl";
 	self.headmdl = "progs/h_minotaur.mdl";		// Large head
@@ -696,6 +719,7 @@ void() monster_minotaur =
 	precache_model (MODEL_PROJ_MBALL);		// Creating attachment
 	precache_model (MODEL_PROJ_MPLASMA);	// Plasma bolt
 	precache_model (MODEL_PROJ_MPOISON);	// Poison bolt
+	precache_model (MODEL_PROJ_MBLOOD);		// Blood bolt
 	precache_model (self.gib1mdl);
 	precache_model (self.gib2mdl);
 	precache_model (self.gib3mdl);
@@ -748,10 +772,13 @@ void() monster_minotaur =
 	if (!self.infightextra) self.infightextra = 2;
 	self.steptype = FS_TYPELARGE;	// Giant sound
 	self.blockudeath = TRUE;		// No humanoid death
-	self.part_style = PARTICLE_BURST_BLUE;
-	self.poisonous = FALSE;			// blue ver = Always poison free
 	self.deathstring = " was gored by a Minotaur\n";
 	
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '450 0 250';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPMINONEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPMINOFAR;
+
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = 0; self.resist_cells = 0.5;
@@ -770,22 +797,35 @@ void() monster_minotaur =
 	self.th_jumpexit = mino_jump10;
 	self.th_charge = mino_howl1;
 	
+	// Update Minotaur based on minions spawnflag
+	if (self.spawnflags & MON_MINOTAUR_MINIONS) {
+		if (self.poisonous < 0) {
+			self.poisonous = FALSE;			// Special version (blood/fire)
+			//precache_bloodgibs();			// precache gibs (in world.qc)
+			self.gibtype = GIBTYPE_BLOOD;	// blood trails
+			self.part_style = PARTICLE_BURST_RED;
+		}
+		else {
+			self.poisonous = TRUE;			// Poison version (default)
+			precache_poisongibs();			// precache gibs
+			self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
+			self.part_style = PARTICLE_BURST_GREEN;
+		}
+		self.exactskin = 1;				// Black skin + yellow eyes
+		self.gib1skin = self.gib2skin = self.gib3skin = 1;
+		// Reduce minions down to 3, gargoyles are tougher to kill
+		if (!self.minion_maxcount) self.minion_maxcount = 3;
+	}
+	else {
+		self.poisonous = FALSE;			// Default White version
+		//precache_bloodgibs();			// precache gibs (in world.qc)
+		self.gibtype = GIBTYPE_BLOOD;	// blood trails
+		self.part_style = PARTICLE_BURST_BLUE;
+	}
+
 	self.classtype = CT_MONMINOTAUR;
 	self.classgroup = CG_DEMON;
 	self.classmove = MON_MOVEWALK;
 	
-	// Special darker version for gargoyle spawner
-	// Update all gib models and set poison debuff
-	if (self.spawnflags & MON_MINOTAUR_MINIONS) {
-		self.poisonous = TRUE;			// darker ver = Always poisonous
-		precache_poisongibs();			// precache gibs
-		self.gibtype = GIBTYPE_POISON;	// Poisonous blood trails
-		self.exactskin = 1;				// Black skin + yellow eyes
-		self.gib1skin = self.gib2skin = self.gib3skin = 1;
-		self.part_style = PARTICLE_BURST_GREEN;
-		// Reduce minions down to 3, gargoyles are tougher to kill
-		if (!self.minion_maxcount) self.minion_maxcount = 3;
-	}
-			
 	monster_start();
 };

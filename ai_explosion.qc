@@ -210,6 +210,21 @@ void(vector org, float velrnd, float upbase, float uprnd) SpawnProjectileSmoke =
 };
 
 //----------------------------------------------------------------------
+void(vector org, vector veldir, float velbase, float velrnd) SpawnVelocitySmoke =
+{
+	newmis = spawn();
+	newmis.classgroup = CG_TEMPENT;
+	newmis.movetype = MOVETYPE_TOSS;
+	newmis.solid = SOLID_NOT;
+	setmodel(newmis, MODEL_PROJ_SMOKE);
+	setorigin(newmis, org);
+	setsize (newmis, VEC_ORIGIN, VEC_ORIGIN);
+	newmis.velocity = veldir * (velbase + (random()*velrnd));
+	newmis.nextthink = time + 1 + random()*3;
+	newmis.think = SUB_Remove;
+};
+
+//----------------------------------------------------------------------
 void(entity source, entity targ) ProjectileType =
 {
 	// Projectile types (Poison/Robot/Stone/Blood)
@@ -259,6 +274,7 @@ void(entity targ, vector org, vector vel, float part_qty) SpawnBlood =
 	local float loop_count, part_col;
 	loop_count = 0;
 	vel = vel * 0.1;
+	
 	// monsters show 2 x blood particles (default), it seems pointless
 	// to reduce that back down here. When a monster has a high ammo
 	// resistance it needs to be obviously less, the default needs to
@@ -270,6 +286,9 @@ void(entity targ, vector org, vector vel, float part_qty) SpawnBlood =
 	else {
 		if (targ.poisonous) part_col = MON_BCOLOR_GREEN;
 		else if (targ.classgroup == CG_ROBOT) part_col = MON_BCOLOR_YELLOW;
+		// New Exception - does the target defined blood colour?
+		// Can be used to override the func object bleeding blood problem
+		else if (targ.bleedcolour > 0) part_col = targ.bleedcolour;
 		else part_col = MON_BCOLOR_RED;
 	}
 	

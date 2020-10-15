@@ -1,6 +1,6 @@
-/*======================================================================
- Story books
-======================================================================*/
+//======================================================================
+// Story books
+//======================================================================
 // Closed
 $frame closed1 closed2 closed3 closed4 closed5 closed6 closed7 closed8 closed9 closed10
 
@@ -278,9 +278,11 @@ void() info_book_touch =
 	local float book_yaw, book_angle1, book_angle2, play_yaw, play_angle;
 
 	if (self.estate & ESTATE_BLOCK) return;
-	if (intermission_running) return;		// intermission or finale
+	if (intermission_running > 0) return;
+	if (cinematic_running > 0) return;
 	if ( !(other.flags & FL_CLIENT) ) return;
 	if (other.health < 1) return;
+	if (other.flags & FL_NOTARGET) return;
 
 	// Store player entity for later use	
 	self.enemy = other;
@@ -492,7 +494,7 @@ void() info_book_setup =
 	else self.estate_on();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED misc_textbook (0 0.5 0.5) (-16 -16 -8) (16 16 8) NOMODEL PLINTH1 PLINTH2 STORY COLLISION ANGLEONLY STARTOFF NOEFFECTS
 Display custom text messages
 -------- KEYS --------
@@ -561,7 +563,7 @@ void() misc_textbook =
 	self.think = info_book_setup;
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED misc_textstory (0 0.5 1.0) (-16 -16 -8) (16 16 8) x
 Text Book Story Chapters
 -------- KEYS --------
@@ -574,6 +576,7 @@ message4   : Body Text 3 (displayed after message3)
 -------- SPAWNFLAGS --------
 -------- NOTES --------
 Text Book Story Chapters
+*/
 
 /*QUAKED misc_textstoryctrl (0 0.1 1.0) (-16 -16 -8) (16 16 8) x
 Text Book Story Controller

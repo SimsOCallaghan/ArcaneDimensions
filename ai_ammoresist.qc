@@ -21,13 +21,13 @@ float(entity targ, float resist_type, float damage) Resist_Damage =
 void(entity targ) Resist_CheckRange = 
 {
 	// Check Ammo resistance is within range
-	if (targ.resist_shells < 0) targ.resist_shells = 0;
+	if (targ.resist_shells < -1) targ.resist_shells = -1;
 	else if (targ.resist_shells > 1) targ.resist_shells = 1;
-	if (targ.resist_nails < 0) targ.resist_nails = 0;
+	if (targ.resist_nails < -1) targ.resist_nails = -1;
 	else if (targ.resist_nails > 1) targ.resist_nails = 1;
-	if (targ.resist_rockets < 0) targ.resist_rockets = 0;
+	if (targ.resist_rockets < -1) targ.resist_rockets = -1;
 	else if (targ.resist_rockets > 1) targ.resist_rockets = 1;
-	if (targ.resist_cells < 0) targ.resist_cells = 0;
+	if (targ.resist_cells < -1) targ.resist_cells = -1;
 	else if (targ.resist_cells > 1) targ.resist_cells = 1;
 };
 
@@ -74,10 +74,27 @@ void(entity targ, float artype) Resist_ChangeType =
 };
 
 //----------------------------------------------------------------------
+void(entity targ, vector org) Resist_Axe =
+{
+	// Default impact sound - stone
+	sound (targ, CHAN_WEAPON, SOUND_AXE_STONE, 1, ATTN_NORM);
+	// Particle impact
+	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
+	if (random() < 0.5) WriteByte (MSG_BROADCAST, TE_SPIKE);
+	else WriteByte (MSG_BROADCAST, TE_GUNSHOT);
+	WriteCoord (MSG_BROADCAST, org_x);
+	WriteCoord (MSG_BROADCAST, org_y);
+	WriteCoord (MSG_BROADCAST, org_z);
+	// Random chance of smoke/dust projectile
+	if (random() < 0.5) SpawnProjectileSmoke(org, 200, 50, 150);
+};
+
+//----------------------------------------------------------------------
 void(entity targ, vector org, vector vel, float damage) Resist_Shells =
 {
 	if (targ.health > 0 && targ.pain_finished < time) {
 		targ.pain_finished = time + 0.3 + random();
+		// All monsters should have a pain sound define, hence no check
 		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
 	}
 	
@@ -101,6 +118,7 @@ void(entity targ, vector org) Resist_Nails =
 {
 	if (targ.health > 0 && targ.pain_finished < time && targ.resist_nails < 1) {
 		targ.pain_finished = time + 0.3 + random();
+		// All monsters should have a pain sound define, hence no check
 		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
 	}	
 	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
@@ -117,6 +135,7 @@ void(entity targ, vector org) Resist_Rockets =
 {
 	if (targ.health > 0 && targ.pain_finished < time && targ.resist_rockets < 1) {
 		targ.pain_finished = time + 0.3 + random();
+		// All monsters should have a pain sound define, hence no check
 		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
 	}
 	SpawnExplosion(EXPLODE_BURST_SMOKE,org,SOUND_RESIST_ROCKET);
@@ -135,6 +154,7 @@ void(entity targ, vector org) Resist_Lightning =
 {
 	if (targ.health > 0 && targ.pain_finished < time && targ.resist_cells < 1) {
 		targ.pain_finished = time + 0.3 + random();
+		// All monsters should have a pain sound define, hence no check
 		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
 	}	
 	// Don't spawn smoke constantly (let the sprite finish)
@@ -153,6 +173,7 @@ void(entity targ, vector org) Resist_Plasma =
 {
 	if (targ.health > 0 && targ.pain_finished < time && targ.resist_cells < 1) {
 		targ.pain_finished = time + 0.3 + random();
+		// All monsters should have a pain sound define, hence no check
 		sound (targ, CHAN_VOICE, targ.pain_sound, 1, ATTN_NORM);
 	}	
 	SpawnExplosion(EXPLODE_BURST_SMOKE, org, SOUND_PLASMA_HIT);
@@ -163,4 +184,3 @@ void(entity targ, vector org) Resist_Plasma =
 	if (targ.resist_cells < 1 && random() < 0.3) 
 		SpawnProjectileMeat(targ,org, 200, 50, 150);
 };
-

@@ -144,7 +144,7 @@ void(float sideang) spider_spitacid =
 		
 	// Flash effect to show where bolt is coming from	
 	self.effects = self.effects | EF_MUZZLEFLASH;
-	if (sideang < 0) sound (self, CHAN_WEAPON, "spider/hiss2.wav", 1, ATTN_NORM);
+	if (sideang < 0) sound (self, CHAN_WEAPON, self.idle_sound2, 1, ATTN_NORM);
 
 	makevectors (self.angles);	
 	org = self.origin + attack_vector(self.attack_offset);
@@ -189,7 +189,7 @@ void() spider_melee =
 		
 	ai_charge(10);									// Get closer for extra bite
 	ai_damagebreakable(10);							// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEESPIDER)) return;	// Too far away
+	if (!ai_checkmelee(MONAI_MELEESPIDER,FALSE)) return;	// Too far away
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
@@ -221,7 +221,7 @@ void() spider_bite7=[ $atkloop3, spider_bite8 ] {ai_face();};
 void() spider_bite8 = [ $atkloop5, spider_bite9 ] {spider_melee();};
 void() spider_bite9 = [ $atkloop7, spider_bite10 ] {};
 void() spider_bite10 = [ $atkloop9, spider_bite11 ] {
-	if (ai_checkmelee(MONAI_MELEESPIDER) && self.enemy.health > 0 && self.health > 0) 
+	if (ai_checkmelee(MONAI_MELEESPIDER,FALSE) && self.enemy.health > 0 && self.health > 0) 
 		self.think = spider_bite6;};
 // Exit bite attack loop
 void() spider_bite11 = [ $atkup7, spider_bite12 ] {};
@@ -243,7 +243,7 @@ void()	Spider_JumpTouch =
 
 	// Do not damage other spiders with jump attacks
 	// Prevents packs from killing themselves
-	if (self.classtype != other.classtype && other.takedamage) {
+	if (self.classgroup != other.classgroup && other.takedamage) {
 		if ( vlen(self.velocity) > 300 ) {
 			ldmg = 5 + 5*random();
 			T_Damage (other, self, self, ldmg, DAMARMOR);	
@@ -276,7 +276,7 @@ void() spider_leap3 =[ $jump5, spider_leap4 ] {
 	self.jump_flag = time + MONAI_JUMPTIMEOUT; // Stop jumping so much
 	self.touch = Spider_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * MONAI_JUMPSPIDERDIST + '0 0 200';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.origin_z = self.origin_z + 4;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
@@ -539,13 +539,14 @@ void() spider_die =
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_spider (1 0 0) (-16 -16 -24) (16 16 24) Ambush
 ======================================================================*/
 void() setup_spider;
 void() monster_spider =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	if (self.spawnflags & MON_SPIDER_LARGE) {
 		self.mdl = "progs/mon_spiderg.mdl";
@@ -652,8 +653,19 @@ void() setup_spider =
 		self.poisonous = FALSE;		// Large only are poisonous
 		self.th_jump = spider_leap1;
 		self.th_jumpexit = spider_leap9;
+		// Default jump forward/up distance
+		if (CheckZeroVector(self.jumpdist)) self.jumpdist = '400 0 200';
+		if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPSPIDERNEAR;
+		if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPSPIDERFAR;
 	}
 	
+	//----------------------------------------------------------------------
+	// Check for quoth on ceiling entity flag
+	//----------------------------------------------------------------------
+	if (self.dangle) {
+		self.spawnflags = self.spawnflags | MON_SPIDER_CEILING;
+	}
+
 	//----------------------------------------------------------------------
 	// Ceiling spiders have special idle animation (rotated)
 	// and need to let go of the ceiling before resuming any

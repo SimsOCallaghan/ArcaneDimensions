@@ -261,9 +261,9 @@ float	DEAD_EXPLODE		= 5;
 float	DEAD_FINISHED		= 6;
 
 // takedamage values
-float	DAMAGE_NO			= 0;
-float	DAMAGE_YES			= 1;
-float	DAMAGE_AIM			= 2;
+float	DAMAGE_NO			= 0;	// No damage
+float	DAMAGE_YES			= 1;	// No grenades
+float	DAMAGE_AIM			= 2;	// Everything hits
 
 // items
 float	IT_AXE				= 4096;
@@ -274,7 +274,7 @@ float	IT_SUPER_NAILGUN	= 8;
 float	IT_GRENADE_LAUNCHER	= 16;
 float	IT_ROCKET_LAUNCHER	= 32;
 float	IT_LIGHTNING		= 64;
-//float	IT_EXTRA_WEAPON			= 128;
+//float	IT_EXTRA_WEAPON		= 128;
 
 // Used by the engine to update the Sbar with gfx type
 float	IT_SHELLS			= 256;
@@ -334,10 +334,17 @@ vector	VEC_HULL2_MAX = '32 32 64';
 // protocol bytes
 //----------------------------------------------------------------------
 float	SVC_DISCONNECT		= 2;	// Mainly used in client.qc
-float	SVC_UPDATESTAT		= 3;	// Force update of stats
-float	SVC_SETVIEW			= 5;	// Set camera viewpoint entity
-float	STAT_TOTALSECRETS 	= 11;	//added total monster message
+float	SVC_UPDATESTAT		= 3;	// [byte] [long] - Force update of stats
+float	SVC_VERSION			= 4;	// [long] - Server version
+float	SVC_SETVIEW			= 5;	// [short] [entity] Set camera viewpoint 
+float	SVC_SOUND			= 6;	// 
+float	SVC_TIME			= 7;	// [long] server time
+float	SVC_PRINT			= 8;	// [string] null terminated string
+float	SVC_STUFFTXT		= 9;	// [string] stuffed into client's console buffer 
+float	SVC_SETANGLE		= 10;	// [vector] set view angle
+float	STAT_TOTALSECRETS 	= 11;	// [byte] [long] total secrets message
 float	STAT_TOTALMONSTERS 	= 12;
+float	SVC_UPDATENAME		= 13;
 float	SVC_TEMPENTITY		= 23;
 float	SVC_SETPAUSE		= 24;
 float	SVC_CENTERPRINT		= 26;
@@ -466,22 +473,22 @@ entity	activator;			// the entity that activated a trigger or brush
 entity	damage_attacker;	// set by T_Damage
 float	framecount;
 
-float		skill;
-float 	developer;
+float skill, oskill;
+float developer;
 
 //======================================================================
 // world fields (FIXME: make globals)
 //======================================================================
 .string		wad;
 .string 	map;
-.float		worldtype;		// 0=medieval 1=metal 2=base
+.float		worldtype;	// 0=medieval 1=metal 2=base
 
 .string		killtarget;
 
 //======================================================================
 // quakeed fields
 //======================================================================
-.float		light_lev;		// not used by game, but parsed by light util
+.float		light_lev;	// not used by game, but parsed by light util
 .float		style;
 
 //======================================================================
@@ -495,7 +502,7 @@ float 	developer;
 .void(entity inflictor, entity attacker, float damage) th_pain;
 .void()		th_die;
 
-.entity		oldenemy;		// mad at this player before taking damage
+.entity		oldenemy;	// mad at this player before taking damage
 .float		speed;
 
 .float	lefty;
@@ -545,17 +552,17 @@ float AS_BACKWARD  = 8; // Turn 180 degrees and move backwards
 
 //======================================================================
 // object stuff
-.string		mdl;
+.string		mdl, mdl2;		// Extra mdl2 string
 .vector		mangle;			// angle at start
 .float		t_length, t_width;
 
 //======================================================================
 // doors, etc
-.vector		dest0, dest1, dest2;
-.float		wait;			// time from firing to restarting
-.float		delay;			// time from activation to firing
+.vector		dest0, dest1, dest2, dest3;
+.float		wait, wait2;	// time from firing to restarting
+.float		delay, delay2;	// time from activation to firing
 .entity		trigger_field;	// door's trigger entity
-.string		noise4;
+.string		noise4, noise5, noise6;
 .float		dmg;			// damage done by door when hit
 
 //======================================================================
@@ -567,6 +574,7 @@ float AS_BACKWARD  = 8; // Turn 180 degrees and move backwards
 //======================================================================
 // items
 .float		aflag;			// Ammo quantity stored on items
+.float		aused;			// Ammo quantity used (respawn aware)
 	
 //======================================================================
 // misc
@@ -580,17 +588,20 @@ float AS_BACKWARD  = 8; // Turn 180 degrees and move backwards
 //======================================================================
 // triggers
 .float		count;			// for counting triggers
+.float		endstate;		// final state for trigger_relay
+.vector		movedir2;		// Extra move angle for monsterjump
 
 //======================================================================
 // plats / doors / buttons
 .float		lip;
 .float		state;
 .vector		pos1, pos2, pos3;		// top and bottom positions
+.vector		pos4, pos5, pos6;		// Move general variables
 .float		height;
 
 //======================================================================
 // sounds
-.float		waitmin, waitmin2; /*, waitmax*/
+.float		waitmin, waitmin2, waitmin3; /*, waitmax*/
 .float		distance;
 .float		volume;
 
@@ -661,24 +672,24 @@ float(float yaw, float dist) walkmove = {
 };
 //----------------------------------------------------------------------
 // #33 was removed
-float() droptofloor= #34;					// TRUE if landed on floor
+float() droptofloor					= #34;	// TRUE if landed on floor
 void(float style, string value) lightstyle = #35;
 float(float v) rint					= #36;	// round to nearest int
-float(float v) floor				= #37;	// largest integer <= v
-float(float v) ceil					= #38;	// smallest integer >= v
+float(float v) floor				= #37;	// round number DOWN!
+float(float v) ceil					= #38;	// round number UP!
 // #39 was removed
 float(entity e) checkbottom			= #40;	// true if self is on ground
 float(vector v) pointcontents		= #41;	// returns a CONTENT_*
 // #42 was removed
-float(float f) fabs = #43;
-vector(entity e, float speed) aim = #44;	// returns the shooting vector
-float(string s) cvar = #45;					// return cvar.value
-void(string s) localcmd = #46;				// put string into local que
-entity(entity e) nextent = #47;				// for looping through all ents
+float(float f) fabs 				= #43;
+vector(entity e, float speed) aim	= #44;	// returns the shooting vector
+float(string s) cvar 				= #45;	// return cvar.value
+void(string s) localcmd				= #46;	// put string into local que
+entity(entity e) nextent			= #47;	// for looping through all ents
 void(vector o, vector d, float color, float count) particle = #48;// start a particle effect
-void() ChangeYaw = #49;						// turn towards self.ideal_yaw at self.yaw_speed
+void() ChangeYaw					= #49;	// turn towards self.ideal_yaw at self.yaw_speed
 // #50 was removed
-vector(vector v) vectoangles			= #51;
+vector(vector v) vectoangles		= #51;
 //----------------------------------------------------------------------
 // direct client message generation
 void(float to, float f) WriteByte		= #52;
@@ -693,23 +704,27 @@ void(float to, entity s) WriteEntity	= #59;
 // broadcast client message generation
 // void(float f) bWriteByte		= #59;
 // void(float f) bWriteChar		= #60;
-// void(float f) bWriteShort		= #61;
+// void(float f) bWriteShort	= #61;
 // void(float f) bWriteLong		= #62;
-// void(float f) bWriteCoord		= #63;
-// void(float f) bWriteAngle		= #64;
+// void(float f) bWriteCoord	= #63;
+// void(float f) bWriteAngle	= #64;
 // void(string s) bWriteString	= #65;
-// void(entity e) bWriteEntity = #66;
+// void(entity e) bWriteEntity	= #66;
 //----------------------------------------------------------------------
+.vector lastorigin;			// Last position of an entities origin
 void(float step) movetogoal_builtin = #67;
 void(float step) movetogoal = {
+	// Save origin for cinematic camera angle interpolation
+	// This does not cope with bmodel origins, only point entities
+	self.lastorigin = self.origin;
 	if (self.attack_state == AS_TURRET) return;
 	if (self.movespeed < 0) return;
 	if (self.tetherlock == TRUE) return;
 	movetogoal_builtin(step);
 };
 //----------------------------------------------------------------------
-string(string s) precache_file		= #68;		// no effect except for -copy
-void(entity e) makestatic		= #69;
+string(string s) precache_file = #68;		// no effect except for -copy
+void(entity e) makestatic = #69;
 void(string s) changelevel = #70;
 //#71 was removed
 void(string var, string val) cvar_set = #72;	// sets cvar.value
@@ -776,12 +791,18 @@ void(entity e) setspawnparms		= #78;	// set parm1... to the values at level star
 entity sight_entity;		// Highlight an angry monster
 float sight_entity_time;	// Time got angry
 
+.string sighttarget;			// Attack this target if sighted
+.string sightgroup;				// Group name for attacking as one
+entity sightgroup_entity;		// Attack group all together
+float sightgroup_entity_time;	// Time to activate
+
 float(entity targ) infront;
 float (entity targ) visible;
 float(entity targ, float flat2d) range_distance;
-float(float attackdist) ai_checkmelee;
+float(float attackdist, float attackzaxis) ai_checkmelee;
 float(entity targ) visblocked;
 float(entity targ, vector s_offset, vector t_offset, float nomonsters) visxray;
+float(entity targ, vector s_offset, vector targang, float nomonsters) visang;
 float (entity targ, vector s_ofset, vector t_ofset) visblocked_wide;
 float() FacingIdeal;
 float(entity source, entity targ, float ignorenoshoot) ai_foundbreakable;
@@ -793,15 +814,20 @@ float intermission_exittime;
 string nextmap;				// Used by GotoNextMap()
 .float dmgtime;				// Used by WaterMove()
 .float poisonous;			// A monster with poisonous attack
+void(entity targ) Client_LadderSounds;
 void(entity targ) BleedDeBuff;
 void(entity targ) BurnDeBuff;
 void(entity targ) PoisonDeBuff;
+void(entity targ) PlayLavaShieldSound;
+void(entity targ) PlayBlastBeltSound;
+void(entity targ) PlayPentagramSound;
 
 //	combat.qc
-float DAMARMOR = 1;
-float NOARMOR = 2;
-float DAMAGEALL = 4;
-float IGNORECLASS = 8;
+float DAMARMOR = 1;		// Typical damage to health + armour
+float NOARMOR = 2;		// Ingnores armour for damage reduction
+float DAMSPLASH = 4;	// Splash damage only
+float DAMAGEALL = 8;
+float IGNORECLASS = 16;
 void(entity targ, entity inflictor, entity attacker, float damage, float checkarmor) T_Damage;
 void(entity inflictor, entity attacker, float damage, entity ignore, float checkclass) T_RadiusDamage;
 float(entity targ, entity inflictor) CanDamage;
@@ -811,8 +837,11 @@ float enemy_vis, enemy_infront, enemy_range;
 float enemy_yaw;
 
 // items.qc
-.float	healamount, healtype;
+.float healamount, healtype;
 float (entity e, float healamount, float ignore) T_Heal;
+// items_progspn.qc
+void(entity targ) item_proglist_setup;
+void() SUB_regen;
 
 // monsters.qc
 void() monster_sightsound;
@@ -826,9 +855,15 @@ void() SUB_Null;
 void() SUB_UseTargets;
 void() SUB_Remove;
 
+// settings.qc
+float(float regbitflag) query_configflag;
+float(float regbitflag) query_temp1flag;
+
 // triggers_state.qc
+void(float defvol) trigger_bmodel_volume;
 void() trigger_bmodel_sounds;
 void() trigger_bmodel_setup;
+float() check_bmodel_keys;
 
 // weapon.qc
 entity multi_ent;
@@ -843,6 +878,33 @@ void(float sprite_type, vector org, string expl_sound) SpawnExplosion;
 void(vector org, float velrnd, float upbase, float uprnd) SpawnProjectileSmoke;
 void(entity source, entity targ, float side) SpawnMeatSpray;
 void(entity targ, vector org, vector vel, float part_qty) SpawnBlood;
+
+//======================================================================
+// A list of variables (not used) defined in most quake engines! :P
+// CVAR_ARCHIVE = written to config.cfg file in mod directory
+
+// Used in quake.rc to define extra AD option/features
+//cvar_t    temp1 = CVARF("temp1", "0", CVAR_ARCHIVE);
+
+// Used for Deathmatch (in QC)
+//cvar_t    noexit = CVAR("noexit", "0");
+
+// Used to disable all monster spawning
+//cvar_t    nomonsters = CVAR("nomonsters", "0");
+
+// Probably used for something
+//cvar_t    gamecfg = CVAR("gamecfg", "0");
+//cvar_t    savedgamecfg = CVARF("savedgamecfg", "0", CVAR_ARCHIVE);
+
+// Empty variables, probably added by expansions packs
+//cvar_t    scratch1 = CVAR("scratch1", "0");
+//cvar_t    scratch2 = CVAR("scratch2", "0");
+//cvar_t    scratch3 = CVAR("scratch3", "0");
+//cvar_t    scratch4 = CVAR("scratch4", "0");
+//cvar_t    saved1 = CVARF("saved1", "0", CVAR_ARCHIVE);
+//cvar_t    saved2 = CVARF("saved2", "0", CVAR_ARCHIVE);
+//cvar_t    saved3 = CVARF("saved3", "0", CVAR_ARCHIVE);
+//cvar_t    saved4 = CVARF("saved4", "0", CVAR_ARCHIVE);
 
 //======================================================================
 void() DummyFunction = //gets rid of the last compiler warnings ; - )

@@ -109,7 +109,7 @@ void() CheckForCharge =
 	if (self.tetherlock) return;
 	// Only charge at player if ground height < 20
 	if ( fabs(self.origin_z - self.enemy.origin_z) > MONAI_CHARGEZAXIS) return;
-	if (ai_checkmelee(MONAI_MELEEKNIGHT)) return;
+	if (ai_checkmelee(MONAI_MELEEKNIGHT,FALSE)) return;
 
 	SUB_AttackFinished (2);
 	
@@ -617,7 +617,10 @@ void() hknight_pointuse =
 ======================================================================*/
 void() monster_hell_knight =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_hknight.mdl";			// Original ID Knight + extra skins
 	self.headmdl = "progs/h_hellkn.mdl";
@@ -690,7 +693,7 @@ void() monster_hell_knight =
 	self.solid = SOLID_NOT;					// No interaction with world
 	self.movetype = MOVETYPE_NONE;			// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
-	if (self.health < 1) self.health = 250;
+	if (self.health < 1) self.health = HP_MONHELLK;
 	self.gibhealth = -40;					// Not easy to gib
 	self.gibbed = FALSE;					// Still in one piece
 	self.pain_flinch = 40;					// Medium pain threshold

@@ -1,6 +1,6 @@
-/*======================================================================
- MISC ENTITIES
-======================================================================*/
+//======================================================================
+// MISC ENTITIES
+//======================================================================
 float MISC_STARTOFF = 1;		// Start OFF (use DELAY instead!)
 
 float MISC_FBALLSLIME = 32;		// Slime green fire ball
@@ -13,13 +13,11 @@ float MISC_SMOKENOQSMDL = 8;	// Do not draw smoke model in QS
 float MISC_SPARKBLUE = 2;		// misc_spark produces Blue sparks
 float MISC_SPARKPALE = 4;		// misc_spark produces Pale Yellow sparks
 float MISC_SPARKRED = 8;		// misc_spark produces Red sparks
-float MISC_COLLISION = 2;		// misc_model has collision enabled
-float MISC_MOVEMENT = 4;		// misc_model can be moved around
 float MISC_SHAKEVIEWONLY = 2;	// No velocity movement
 
 float MISC_EXPLBOX_MAX = 5;		// Maximum amount of skins available
 
-/*======================================================================
+//======================================================================
 /*QUAKED misc_explobox (0 0.5 0.8) (-16 -16 0) (16 16 64) x x x x x FLOAT STARTOFF
 { model(":progs/explode_box1.mdl"); }
 Large exploding box
@@ -34,7 +32,7 @@ FLOAT    : No drop to floor test
 STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
 Large exploding box
-
+*/
 /*QUAKED misc_explobox2 (0 0.5 0.8) (-16 -16 0) (16 16 32) x x x x x FLOAT STARTOFF
 { model(":progs/explode_box2.mdl"); }
 Small exploding box
@@ -49,7 +47,7 @@ FLOAT    : No drop to floor test
 STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
 Small exploding box
-
+*/
 /*QUAKED func_explobox (0 0.5 0.8) ? x x x x x x STARTOFF x
 Exploding box (bmodel)
 -------- KEYS --------
@@ -66,8 +64,7 @@ _shadowself : Will cast shadows on itself
 STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
 Exploding box (bmodel)
-
-======================================================================*/
+*/
 
 // Animate model skin slowly = 0.3s
 //----------------------------------------------------------------------
@@ -193,7 +190,7 @@ void() misc_explobox_setup =
 	if (self.health < 1) self.health = 15;		// ID def = 20
 	if (!self.dmg) self.dmg = 160;
 	// Check and setup default box skin
-	// 0=Original, 1=rubicon2, 3=plasma, 4=toxic
+	// 0=Original, 1=rubicon2, 2=plasma, 3=toxic, 4=Light wood, 5=dark wood
 	if (self.skin_override < 1 || self.skin_override > MISC_EXPLBOX_MAX)
 		self.skin_override = 0;
 	
@@ -274,12 +271,26 @@ void () func_explobox =
 {
 	if (check_bmodel_keys()) return;	// Check for bmodel errors
 
-	self.mdl = self.model;					// Brushwork version
-	self.bsporigin = TRUE;					// bmodel object
-	self.angles = '0 0 0';					// Make sure no angle twist
+	self.mdl = self.model;				// Brushwork version
+	self.bsporigin = TRUE;				// bmodel object
+	self.angles = '0 0 0';				// Make sure no angle twist
+	self.skin_override = 0;				// Only bsp skins
 	// Cannot be setup floating (always remove flag)
 	self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_FLOATING);
 	misc_explobox_setup();
+};
+
+//----------------------------------------------------------------------
+// Vanilla ID map hack (not used directly anymore)
+//----------------------------------------------------------------------
+void() barrel_explode =
+{
+	self.enemy = spawn();
+	setorigin(self.enemy, self.origin+'0 0 32');
+	self.enemy.noise = SOUND_REXP3;
+	self.enemy.dmg = 160;
+	self.enemy.think = misc_explod_delay;
+	self.enemy.nextthink = 0.01 + random()*0.1;
 };
 
 //======================================================================
@@ -287,6 +298,7 @@ void () func_explobox =
 Lava Balls, with damage on impact
 -------- KEYS --------
 targetname : toggle state (use trigger ent for exact state)
+target     : targeting entity used for custom direction
 speed : vertical speed (default 1000)
 dmg   : impact damage (default 5)
 delay : base time between spawning fireballs (default 3)
@@ -317,7 +329,14 @@ void() misc_lavaball_reset =
 void() misc_lavaball_touch =
 {
 	self.touch = SUB_Null;
-	if (other.takedamage) T_Damage (other, self, self, self.dmg, DAMARMOR);
+	if (other.takedamage) {
+		// Check for lava shield?
+		if (other.flags & FL_CLIENT && other.moditems & IT_ARTLAVASHIELD)
+			// Play lava shield protection sound
+			sound (other, CHAN_ITEM, SOUND_ARTLSHIELD3, 0.5, ATTN_NORM);
+		// Default = pain!
+		else T_Damage (other, self, self, self.dmg, DAMARMOR);
+	}
 	misc_lavaball_reset();
 };
 
@@ -335,11 +354,22 @@ void() misc_lavaball_fly =
 	self.movetype = MOVETYPE_TOSS;
 	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
 
-	self.velocity_x = (random() * 100) - 50;
-	self.velocity_y = (random() * 100) - 50;
-	self.velocity_z = self.speed + (random() * 200);
+	// Check for any target entity tracking setup
+	if (self.target == "") {
+		// default misc_fireball movement
+		self.velocity_x = (random() * 100) - 50;
+		self.velocity_y = (random() * 100) - 50;
+		self.velocity_z = self.speed + (random() * 200);
+	}
+	else {
+		// Setup tracking vector (using movedir) = traps.qc
+		TargetMovedir(self, FALSE);
+		self.velocity = self.movedir * (self.speed + (random() * 200));
+		// Add original XY (right) vector offset
+		self.velocity = self.velocity + (v_right * ((random() * 100) - 50));
+	}
 
-	self.nextthink = time + 5;
+	self.nextthink = time + self.wait;	// Random time start
 	self.think = misc_lavaball_reset;
 	self.touch = misc_lavaball_touch;
 };
@@ -366,6 +396,13 @@ void() misc_fireball =
 	if (self.wait <= 0) self.wait = 5;
 	if (self.delay <= 0) self.delay = 3;
 	
+	// Check for simple angle setup or target system
+	if (self.target == "") {
+		// Default angle is UP
+		if (self.angles_y == 0) self.angles = '0 -1 0';
+		SetMovedir();
+	}
+	else self.angletarget = self.target;
 	// Setup Entity State functionality
 	if (self.targetname != "") self.use = entity_state_use;
 	self.estate_on = misc_lavaball_on;
@@ -373,7 +410,222 @@ void() misc_fireball =
 	else entity_state_on();
 };
 
-/*======================================================================
+//======================================================================
+/*QUAKED misc_gibfountain (0 .5 .8) (-8 -8 -8) (8 8 8) x x x x x x STARTOFF x
+Spew Gibs in target direction (Originally from Zerstorer MOD)
+-------- KEYS --------
+targetname : toggle state (use trigger ent for exact state)
+gibtype    : 0=Blood (def) 1=Stone 10=Poison
+style      : 0=Random (def) 1=Arm/Leg 2=Torso 3=Slice 4=Small 5=Large
+count      : Quantity of gibs to throw at once (def=1)
+cnt        : Extra random quanity of gibs to throw (def=0)
+gib1mdl    : Custom Gib 1 model
+gib2mdl    : Custom Gib 2 model
+gib3mdl    : Custom Gib 3 model
+gib1skin   : Custom Gib 1 skin number (def=0)
+gib2skin   : Custom Gib 2 skin number (def=0)
+gib3skin   : Custom Gib 3 skin number (def=0)
+gib1frame  : Custom Gib 1 range to randomly pick from
+gib2frame  : Custom Gib 2 range to randomly pick from
+gib3frame  : Custom Gib 3 range to randomly pick from
+gib1sound  : Custom Gib 1 Impact sound (0=Light flesh, 1=Heavy flesh, 5=Acid,
+gib2sound  : Custom Gib 2 Impact sound 10-12=Pebbles, 20=Wood, 40=Metal1, 
+gib3sound  : Custom Gib 3 Impact sound 41=Metal2, 42=Chain, 50=Custom)
+gib1soundx : Custom Gib 1 Impact WAV file (must set gib1sound=50)
+gib2soundx : Custom Gib 2 Impact WAV file (must set gib2sound=50)
+gib3soundx : Custom Gib 3 Impact WAV file (must set gib3sound=50)
+sounds     : 1=Zerstorer(def) 4=Silent 5=Custom
+noise      : Custom sound 1 for launching gibs
+noise1     : Custom sound 2 for launching gibs (random selection)
+target     : targeting entity used for custom direction
+angle      : determines the firing direction (def=-1 UP)
+gibmins    : Bounding box override for gib model (def='0 0 0')
+gibmaxs    : Bounding box override for gib model (def='0 0 0')
+speed      : forward speed (def=600)
+gibvel     : Random Velocity X=Forward, Y=L/R, Z=U/D (def=200 100 0)
+gib1dmg    : Amount of damage (>1) to inflict on player when touching gibs
+gib1exp    : Sprite Explosion (1=small 2=medium 3=large 10+=plasma 20+=poison 30+=electric 40+=smoke)
+gibpartstyle  : Particle Colour (1=Yellow 2=Green 4=Red 8=Blue 16=Purple 32=Fire 64=White)
+gibpartoffset : Offset to particle origin (center of effect)
+gibpartbase   : Particle quantity, Base (minimum) value
+gibpartrnd    : Particle quantity, Random amount to add
+gibpartlife   : Time (seconds) which particles are active
+gibpartchance : % chance of particle effect being active while on floor
+gibAnimfinal  : Final animation frame (>0) to enable sequence
+gibAnimstart  : Starting animation frame for sequence
+gibAnimTimer  : Time (seconds) spent in final impact animation
+delay      : base time between spawning gibs (default 3)
+wait       : random time default 5 (= time + self.delay + (random() x self.wait) ) 
+-------- SPAWNFLAGS --------
+STARTOFF : Always Starts off and waits for trigger
+-------- NOTES --------
+Spew Gibs in target direction (Originally from Zerstorer MOD)
+*/
+//======================================================================
+
+void() misc_gibfountain_fly =
+{
+	if (self.estate & ESTATE_BLOCK) return;
+
+	// Loop through gibs, better chance of different types
+	self.lefty = rint(self.count + random()*self.cnt);
+	while (self.lefty > 0) {		
+		// Check for custom gib models
+		if (self.pos1_z) {
+			self.lip = random();
+			if (self.lip < 0.3) self.aflag = 13;
+			else if (self.lip < 0.6) self.aflag = 12;
+			else self.aflag = 11;
+		}
+		else if (self.pos1_y) {
+			if (random() < 0.5) self.aflag = 12;
+			else self.aflag = 11;
+		}
+		else if (self.pos1_x) self.aflag = 11;
+		else {
+			if (self.style == 0) self.aflag = rint(1 + random()*4);
+			else self.aflag = self.style;
+		}
+
+		ThrowGib(self.aflag, 1);
+		self.lefty = self.lefty -1;
+	}
+	
+	// Only need to play throw/fire sound once per timer cycle
+	if (self.noise1 != "" && random() < 0.5) 
+		sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+	else sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+
+	self.nextthink = time + self.delay + (random() * self.wait);
+	self.think = misc_gibfountain_fly;
+};
+
+//----------------------------------------------------------------------
+void() misc_gibfountain_on =
+{
+	self.estate = ESTATE_ON;
+	// Spawn delay is no longer required, remove it
+	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
+
+	// Display spawn direction with angle model
+	if (self.lip) {
+		self.lip = FALSE;	// Once only
+		if (self.target != "") TargetMovedir(self, FALSE);
+		spawn_arrow(self.origin, vectoangles(self.movedir), 0);
+	}
+	// Start spewing (no delay so it can be triggered properly)
+	misc_gibfountain_fly();
+};
+
+//----------------------------------------------------------------------
+void() misc_gibfountain =
+{
+	// Setup/load extra gib types (Check for previous precache)
+	if (self.gibtype == GIBTYPE_STONE) {
+		// Only bother to precache if NOT done already
+		if (!gibstone) precache_stonegibs(); }
+	else if (self.gibtype == GIBTYPE_POISON) {
+		if (!gibpoison) precache_poisongibs(); }
+	else self.gibtype = GIBTYPE_BLOOD; // Default=Blood
+
+	// Check for custom gib model/skin/frame/sound assets
+	self.pos1 = '0 0 0'; // Reset
+	if (self.gib1mdl != "") {
+		precache_model(self.gib1mdl);
+		if (self.gib1skin < 1) self.gib1skin = 0;
+		if (self.gib1frame < 1) self.gib1frame = 0;
+		// Verify custom gib impact sound is valid
+		if (!(check_gibsound(self.gib1sound))) self.gib1sound = 0;
+		self.pos1_x = TRUE;
+
+		// Custom Model 2 - Model 1 must exist first
+		if (self.gib2mdl != "") {
+			precache_model(self.gib2mdl);
+			if (self.gib2skin < 1) self.gib2skin = 0;
+			if (self.gib2frame < 1) self.gib2frame = 0;
+			// Verify custom gib impact sound is valid
+			if (!(check_gibsound(self.gib2sound))) self.gib2sound = 0;
+			self.pos1_y = TRUE;
+
+			// Custom Model 3 - Model 1/2 must exist first
+			if (self.gib3mdl != "") {
+				precache_model(self.gib3mdl);
+				if (self.gib3skin < 1) self.gib3skin = 0;
+				if (self.gib3frame < 1) self.gib3frame = 0;
+				// Verify custom gib impact sound is valid
+				if (!(check_gibsound(self.gib3sound))) self.gib3sound = 0;
+				self.pos1_z = TRUE;
+			}
+		}
+	}
+	
+	// Setup default sounds (Zerstorer)
+	if (self.sounds < 1) self.sounds = 1;
+	// Original Zerstorer toilet sounds
+	if (self.sounds == 1) {
+		self.noise = "misc/gibf_fire1.wav";
+		self.noise1 = "misc/gibf_fire2.wav";
+	}
+	// Empty sound files
+	else if (self.sounds == 4) {
+		self.noise = "misc/null.wav";
+		self.noise1 = "misc/null.wav";
+	}
+	
+	// Check if ANY custom sounds have been defined
+	if (self.noise != "") precache_sound (self.noise);
+	if (self.noise1 != "") precache_sound (self.noise1);
+	if (self.gib1soundx != "") precache_sound (self.gib1soundx);
+	if (self.gib2soundx != "") precache_sound (self.gib2soundx);
+	if (self.gib3soundx != "") precache_sound (self.gib3soundx);
+	
+	// Entity defaults
+	self.classtype = CT_MISCGIBF;
+	self.classgroup = CG_MISCENT;
+	// Special target system gibs
+	self.max_health = MON_GIBTARGET;
+	
+	if (self.wait <= 0) self.wait = 5;
+	if (self.delay <= 0) self.delay = 3;
+	if (self.waitmin <= 0) self.waitmin = 0.5;
+	if (self.style < 1 || self.style > 9) self.style = 0;
+	if (self.count < 1) self.count = 1;
+	if (self.cnt < 1) self.cnt = 0;
+	// Default velocity (like misc_fireball)
+	if (self.speed <= 0) self.speed = 600;
+	// Extra randomness to speed/velocity of gib (forward/right/up)
+	if (CheckZeroVector(self.gibvel)) self.gibvel = '200 100 0';
+
+	// Direction system priority = ANGLES > TARGET > ANGLETARGET
+	//------------------------------------------------------------------
+	// Check for empty angles setup?
+	if (CheckZeroVector(self.angles)) {
+		// No angles defined, create default direction
+		// Target/Angletarget are checked when gib is thrown/spawned
+		self.angles = '0 -1 0';
+		// priority = TARGET > ANGLETARGET
+		// Target has to be defined for gib to be thrown properly
+		if (self.target == "") self.target = self.angletarget;
+		else self.angletarget = self.target;
+	}
+	// Find movedir vector
+	SetMovedir();
+	// lefty = random quantity, lip = display debug arrow
+	self.lefty = self.lip = TRUE;
+	
+	// Setup Entity State functionality
+	//------------------------------------------------------------------
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_on = misc_gibfountain_on;
+	if (self.spawnflags & ENT_STARTOFF) entity_state_off();
+	else { 
+		// Random start timer (def=0.5 + random()*0.5)
+		self.nextthink = time + self.waitmin + (self.waitmin * random());
+		self.think = self.estate_on; 
+	}
+};
+
+//======================================================================
 /*QUAKED air_bubbles (0 .5 .8) (-8 -8 -8) (8 8 8) x x x x x x STARTOFF x
 sprite based bubble that floats upward
 -------- KEYS --------
@@ -395,7 +647,7 @@ void() misc_bubble_remove =
 //----------------------------------------------------------------------
 void() misc_bubble_split =
 {
-	local entity	bubble;
+	local entity bubble;
 	
 	bubble = spawn();
 	bubble.classname = self.classname;
@@ -511,7 +763,7 @@ void() air_bubbles =
  FX drips (based on code from RRP by ijed)
  - Rewritten to not keep spawning endless entities
  - Modified to have on/off/toggle state
-
+*/
 /*QUAKED misc_drip (0 .5 .8) (-8 -8 -8) (8 8 8) x SILENT x x BLOOD SLIME STARTOFF x
 Falling water drip with splash and sound
 -------- KEYS --------
@@ -746,10 +998,7 @@ height     : Percentage of velocity distance travelled (def=1, range=0-1+)
 STARTOFF   : Always Starts off and waits for trigger
 -------- NOTES --------
 Steam/Smoke particles
-
 ======================================================================*/
-
-
 
 //======================================================================
 /*QUAKED misc_smoke (.5 .5 .75) (-8 -8 -8) (8 8 192) x NODPMDL NODPFX NOQSMDL x x STARTOFF x
@@ -770,7 +1019,6 @@ NOQSMDL    : Do not draw smoke model in QS/Fitz engines
 STARTOFF   : Always Starts off and waits for trigger
 -------- NOTES --------
 Smoke model, +DP only smoke effect (wait/delay/height DP only)
-
 ======================================================================*/
 void() misc_smoke_model = 
 {
@@ -896,7 +1144,7 @@ void() misc_smoke =
  spark effect (based on code from Rubicon2 by JohnFitz)
  - Modified to have on/off/toggle state via triggers
  - extended parameters for angle/speed/custom sounds
-
+*/
 /*QUAKED misc_spark (.5 .75 .5) (-8 -8 -8) (8 8 8) x BLUE PALE RED x x STARTOFF x
 Produces a burst of sparks at random intervals
 -------- KEYS --------
@@ -1059,7 +1307,7 @@ void() misc_spark =
 Screen Shake (based on code from RRP by ijed/supa)
  - Modified to have on/off/toggle state
  - added extra sound options
-
+*/
 /*QUAKED misc_shake (.5 .5 .9) (-16 -16 -8) (16 16 8) x VIEWONLY x x x x x x
 Shake players view and/or velocity around center of entity
 -------- KEYS --------
@@ -1162,141 +1410,248 @@ void() misc_shake =
 	self.estate = ESTATE_OFF;
 };
 
-/*======================================================================
-/*QUAKED misc_model (1 .5 .25) (-16 -16 -16) (16 16 16) x COLLISION MOVEMENT x x STATIC STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
-MDL files that can be setup with specific frame/skin and animate groups
+//----------------------------------------------------------------------
+// Re-direct Quoth screen shake to proper earthquake!
+void() info_screenshake = { self.wait = self.ltime; misc_shake(); };
+
+//======================================================================
+/*QUAKED misc_marshlight (.5 .5 .75) (-8 -8 -8) (8 8 8) x x x x x x STARTOFF x
+Marsh lights (Quoth item)
 -------- KEYS --------
-mdl : specify model to load, full path (progs/candle.mdl)
 targetname : toggle state (use trigger ent for exact state)
-angle  : facing angle (-1 = random position)
-angles : 'pitch yaw roll' up/down, angle, tilt left/right 
-ideal_yaw : = 1 Setup model with random Y axis rotation
-pos1 : used for selection of frame(s) has several setups
-  X=0, Y=0, Z=exact frame number
-  X->Y, Z=0 Randomly pick a frame from the X,Y range
-  X->Y, Z=-1 Animate between the X,Y range, can forward or backward setup
-pos2 : used for the selection of skin(s) has several setups
-  X=0, Y=0, Z=exact skin number
-  X->Y, Z=0 Randomly pick a skin from the X,Y range
+count      : Maximum amount of active marsh light entities (def=5)
+color      : 0=White, 1=Cyan, 2=Blue, 3=Green, 4=Orange, 5=Red, 6=Purple
+mdl        : Name of Small sprite (def='progs/s_marsh_small.spr')
+headmdl    : Name of Medium sprite (def='progs/s_marsh_med.spr')
+waitmin    : Reset movement timer (def=6s)
+waitmin2   : Reset Velocity movement (def=4.5s)
+distance   : Starting distance from center (def=20)
+speed      : Override for frame animation speed (def=0.1s)
+lip        : Frame animation direction -2=random, -1=back, 1=forward(def)
+pos1       : used for selection of frame(s) has several setups
+             X=0, Y=0, Z=exact frame number
+             X->Y, Z=0 Randomly pick a frame from the X,Y range
+             X->Y, Z=-1 Animate between the X,Y range
+pos2       : used for the selection of skin(s) has several setups
+             X=0, Y=0, Z=exact skin number
+             X->Y, Z=0 Randomly pick a skin from the X,Y range
+pos3       : Base rotation avelocity (def=0 0 0)
+finalangle : Random rotation avelocity (def=0 0 0)
 -------- SPAWNFLAGS --------
-COLLISION : model bbox collision enabled
-MOVEMENT : model can be moved around like an item
-STATIC : Turn entity into static upon spawn (frame 0)
-STARTOFF : Always Starts off and waits for trigger
+STARTOFF : Starts off and waits for trigger
 -------- NOTES --------
-MDL files that can be setup with specific frame/skin and animate groups
+Marsh lights
 
 ======================================================================*/
-void() misc_model_loop =
+void() misc_marshlight_move =
 {
-	if (self.estate & ESTATE_BLOCK) return;
-	
-	self.height = self.height + self.lip;
-	if (self.lip > 0 && self.height > self.pos1_y) self.height = self.pos1_x;
-	else if (self.lip < 0 && self.height < self.pos1_y) self.height = self.pos1_x;
-	
-	self.frame = self.height;
-	self.think = misc_model_loop;
-	self.nextthink = time + self.speed;
-};
-
-//----------------------------------------------------------------------
-void() misc_model_on =
-{
-	// Check if there is any spawn/on delay setup
-	// Useful for delay spawning models on to platform/doors
-	if (self.delay > 0) {
-		// Feed back into this function
-		self.think = misc_model_on;
-		self.nextthink = time + self.delay;
-		// The delay only works once
-		self.delay = 0;
-		return;
-	}
-	
-	self.estate = ESTATE_ON;
-
-	setmodel (self, self.mdl);
-	// Restore model/size and check if collision needed
-	if (self.spawnflags & MISC_COLLISION) {
-		self.solid = SOLID_BBOX;
-		setsize (self, self.mins , self.maxs);
-	}
-	else setsize (self, VEC_ORIGIN, VEC_ORIGIN);
-	setorigin(self, self.oldorigin + self.view_ofs);
-
-	if (self.spawnflags & MISC_MOVEMENT) {
-		// Turn misc model into an item (can work with plats/doors)
-		self.movetype = MOVETYPE_TOSS;
-		self.solid = SOLID_TRIGGER;
-		setsize (self, VEC_ORIGIN, VEC_ORIGIN);
-		self.velocity = '0 0 0';
-		// Make sure the misc model starts on the ground
-		self.origin_z = self.origin_z + 6;
-		if (!droptofloor()) {
-			dprint ("\n\b[Model]\b "); dprint (self.mdl);
-			dprint (" stuck at ("); dprint (vtos(self.origin)); dprint (")\n");
-			spawn_marker(self.origin, SPNMARK_YELLOW);
-			remove(self);
-			return;
-		} 
-		// Make sure no touch function is active
-		self.touch = SUB_Null;
-	}
-	
-	// Setup skin number (range or exact)	
-	self.skin = self.pos2_z;
-	// Exact frame number
-	self.frame = self.pos1_z;
-
-	// Check for static entity option first
-	if (self.spawnflags & ENT_SPNSTATIC) makestatic(self);
-	else {
-		// Check for manual animation loops	
-		if (self.pos1_z == -1) {
-			self.height = self.pos1_x;
-			if (self.pos1_x < self.pos1_y) self.lip = 1;
-			else self.lip = -1;
-			// Manually animate model
-			misc_model_loop();
+	// Check if ready to be removed?
+	if (self.attack_finished < time) { remove(self); return; }
+	// Setup gradual turn off of marsh lights
+	if (self.owner.estate & ESTATE_BLOCK) {
+		if (self.attack_finished == LARGE_TIMER) {
+			self.attack_finished = time + random() + random()*2;
 		}
 	}
-};
+	
+	// Keep moving the marsh light around
+	self.think = misc_marshlight_move;
+	self.nextthink = time + self.owner.speed;
+	
+	// Slow down movement over time (0.1s)
+	if (self.lefty > 1) self.lefty = self.lefty - 0.15;
+	if (self.lefty < 1) self.lefty = 1;
 
-//----------------------------------------------------------------------
-void() misc_model_off =
-{
-	// Turn off model/world interaction
-	self.estate = ESTATE_OFF;
-	self.model = string_null;				// hide bmodel surface
-	self.movetype = MOVETYPE_NONE;			// Create baseline
-	self.solid = SOLID_NOT;
-	self.nextthink = 0;
-};
-
-//----------------------------------------------------------------------
-void() misc_model =
-{
-	// Is the model defined using the noise key?
-	if (!self.mdl) {
-		dprint("\b[MISCMDL]\b Missing model to load\n");
-		spawn_marker(self.origin, SPNMARK_YELLOW);
-		remove(self);
-		return;
+	// Adjust velocity based on starting origin
+	self.pos1 = (self.owner.origin - self.origin) * 0.2;
+	self.pos2 = self.velocity * 0.8;
+	self.velocity = self.pos2 + self.pos1;
+	
+	// Check for velocity/time reset
+	if ( (random() < 0.03) && (self.ltime < time) ) {
+		self.ltime = time + self.owner.waitmin;	// Reset timer
+		self.lefty = self.owner.waitmin2;		// Reset velocity
 	}
-
-	precache_model (self.mdl);
-	self.classtype = CT_MISCMODEL;
-	self.classgroup = CG_MISCENT;
-	self.solid = SOLID_NOT;				// No world interaction
-	self.movetype = MOVETYPE_NONE;		// Static item, no movement
-	self.oldorigin = self.origin;		// Store for later
+	
+	// Adjust velocity based on movement modifier
+	self.velocity = normalize(self.velocity);
+	self.velocity = self.velocity * (20 + (random()*8) * self.lefty);
+	
+	// Update animation loops
+	if (self.owner.pos1_z == -1) {
+		self.height = self.height + self.lip;
+		if (self.lip == 1 && self.height > self.owner.pos1_y) 
+			self.height = self.owner.pos1_x;
+		else if (self.lip == -1 && self.height < self.owner.pos1_x) 
+			self.height = self.owner.pos1_y;
 		
-	// Random Rotation : UP/DOWN angle or use the ideal_yaw key
-	if (self.angles_y < 0 || self.ideal_yaw > 0) 
-		self.angles_y = rint(random()*360);
-	self.mangle = self.angles;			// Save for later
-	if (!self.speed) self.speed = 0.1;	// Manual animation tick speed
+		// Check for out of bounds
+		if (self.height < self.owner.pos1_x || self.height > self.owner.pos1_y)
+			// ERROR = Pick a random frame to snap too (base x + random)
+			self.height = self.owner.pos1_x + (rint( random() * fabs(self.owner.pos1_y - self.owner.pos1_x) ) );
+		
+		// Update frame
+		self.frame = self.height;
+	}
+};
+
+//----------------------------------------------------------------------
+void() misc_marshlight_spawn =
+{
+	// Block functionality if state wrong
+	if (self.estate & ESTATE_BLOCK) return;
+	
+	// Spawn marsh light
+	self.movetarget = spawn();
+	self.movetarget.classname = self.classname;
+	self.movetarget.classtype = CT_BUBBLE;
+	self.movetarget.classgroup = CG_TEMPENT;
+	self.movetarget.owner = self;
+	self.movetarget.attack_finished = LARGE_TIMER;
+
+	// Created first light?
+	if (self.bubble_count > 1) {
+		// Lower chance of large models
+		if (random() < 0.2) setmodel(self.movetarget, self.headmdl);
+		else setmodel(self.movetarget, self.mdl);
+	}
+	// first light = large model/sprite
+	else setmodel(self.movetarget, self.headmdl);
+	
+	// No world interaction
+	self.movetarget.movetype = MOVETYPE_NOCLIP;
+	self.movetarget.solid = SOLID_NOT;
+
+	// Use color key if no custom models
+	if (self.lefty) {
+		self.movetarget.frame = self.color_x;
+		self.movetarget.skin = 0;
+	}
+	else {
+		// Reset frame (pos1) and skin (pos2)
+		self.movetarget.frame = self.movetarget.skin = 0;
+		
+		// ---------------------------------------------------------------
+		// FRAME (pos1)
+		// ---------------------------------------------------------------
+		// Has a frame range been defined?
+		if (self.pos1_x != self.pos1_y) {
+			// Random starting position within range
+			self.movetarget.height = self.pos1_x + (rint( random() * fabs(self.pos1_y - self.pos1_x) ) );
+			self.movetarget.frame = self.movetarget.height;
+			
+			// Randomize animation loop direction
+			if (self.pos1_z == -1 && self.lip == -2) {
+				if (random() < 0.5) self.movetarget.lip = -1;
+				else self.movetarget.lip = 1;
+			}
+			// Fixed Animation loop direction
+			else self.movetarget.lip = self.lip;
+		}
+		else {
+			// if no range, check for exact value
+			if (self.pos1_z >= 0) self.movetarget.frame = self.pos1_z;
+		}
+		
+		// ---------------------------------------------------------------
+		// SKIN (po2)
+		// ---------------------------------------------------------------
+		// Has a skin range been defined?
+		if (self.pos2_x != self.pos2_y) {
+			// Randomly pick a new skin for each spawn
+			self.movetarget.skin = self.pos2_x + (rint( random() * fabs(self.pos2_y - self.pos2_x) ) );
+		}
+		else {
+			// if no range, check for exact value
+			if (self.pos2_z > 0) self.movetarget.skin = self.pos2_z;
+		}
+	}
+	
+	// Setup random rotation velocity (base + modifier)
+	self.dest2_x = random() * self.finalangle_x;
+	self.dest2_y = random() * self.finalangle_y;
+	self.dest2_z = random() * self.finalangle_z;
+	self.movetarget.avelocity = self.pos3 + self.dest2;
+	// Random angles starting position
+	self.movetarget.angles = vecrand(180, 180, FALSE);
+	
+	// Starting origin +/- (def=20)
+	setsize (self.movetarget, VEC_ORIGIN, VEC_ORIGIN);
+	self.movetarget.origin = self.origin + vecrand(0, self.distance, TRUE);
+	setorigin(self.movetarget, self.movetarget.origin);
+	// Setup starting velocity +/- (def=20)
+	self.movetarget.velocity = vecrand(0, self.distance, TRUE);
+	
+	// Keep moving around (randomly)
+	self.movetarget.nextthink = time + 0.1;
+	self.movetarget.think = misc_marshlight_move;
+
+	// Limited amount of marsh lights
+	self.bubble_count =  self.bubble_count + 1;
+	if (self.bubble_count < self.count) {
+		self.think = misc_marshlight_spawn;
+		self.nextthink = time + 0.1;
+	}
+};
+
+//----------------------------------------------------------------------
+void() misc_marshlight_on =
+{
+	// Block functionality if state wrong
+	if (self.estate == ESTATE_ON) return;
+
+	self.estate = ESTATE_ON;
+	self.bubble_count = 0;
+	self.nextthink = time + 0.5 + random();
+	self.think = misc_marshlight_spawn;
+};
+
+//----------------------------------------------------------------------
+void() misc_marshlight_off =
+{
+	self.estate = ESTATE_OFF;
+	self.bubble_count = 0;
+};
+
+//----------------------------------------------------------------------
+void() misc_marshlight =
+{
+	// Check for no custom models first
+	if (self.mdl == "" && self.headmdl == "") self.lefty = TRUE;
+	// Allow for custom sprites
+	if (self.mdl == "") self.mdl = SMARSH_SMALL;
+	if (self.headmdl == "") self.headmdl = SMARSH_MED;
+
+	// Default cache - Quoth sprites
+	precache_model (self.mdl);
+	precache_model (self.headmdl);
+	
+	self.classtype = CT_MISCMARSH;
+	self.classgroup = CG_MISCENT;
+	self.solid = SOLID_NOT;
+	self.movetype = MOVETYPE_NONE;
+	setsize(self, VEC_ORIGIN, VEC_ORIGIN);
+
+	// Quoth uses this key for sprite skin colour selection
+	// Bad entity key to use, screws with coloured lighting
+	self.color_x = rint(self.color_x);
+	if (self.color_x < 0 || self.color_x > 6) self.color_x = 0;
+
+	// Setup defaults
+	self.bubble_count = 0;						// Active Marsh lights
+	if (self.count <= 0) self.count = 5; 		// Maximum Marsh lights
+	if (self.waitmin < 1) self.waitmin = 6;		// Reset timer
+	if (self.waitmin2 < 1) self.waitmin2 = 4.5;	// Velocity Movement
+	if (self.distance < 1) self.distance = 20;	// Starting distance
+	if (self.speed <= 0) self.speed = 0.1;		// Animation speed
+	
+	// Check for animation diection errors
+	if (self.lip <= -2) self.lip = -2;			// Randomly pick
+	else if (self.lip >= 0) self.lip = 1;		// Def = forward (1)
+	
+	// Make sure frame/skin parameters are integers/positive
+	self.pos1 = CheckRangeVector(self.pos1);
+	self.pos2 = CheckRangeVector(self.pos2);
 		
 	// Has a frame range been defined?
 	if (self.pos1_x != self.pos1_y) {
@@ -1307,58 +1662,72 @@ void() misc_model =
 			self.pos1_x = self.pos1_y;
 			self.pos1_y = self.frame_box;
 		}
-		// Randomly pick frame number from a range? 
-		// Work out random different and add to X base
-		if (self.pos1_z == 0) {
-			// Double check lower limit is not negative
-			if (self.pos1_x < 0) self.pos1_x = 0;
-			// Work out random range first and then add to base
-			self.frame_box = fabs(self.pos1_y - self.pos1_x);
-			self.pos1_z = self.pos1_x + rint(random()*self.frame_box);
-			// Double check the frame is within the specified range
-			if (self.pos1_z < self.pos1_x) self.pos1_z = self.pos1_x;
-			if (self.pos1_z > self.pos1_y) self.pos1_z = self.pos1_y;
-		}
-		// Manual frame animation required
-		else self.pos1_z = -1;
-	}
-	else {
-		// If no exact frame bas specified, reset frame to default = 0
-		if (self.pos1_z < 1) self.pos1 = '0 0 0';
-	}
-		
-	// Has a skin range been defined?
-	if (self.pos2_x != self.pos2_y) {
-		self.pos2_z = rint( random() * fabs(self.pos2_y - self.pos2_x) );
-	}
-	else {
-		// If no exact frame bas specified, reset frame to default = 0
-		if (self.pos2_z < 1) self.pos2 = '0 0 0';
-	}
-
-	// Cannot have static and movement at the same time!
-	if (self.spawnflags & MISC_MOVEMENT) {
-		self.spawnflags = self.spawnflags - (self.spawnflags & ENT_SPNSTATIC);
+		// Check for any errors
+		if (self.pos1_z <= -1) self.pos1_z = -1;
+		else self.pos1_z = 0;
 	}
 	
-	// Check for static entity option first
-	if (self.spawnflags & ENT_SPNSTATIC) misc_model_on();
-	else {
-		// Setup Entity State functionality
-		if (self.targetname != "") self.use = entity_state_use;
-		self.estate_on = misc_model_on;
-		self.estate_off = misc_model_off;
-		if (self.spawnflags & (MISC_STARTOFF | ENT_STARTOFF)) entity_state_off();
-		else entity_state_on();
-	}
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_on = misc_marshlight_on;
+	self.estate_off = misc_marshlight_off;
+	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+	else self.estate_on();
 };
 
 //----------------------------------------------------------------------
-// Allows GTK editors to work with Q1 assets easier
-void() misc_gtkmodel = { misc_model(); };
+// Re-direct all Quoth light_marsh requests to misc_marshlight!
+void() light_marsh = { misc_marshlight(); };
 
 //======================================================================
-// All dead bodies use the same on/off states
+/*QUAKED misc_player (1 .5 .25) (-16 -16 -24) (16 16 32) BACK DOWN1 WALL DOWN2 DOWN3 SIDE STARTOFF x
+Dead Player MDL for poses
+-------- KEYS --------
+targetname : toggle state (use trigger ent for exact state)
+angle  : facing angle (-1 = random position)
+ideal_yaw : = 1 Setup model with random Y axis rotation
+fixangle : 1 = Use misc_player.mdl instead (less hassle)
+frame  : body pose (49=on back, 67-69=against wall, 60/84/93=face down, 102=on side)
+exactskin : -1= Random, 0-1 Original, 2-3 Green, 4-5 Yellow, 6-7 Red
+-------- SPAWNFLAGS --------
+BACK  : 49=On back
+DOWN1 : 60=Face Down
+WALL  : 69=Against wall
+DOWN2 : 84=Face Down
+DOWN3 : 93=Face Down
+SIDE  : 102=On Side
+STARTOFF : Always Starts off and waits for trigger
+-------- NOTES --------
+Dead Player MDL for poses
+*/
+//======================================================================
+/*QUAKED misc_demon (1 .5 .25) (-32 -32 -24) (32 32 64) x x x x x x STARTOFF x
+Dead demon/fiend for poses
+-------- KEYS --------
+targetname : toggle state (use trigger ent for exact state)
+angle  : facing angle (-1 = random position)
+ideal_yaw : = 1 Setup model with random Y axis rotation
+frame : body pose (53=on back - def)
+exactskin : -1= Random, 0= Original, 1= Green
+-------- SPAWNFLAGS --------
+STARTOFF : Always Starts off and waits for trigger
+-------- NOTES --------
+Dead demon/fiend for poses
+*/
+//======================================================================
+/*QUAKED misc_dknight (0.75 0.25 0) (-16 -16 -24) (16 16 40) x x x x x x STARTOFF x
+Dead Death Knight for poses
+-------- KEYS --------
+targetname : toggle state (use trigger ent for exact state)
+angle  : facing angle (-1 = random position)
+ideal_yaw : = 1 Setup model with random Y axis rotation
+frame : body pose (223=on front, 237-243=on back - def)
+-------- SPAWNFLAGS --------
+STARTOFF : Always Starts off and waits for trigger
+-------- NOTES --------
+Dead Death Knight for poses
+*/
+
 //======================================================================
 void() misc_deadbody_on =
 {
@@ -1409,55 +1778,6 @@ void() misc_deadbody_setup =
 	if (self.spawnflags & ENT_STARTOFF) entity_state_off();
 	else entity_state_on();
 };
-
-/*======================================================================
-/*QUAKED misc_player (1 .5 .25) (-16 -16 -24) (16 16 32) BACK DOWN1 WALL DOWN2 DOWN3 SIDE STARTOFF x
-Dead Player MDL for poses
--------- KEYS --------
-targetname : toggle state (use trigger ent for exact state)
-angle  : facing angle (-1 = random position)
-ideal_yaw : = 1 Setup model with random Y axis rotation
-fixangle : 1 = Use misc_player.mdl instead (less hassle)
-frame  : body pose (49=on back, 67-69=against wall, 60/84/93=face down, 102=on side)
-exactskin : -1= Random, 0-1 Original, 2-3 Green, 4-5 Yellow, 6-7 Red
--------- SPAWNFLAGS --------
-BACK  : 49=On back
-DOWN1 : 60=Face Down
-WALL  : 69=Against wall
-DOWN2 : 84=Face Down
-DOWN3 : 93=Face Down
-SIDE  : 102=On Side
-STARTOFF : Always Starts off and waits for trigger
--------- NOTES --------
-Dead Player MDL for poses
-*/
-/*======================================================================
-/*QUAKED misc_demon (1 .5 .25) (-32 -32 -24) (32 32 64) x x x x x x STARTOFF x
-Dead demon/fiend for poses
--------- KEYS --------
-targetname : toggle state (use trigger ent for exact state)
-angle  : facing angle (-1 = random position)
-ideal_yaw : = 1 Setup model with random Y axis rotation
-frame : body pose (53=on back - def)
-exactskin : -1= Random, 0= Original, 1= Green
--------- SPAWNFLAGS --------
-STARTOFF : Always Starts off and waits for trigger
--------- NOTES --------
-Dead demon/fiend for poses
-*/
-/*======================================================================
-/*QUAKED misc_dknight (0.75 0.25 0) (-16 -16 -24) (16 16 40) x x x x x x STARTOFF x
-Dead Death Knight for poses
--------- KEYS --------
-targetname : toggle state (use trigger ent for exact state)
-angle  : facing angle (-1 = random position)
-ideal_yaw : = 1 Setup model with random Y axis rotation
-frame : body pose (223=on front, 237-243=on back - def)
--------- SPAWNFLAGS --------
-STARTOFF : Always Starts off and waits for trigger
--------- NOTES --------
-Dead Death Knight for poses
-*/
 
 //----------------------------------------------------------------------
 void() misc_player =
@@ -1589,7 +1909,7 @@ void() misc_dknight =
 	misc_deadbody_setup();	
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED misc_builtineffect (0 .5 .8) (-8 -8 -8) (8 8 8) x
 Spawns a builtin particle effect, will toggle if active
 -------- KEYS --------
@@ -1744,4 +2064,398 @@ void() misc_builtineffects =
 
 	self.think = misc_builtineffects_setup;
 	self.nextthink = time + 0.1 + random();
+};
+
+//======================================================================
+// Various Quoth corpse models (Will need assets from quoth mod)
+//
+// Model : corpse_imp
+// Frame - Skin : Description
+// ----------------------------------------------
+//  0 - 0 : Impaled in back + clothed
+//  0 - 1 : Impaled in back
+//  1 - 2 : Impaled in back + eaten
+//  2 - 0 : Impaled in front + clothed
+//  2 - 1 : Impaled in front
+//  3 - 3 : Impaled in front + eaten
+//  4 - 0 : Impaled horizontal + clothed
+//  4 - 1 : Impaled horizontal
+//  5 - 4 : Impaled horizontal + nibbled
+//  6 - 5 : Impaled horizontal + eaten
+//  7 - 0 : Impaled vertical + clothed
+//  7 - 1 : Impaled vertical
+//  8 - 6 : Impaled vertical + eaten
+//  9 - 7 : Crucified
+// 10 - 8 : Crucified + headless
+//
+// Model : corpse_lynch
+// Frame - Skin : Description
+// ----------------------------------------------
+//  0 - 0 : Lynched + clothed
+//  0 - 1 : Lynched
+//  1 - 2 : Lynched + eaten
+//
+// Model : corpse_flay
+// Frame - Skin : Description
+// ----------------------------------------------
+//  0 - 0 : Flayed + clothed
+//  0 - 1 : Flayed
+//  1 - 1 : Flayed + eaten
+//  2 - 2 : Flayed + broken leg
+//
+//======================================================================
+void() misc_corpse_die =
+{
+	self.use = SUB_Null;				// No triggers
+	self.health = self.gibhealth = -1;	// Low damage velocity
+	self.max_health = MON_NOGIBVELOCITY;	// low Z velocity
+	self.enemy = self.activate;			// Attacker direction
+	self.deadflag = DEAD_DEAD;			// Its dead jim!
+	self.effects = 0;					// Remove effects on death
+	// Allow for trigger events to happen when model/body gibbed
+	if (self.target != "") trigger_strs(self.target, self.activate);
+	monster_ThrowGib();					// Throw gibs
+};
+
+//----------------------------------------------------------------------
+void(entity inflictor, entity attacker, float damage) misc_corpse_pain =
+{
+	self.pain_finished = -1;			// Quickly reset
+};
+
+//----------------------------------------------------------------------
+void() misc_corpse_on =
+{
+	if (self.gibbed == TRUE) return;
+
+	self.estate = ESTATE_ON;			// Show entity
+	self.use = SUB_Null;				// No more triggers
+	self.solid = SOLID_BBOX;			// Interact with objects
+	self.movetype = MOVETYPE_NONE;		// Pretend to be a func mover
+	setmodel(self, self.mdl);			// Defined by corpse entity
+	setsize (self, self.bbmins, self.bbmaxs);
+
+	// No gib/damage setup
+	if (self.health < 0) return;
+
+	self.takedamage = DAMAGE_AIM;		// Can receive damage
+	self.bodyonflr = MON_ONFLR;			// Let Shadow Axe interact
+	self.velocity = '0 0 0';			// Make sure stationary
+	self.deadflag = DEAD_NO;			// used to stop death re-triggering
+	
+	self.th_pain = misc_corpse_pain;	// Reset pain timer
+	self.th_die = misc_corpse_die;		// Custom death
+	self.use = misc_corpse_die;			// Trigger death
+};
+
+//----------------------------------------------------------------------
+void() misc_corpse_off =
+{
+	if (self.gibbed == TRUE) return;
+
+	self.estate = ESTATE_OFF;		// Hide entity
+	self.solid = SOLID_NOT;			// No world interaction
+	self.movetype = MOVETYPE_NONE;	// Static item, no movement
+	setmodel(self,"");				// Hide model
+	setsize (self, VEC_ORIGIN, VEC_ORIGIN);
+	self.bodyonflr = "";			// No Shadows Axe interaction
+	
+	self.th_die = SUB_Null;			// No death
+	self.use = SUB_Null;			// No triggers
+};
+
+//----------------------------------------------------------------------
+void() misc_corpse_setup =
+{
+	// Some models don't have heads, use large round gib instead
+	if (self.gib1mdl == "") self.gib1mdl = "progs/gib_5.mdl";
+	self.gib2mdl = "progs/gib_2.mdl";	// Torso
+	self.gib3mdl = "progs/gib_3.mdl";	// Large Slice
+
+	// Make sure stuff is cached
+	precache_model (self.mdl);
+	precache_model (self.gib1mdl);
+	precache_model (self.gib2mdl);
+	precache_model (self.gib3mdl);
+
+	self.classtype = CT_MISCMODEL;
+	self.classgroup = CG_MISCENT;
+
+	self.gibbed = FALSE;				// Still in one piece!
+	self.gibhealth = -1;				// Very easy gib number
+	self.view_ofs = '0 0 -24';			// Standard setup
+	self.pain_flinch = 10;				// Always in pain
+	self.nomonstercount = TRUE;			// Don't include in initial total
+	self.blockudeath = TRUE;			// Body is dead, no human death noise
+	if (self.health == 0) self.health = self.max_health = 60;
+	if (random() < 0.5) self.gib2mdl = "";
+	
+	// Random Rotation : UP/DOWN angle or use the ideal_yaw key
+	if (self.angles_y < 0 || self.ideal_yaw > 0) 
+		self.angles_y = rint(random()*360);
+	
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_on = misc_corpse_on;
+	self.estate_off = misc_corpse_off;
+	if (self.spawnflags & ENT_STARTOFF) entity_state_off();
+	else entity_state_on();
+};
+
+//----------------------------------------------------------------------
+void() corpse_crucified1 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// crucified
+	self.frame = 9; self.skin = 7;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -40'; self.bbmaxs = '8 8 0';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_crucified2 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// crucified + headless
+	self.frame = 10; self.skin = 8;
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -40'; self.bbmaxs = '8 8 0';
+	}
+	misc_corpse_setup();
+};
+
+//----------------------------------------------------------------------
+void() corpse_impaled_back1 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled in back + clothed
+	self.frame = 0; self.skin = 0;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-12 -12 -32'; self.bbmaxs = '12 12 0';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_back2 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled in back
+	self.frame = 0; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-12 -12 -32'; self.bbmaxs = '12 12 0';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_back3 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled in back + eaten
+	self.frame = 1; self.skin = 2;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-12 -12 -24'; self.bbmaxs = '12 12 0';
+	}
+	misc_corpse_setup();
+};
+
+//----------------------------------------------------------------------
+void() corpse_impaled_front1 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled in front + clothed
+	self.frame = 2; self.skin = 0;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-12 -12 -16'; self.bbmaxs = '12 12 16';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_front2 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled in front
+	self.frame = 2; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-12 -12 -16'; self.bbmaxs = '12 12 16';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_front3 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled in front + eaten
+	self.frame = 3; self.skin = 3;
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-12 -12 -8'; self.bbmaxs = '12 12 16';
+	}
+	misc_corpse_setup();
+};
+
+//----------------------------------------------------------------------
+void() corpse_impaled_horizontal1 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled horizontal + clothed
+	self.frame = 4; self.skin = 0;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -40'; self.bbmaxs = '8 8 24';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_horizontal2 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled horizontal
+	self.frame = 4; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -40'; self.bbmaxs = '8 8 24';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_horizontal3 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled horizontal + nibbled
+	self.frame = 5; self.skin = 4;
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -40'; self.bbmaxs = '8 8 24';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_horizontal4 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled horizontal + eaten
+	self.frame = 6; self.skin = 5;
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -32'; self.bbmaxs = '8 8 16';
+	}
+	misc_corpse_setup();
+};
+
+//----------------------------------------------------------------------
+void() corpse_impaled_vertical1 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled vertical + clothed
+	self.frame = 7; self.skin = 0;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -32'; self.bbmaxs = '8 8 24';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_vertical2 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled vertical
+	self.frame = 7; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -32'; self.bbmaxs = '8 8 24';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_impaled_vertical3 =
+{
+	self.mdl = "progs/corpse_imp.mdl";	// impaled vertical + eaten
+	self.frame = 8; self.skin = 6;
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -32'; self.bbmaxs = '8 8 24';
+	}
+	misc_corpse_setup();
+};
+
+//----------------------------------------------------------------------
+// The lynch model is setup with the top of the rope at 0 map units
+// The damage/bbox needs to be lower which is why gib offset used.
+// The model has animation groups with a slow rotate effect
+//----------------------------------------------------------------------
+void() corpse_lynched1 =
+{
+	self.mdl = "progs/corpse_lynch.mdl";	// lynched + clothed
+	self.frame = 0; self.skin = 0;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -96'; self.bbmaxs = '8 8 -40';
+		self.gib_ofs = '0 0 -48';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_lynched2 =
+{
+	self.mdl = "progs/corpse_lynch.mdl";	// lynched
+	self.frame = 0; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -96'; self.bbmaxs = '8 8 -40';
+		self.gib_ofs = '0 0 -48';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_lynched3 =
+{
+	self.mdl = "progs/corpse_lynch.mdl";	// lynched + eaten
+	self.frame = 1; self.skin = 2;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -80'; self.bbmaxs = '8 8 -40';
+		self.gib_ofs = '0 0 -48';
+	}
+	misc_corpse_setup();
+};
+
+//----------------------------------------------------------------------
+// The flayed model is setup with the top of the rope at 0 map units
+// The damage/bbox needs to be lower which is why gib offset used.
+// The model has animation groups with a slow rotate effect
+//----------------------------------------------------------------------
+void() corpse_flayed1 =
+{
+	self.mdl = "progs/corpse_flay.mdl";	// flayed + clothed
+	self.frame = 0; self.skin = 0;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -80'; self.bbmaxs = '8 8 -16';
+		self.gib_ofs = '0 0 -32';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_flayed2 =
+{
+	self.mdl = "progs/corpse_flay.mdl";	// flayed
+	self.frame = 0; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -80'; self.bbmaxs = '8 8 -16';
+		self.gib_ofs = '0 0 -32';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_flayed3 =
+{
+	self.mdl = "progs/corpse_flay.mdl";	// flayed + eaten
+	self.frame = 2; self.skin = 2;
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -64'; self.bbmaxs = '8 8 -16';
+		self.gib_ofs = '0 0 -32';
+	}
+	misc_corpse_setup();
+};
+
+void() corpse_flayed4 =
+{
+	self.mdl = "progs/corpse_flay.mdl";	// flayed + broken leg
+	self.frame = 1; self.skin = 1;
+	self.gib1mdl = "progs/h_zombie.mdl";
+	if (CheckZeroVector(self.bbmins)) {
+		self.bbmins = '-8 -8 -80'; self.bbmaxs = '8 8 -16';
+		self.gib_ofs = '0 0 -32';
+	}
+	misc_corpse_setup();
 };

@@ -448,7 +448,8 @@ void() dlord_sword_sound =
 ======================================================================*/
 void() monster_death_lord =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	// No head model defined
 	self.mdl = "progs/mon_dlord.mdl";			// hknight.mdl (quoth)
@@ -465,7 +466,6 @@ void() monster_death_lord =
 	precache_model (self.gib2mdl);				// Old HK Sword
 	precache_model (self.gib3mdl);				// HK foot
 	precache_model (self.gib4mdl);
-	precache_model (MODEL_PROJ_NOUR3);			// Lightning bolt
 
 	self.gib2sound = GIB_IMPACT_METALA;
 	if (random() < 0.5) self.gib3mdl = string_null;
@@ -513,9 +513,8 @@ void() monster_death_lord =
 	self.poisonous = FALSE;					// No support for this
 	self.deathstring = " was executed by a Death Lord\n";
 	
-	// Always reset Ammo Resistance to be consistent
-	self.resist_shells = self.resist_nails = 0;
-	self.resist_rockets = self.resist_cells = 0;
+	// Reset Ammo Resistance/Shield parameters
+	dlord_shieldoff();
 
 	// Using alt magic and charge attacks
 	self.th_checkattack = DLordCheckAttack;

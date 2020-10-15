@@ -7,115 +7,54 @@ void(entity inflictor, entity attacker, float damage) SUB_Null_pain = {};
 
 void() SUB_CalcMoveDone;
 void() SUB_CalcAngleMoveDone;
+
+// subs_soc.qc
+vector(vector attack_dir) attack_vector;
+float(vector check_vec) CheckZeroVector;
+vector(entity bmodel_ent) bmodel_origin;
 void(vector marker_org, float marker_type) spawn_marker;
 void(float hud_item) update_hud_totals;
 
-//======================================================================
-// To determine if an entity is still active this function generates
-// an unique number that can be checked/shared between linked entities
 //----------------------------------------------------------------------
-void(entity targ) gen_unique_no = 
-{
-	// Check if target entity has an unique number already
-	if (targ.entno_unique == 0) 
-		targ.entno_unique = rint(random()*1000) * rint(random()*1000);
-};
-
-//======================================================================
-// Most of the monsters have an attack_offset setup to spawn their
-// proejctiles in the right location relative to their gun model
-// This function expects the makevectors has been done already
-// makevectors (self.angles); <--- if missing, vector will be rubbish!
+// Some entities have directional parameters (angles -> movedir)
+// This function searches for an angletarget entity (useful for tracking)
+// Always finds the first target key (will fail if multiple targets)
 //----------------------------------------------------------------------
-vector(vector attack_dir) attack_vector =
+void(entity targ, float return_target) TargetMovedir =
 {
-	local vector retvec;
-	retvec = v_forward * attack_dir_x;
-	retvec = retvec + (v_right * attack_dir_y);
-	retvec = retvec + (v_up * attack_dir_z);
-	return retvec;
-};
-
-//======================================================================
-// Bmodels have a 0,0,0 origin key, need to calculate from mins/maxs
-// This function will return the true origin using mins/max vectors
-//----------------------------------------------------------------------
-vector(entity bmodel_ent) bmodel_origin =
-{
-	local vector vdiff, vorigin;
-
-	// Calculate the middle point of the mins/maxs size vectors
-	vdiff_x = (bmodel_ent.maxs_x - bmodel_ent.mins_x) / 2;
-	vdiff_y = (bmodel_ent.maxs_y - bmodel_ent.mins_y) / 2;
-	vdiff_z = (bmodel_ent.maxs_z - bmodel_ent.mins_z) / 2;
-
-	// The mins vector is an absolute value of where the Bmodel is located
-	// Add mins vector to middle point to get true origin
-	// When bmodel do move they also update their origin co-ordinates
-	// So any additional movement needs to be added as well
-	// This means that bmodels can be tracked by movement functions
-	vorigin = bmodel_ent.origin + bmodel_ent.mins + vdiff;
+	local entity angle_dest;
+	local vector targ_origin, angle_dest_origin;
 	
-	// Return origin
-	return vorigin;
-};
-
-//======================================================================
-// Check for bmodel errors, model key empty (can crash engine)
-//----------------------------------------------------------------------
-float() check_bmodel_keys =
-{
-	if (self.model == "") {
-		// this error can be fatal for most engines, show warning
-		dprint ("\b[BMODEL]\b "); dprint (self.classname);
-		dprint (" ("); dprint (self.targetname);
-		dprint (") missing MODEL key!\n");
-		
-		self.classtype = CT_DEVMARKER;		// Useless entity
-		self.movetype = MOVETYPE_NONE;		// Stationary
-		self.solid = SOLID_NOT;				// no world interaction
-		
-		// If developer active show yellow diamond
-		if (developer > 0) setmodel(self, MODEL_BROKEN);
-		else setmodel(self,"");
-		
-		// Make sure no world interaction
-		setsize (self, VEC_ORIGIN, VEC_ORIGIN);
-		
-		// Randomly place debug diamond above 0,0,0
-		self.pos1 = '0 0 0';
-		self.pos1_z = random()*64;
-		setorigin(self, self.pos1);
-		
-		// Do nothing with this entity
-		return TRUE;
-	}
-	else return FALSE;
-};
-
-//----------------------------------------------------------------------
-// Cannot have multiple upgrade restrictions on monster/items
-//----------------------------------------------------------------------
-void() remove_duplicate_upgrades =
-{
-	if (self.upgrade_axe) {
-		if (self.upgrade_ssg) self.upgrade_ssg = FALSE;
-		else if (self.upgrade_lg) self.upgrade_lg = FALSE;
-	}
-	else if (self.upgrade_ssg) {
-		if (self.upgrade_axe) self.upgrade_axe = FALSE;
-		else if (self.upgrade_lg) self.upgrade_lg = FALSE;
-	}
-	else if (self.upgrade_lg) {
-		if (self.upgrade_axe) self.upgrade_axe = FALSE;
-		else if (self.upgrade_ssg) self.upgrade_ssg = FALSE;
-	}
-}
+	// Exit if no angletarget defined
+	if (targ.angletarget == "") return;
 	
-/*======================================================================
-QuakeEd only writes a single float for angles (bad idea), 
-so up and down are just constant angles.
-======================================================================*/
+	// Find angle target entity
+	angle_dest = find(world, targetname, targ.angletarget);
+	if (angle_dest) {
+		// Check for Bmodel origin for targ/angle_dest
+		if (targ.bsporigin) targ_origin = bmodel_origin(targ);
+		else targ_origin = targ.origin;
+		if (angle_dest.bsporigin) angle_dest_origin = bmodel_origin(angle_dest);
+		else angle_dest_origin = angle_dest.origin;
+		
+		// Calculate facing angle towards target
+		self.movedir = normalize(angle_dest_origin - targ_origin);
+		
+		// Return variables for calling function (def=FALSE)
+		if (return_target) {
+			self.movetarget = angle_dest;	// Target entity
+			self.dest1 = angle_dest_origin;	// Target origin
+		}
+	}
+};
+
+//----------------------------------------------------------------------
+void() TargetMovedirReturn = { TargetMovedir(self, TRUE); };
+
+//----------------------------------------------------------------------
+// QuakeEd only writes a single float for angles (bad idea), 
+// so up and down are just constant angles.
+//----------------------------------------------------------------------
 void() SetMovedir =
 {
 	if (self.angles == '0 -1 0') self.movedir = '0 0 1';
@@ -128,41 +67,6 @@ void() SetMovedir =
 	self.angles = '0 0 0';
 };
 
-//----------------------------------------------------------------------
-float(vector check_vec) CheckZeroVector =
-{
-	if (check_vec_x == 0 && check_vec_y == 0 && check_vec_z == 0)
-		return TRUE;
-	else return FALSE;
-};
-
-//----------------------------------------------------------------------
-// Some entities have directional parameters (angles -> movedir)
-// This function searches for a target entity (useful for tracking)
-// Always finds the first target key (will fail if multiple targets)
-//----------------------------------------------------------------------
-void() TargetMovedir =
-{
-	local entity targ;
-	local vector org, targorg;
-	
-	if (self.target == "") return;
-	
-	// Check self for Bmodel origin
-	if (self.bsporigin) org = bmodel_origin(self);
-	else org = self.origin;
-
-	// Find target entity
-	targ = find(world, targetname, self.target);
-	if (targ) {
-		// Check for a Bmodel object (special origin)
-		if (targ.bsporigin) targorg = bmodel_origin(targ);
-		else targorg = targ.origin;
-		// Calculate facing angle towards target
-		self.movedir = normalize(targorg - org);
-	}
-};
-
 /*======================================================================
 InitTrigger
 ======================================================================*/
@@ -170,7 +74,7 @@ void() InitTrigger =
 {
 	// trigger angles are used for one-way touches.  An angle of 0 is assumed
 	// to mean no restrictions, so use a yaw of 360 instead.
-	if (CheckZeroVector(self.angles) == FALSE) SetMovedir ();
+	if (!CheckZeroVector(self.angles)) SetMovedir();
 	self.solid = SOLID_TRIGGER;
 	self.movetype = MOVETYPE_NONE;
 	self.mdl = self.model;		// Save model for later
@@ -188,30 +92,83 @@ SUB_CalcMove
 calculate self.velocity and self.nextthink to reach dest from
 self.origin traveling at speed
 ======================================================================*/
+void() SUB_FacingAngle_Tick =
+{
+	// Decrease move/face time
+	self.faceangle_time = self.faceangle_time - self.faceangle_div;
+	// Is the movetime over? on to tidy up function
+	if (self.faceangle_time <= 0) SUB_CalcMoveDone();
+	else {
+		// Adjust angles slowly to match final angle
+		self.angles = self.angles + self.faceangle_inc;
+		// The 'moving time' does not always divide perfectly
+		// Allow for final remainder to be last division
+		if (self.faceangle_time < self.faceangle_div)
+			self.nextthink = time + self.faceangle_time;
+		else self.nextthink = time + self.faceangle_div;
+		// Keep ticking through this function
+		self.think = SUB_FacingAngle_Tick;
+	}
+};
+
+//----------------------------------------------------------------------
+void(float movetime) SUB_FacingAngle_Setup =
+{
+	local vector facediff;
+	local float divtime;
+	
+	// Convert angle difference to 0-360 scale
+	facediff = vectormod(self.finalangle - self.angles);
+	// Check for 0/360 boundary and reverse difference
+	if (facediff_x > 180) facediff_x = facediff_x - 360;
+	if (facediff_y > 180) facediff_y = facediff_y - 360;
+	if (facediff_z > 180) facediff_z = facediff_z - 360;
+	
+	// Tick rate of 0.05 is 20fps, the engine will struggle with <0.02
+	if (self.faceangle_div < 0.02) self.faceangle_div = 0.05;
+	divtime = movetime / self.faceangle_div;
+	self.faceangle_inc = facediff / divtime;
+	
+	self.faceangle_time = movetime;
+	// Nothing has moved yet, so wait a bit
+	self.nextthink = time + self.faceangle_div;
+	self.think = SUB_FacingAngle_Tick;
+};
+
+//----------------------------------------------------------------------
 void(vector tdest, float tspeed, void() func) SUB_CalcMove =
 {
-	local vector	vdestdelta;
-	local float		len, traveltime;
+	local vector vdestdelta;
+	local float len, traveltime;
 
 	if (!tspeed) tspeed = 40;			// Create default speed if none specified
 	self.think1 = func;					// Finished moving function
-	self.finaldest = tdest;				// Final destination
+	self.finaldest = tdest;				// Final origin (Overwrite existing values)
 	self.think = SUB_CalcMoveDone;		// Tidy up function
 
 	vdestdelta = tdest - self.origin;	// set destdelta to the vector needed to move
 	len = vlen (vdestdelta);			// calculate length of vector
 	traveltime = len / tspeed;			// divide by speed to get time to reach dest
 
+	// Check if faceangle is active on a func bmodel mover?
+	if (self.faceangle > 0 && self.bsporigin > 0) self.faceangle = FALSE;
+	
 	// If move distance or time too small, snap to final location
 	if (traveltime < 0.1 || tdest == self.origin) {
+		if (self.faceangle > 0) self.angles = self.finalangle;
 		self.velocity = '0 0 0';
-		self.nextthink = self.ltime + 0.1;
+		if (self.bsporigin > 0) self.nextthink = self.ltime + 0.1;
+		else self.nextthink = time + 0.1;
 		return;
 	}
 	
 	// scale the destdelta vector by the time spent traveling to get velocity
-	self.velocity = vdestdelta * (1/traveltime);	// qcc won't take vec/float	
-	self.nextthink = self.ltime + traveltime;
+	self.velocity = vdestdelta * (1/traveltime);	// qcc won't take vec/float
+	if (self.bsporigin > 0) self.nextthink = self.ltime + traveltime;
+	else self.nextthink = time + traveltime;
+	
+	// Check for any facing angle functionality
+	if (self.faceangle > 0) SUB_FacingAngle_Setup(traveltime);
 };
 
 /*======================================================================
@@ -418,7 +375,8 @@ void() SUB_UseTargets =
 		// Write message to single client
 		else centerprint (activator, self.message);
 		// Default noise = classic beep beep sound
-		if (self.noise == "") sound (activator, CHAN_VOICE, SOUND_TALK, 1, ATTN_NORM);
+		if (self.noise == "") 
+			sound (activator, CHAN_VOICE, SOUND_TALK, 1, ATTN_NORM);
 	}
 
 	//----------------------------------------------------------------------
@@ -429,7 +387,7 @@ void() SUB_UseTargets =
 	if (self.killtarget != "") {
 		t = find (world, targetname, self.killtarget);
 		while(t) {
-			// Check for activate mosnters? Tidy up kill counter
+			// Check for activate monsters? Tidy up kill counter
 			if (t.flags & FL_MONSTER && t.health > 0) {
 				// If a monster marked with no monster count dies
 				// update HUD totals to reflect death properly
@@ -461,6 +419,7 @@ void() SUB_UseTargets =
 	// fire targets
 	//----------------------------------------------------------------------
 	if (self.target != "") {
+
 		act = activator;	// ID Code - Never switch around, not sure why it is here?
 		t = find (world, targetname, self.target);
 		stemp = self; otemp = other;		// Store self/other
@@ -644,12 +603,15 @@ void() tdeath_touch =
 	if (other == self.owner) return;
 	// Check if found a breakable than cannot be broken
 	if (ai_foundbreakable(self, other, FALSE)) return;
-	
+		
 	// A boss cannot be telefragged (except shub)
 	// Telefrag entity trying to telefrag boss instead!?!
 	if (other.bossflag == TRUE) {
-		if (other.classtype != CT_MONIDSHUB) {
-			T_Damage (self.owner, other, other, MEGADEATH, NOARMOR);
+		if (other.classtype == CT_MONIDSHUB) {
+			// AD 1.8 for some reason this damage was setup wrong
+			// Originally damaging self.owner, which is the spawner!
+			// This should match the last T_Damage below
+			T_Damage (other, self, self, MEGADEATH, NOARMOR);
 			return;
 		}
 	}
@@ -657,7 +619,7 @@ void() tdeath_touch =
 	// frag anyone who teleports in on top of an invincible player
 	if (other.flags & FL_CLIENT) {
 		if (other.invincible_finished > time) self.classname = "teledeath2";
-		// other monsters explode themselves
+		// Force the owner (monster) to explode/die
 		if ( !(self.owner.flags & FL_CLIENT) ) {
 			T_Damage (self.owner, self, self, MEGADEATH, NOARMOR);
 			return;
@@ -665,6 +627,7 @@ void() tdeath_touch =
 	}
 
 	// Sudden death incoming ...
+	// This is damage/attacking any touching entity
 	if (other.health) T_Damage (other, self, self, MEGADEATH, NOARMOR);
 };
 
@@ -675,13 +638,16 @@ void(vector org, entity death_owner) spawn_tdeath =
 
 	death = spawn();
 	death.classname = "teledeath";
+	// Spawning monster (used for exceptions)
 	death.owner = death_owner;
 	death.movetype = MOVETYPE_NONE;
 	death.solid = SOLID_TRIGGER;
 	death.angles = '0 0 0';
+	// Make sure the bbox is outside (+1 size) of the spawners bounding box
 	setsize (death, death_owner.mins - '1 1 1', death_owner.maxs + '1 1 1');
 	setorigin (death, org);
 	death.touch = tdeath_touch;
+	// Don't keep the trigger around for long
 	death.nextthink = time + 0.2;
 	death.think = SUB_Remove;
 	
@@ -689,177 +655,3 @@ void(vector org, entity death_owner) spawn_tdeath =
 	// every trigger in the map to see if it is touching something
 	force_retouch = 2;
 };
-
-/*======================================================================
- skill_chanceattack
-  Calculate chance to attack player based on skill level and distance
-  The standard ID range formula
-	(enemy_range == RANGE_MELEE) chance = 0.9
-	(enemy_range == RANGE_NEAR) chance = 0.4
-	(enemy_range == RANGE_MID) chance = 0.05
-	else chance = 0;
-	The problem with this formula is that the chance factor is not gradual
-	and will spike in chance when close to range boundaries
-	Also this formula has no skill modifiers leading to limited gameplay rules
-  
-======================================================================*/
-float() SUB_ChanceAttack =
-{
-	local float chrange, chskill, chance;
-	
-	chrange = chskill = 0;					// taniwha patch
-	
-	// Upper and lower limits of range have fixed chance rates
-	if (self.enemydist > MON_MAX_RANGE) chance =  0.05;
-	else if (self.enemydist < MON_RANGE_MELEE) chance = 0.95;
-	else {
-		// Random chance of range attack based on player distance
-		chrange = ((MON_MAX_RANGE - self.enemydist) / MON_STEPRANGE) / 10;
-		
-		// Skill modifier to chance (Easy -0.2 Norm -0.1, Hard 0, Night 0.1)
-		chskill = ((skill-SKILL_HARD)*0.1);
-		chance = chrange + chskill;
-		
-		// There Should always be a chance to HIT or MISS
-		if (chance > 0.95) chance = 0.95;
-		else if (chance < 0.05) chance = 0.05;
-	}
-	
-	// Return result and finish debug information line
-	if (random() < chance) return TRUE;
-	else return FALSE;
-};
-
-/*======================================================================
- skill_subattack
-  Calculate attack_finished time based on skill level
-======================================================================*/
-float (float min_time, float ranbase_time) SUB_SkillAttack =
-{
-	local float ran_time, sub_time;
-	
-	// Easy = min + random(base + 1.5)    Normal = min + random(base + 1.0)
-	// Hard = min + random(base + 0.5)    Nightm = min + random(base + 0.0)
-	ran_time = ranbase_time + ((SKILL_NIGHTMARE - skill) * 0.5);
-	sub_time = min_time + (ran_time * random());
-	
-	return sub_time;
-};
-
-/*======================================================================
- SUB_Tracking
- Progressively tracks the origin of enemies making attacks more accurate
-  * Original code by Necros (http://shoresofnis.com/)
-======================================================================*/
-vector(vector iorg, vector org_offset, entity targ, float zspeed) SUB_Tracking =
-{
-	local	vector	vec, org;
-	local	float	diff;
-
-	// Allow for source origin to be fine tuned (directional)
-	makevectors (self.angles);
-	org = self.origin + attack_vector(org_offset);
-
-	diff = vlen(iorg - org) / zspeed;		// Workout difference
-	vec = targ.velocity;
-	if (targ.flags & FL_MONSTER) vec_z = 0;	// Flatten Z axis for monsters
-	else vec_z = vec_z * 0.2;				// Aim for headshot with players
-
-	iorg = targ.origin + diff * vec;		// Refine target origin
-	return iorg;
-};
-
-/*======================================================================
- SUB_Elevation
-  Calculates the Elevation for Z Aware monsters
-  * Original code by Preach (https://tomeofpreach.wordpress.com/)
-  * Added support for variable origin locations and proj speeds
-  * Added support for distance scaling linked to skill levels
-======================================================================*/
-float(float theta, vector sorg, vector mdest, float zspeed) SUB_Elevation =
-{
-	local float a, b, c; 	//constants in the equation to be solved
-	local vector ofs; 		//displacement we wish the projectile to travel
-	local float y, z; 		//horizontal and vertical components of ofs
-	local float tan_theta; 	//trig values of the angle theta
-	local vector vec, eorg;
-	local float dist, sperc;
-
-	// Place projectile destination at player head level
-	if (self.classtype == CT_MONSPIDER) mdest = mdest + ELEV_SPID_OFS;
-	else mdest = mdest + ELEV_VIEW_OFS;
-
-	// Work out vector distance between source and destination
-	// Normalize the distance and create a percentage of that
-	// This is a skill based calculation so the aiming gets better
-	// The grenade is aimed infront of target so that it bounces
-	// No check for vertical difference so it bad going up height!
-	// Zombie, poison spiders zaware calculation is fine, exception!
-	if (self.classgroup != CG_ZOMBIE && self.classtype != CT_MONSPIDER
-		&& self.classtype != CT_MONBOGLORD) {
-		vec = mdest - sorg;
-		dist = vlen(vec);
-		vec = normalize(vec);
-		sperc = 0.45 + skill*0.15;
-		eorg = sorg + (vec * (dist*sperc));
-		ofs = eorg - sorg;
-	}
-	else ofs = mdest - sorg;
-		
-	//calculate how far we are firing
-	//	ofs = mdest - sorg;
-	z = ofs_z;
-	ofs_z = 0;
-	y = vlen(ofs);
- 
-	// Map gravity is a global variable defined in world.qc
-	//find the coefficients of the quadratic in tan(theta)
-	a = 0.5 * map_gravity * y * y / (zspeed * zspeed);
-	b = -y;
-	c = a + z;
- 
-	//check if the destination is too far to reach
-	if(b*b < 4*a*c) return ELEV_DEFAULT;
-
-	//calculate the tan value of the given theta
-	tan_theta = mathlib_tan(theta);
-
-	//reuse ang to create the improved firing direction
-	theta = mathlib_atan2(a*tan_theta*tan_theta - c, 2*a*tan_theta + b);
-
-	//constrain the values to stop anything too mad happening
-	while(theta > 90) theta = theta - 180;
-	return theta;
-};
-
-/*======================================================================
- SUB_Elevat (Alternative version, not used anymore, left for reference)
-  Calculates the Elevation for Z Aware monsters
-  * Original formula WIKI with QC help from ericw
-======================================================================*/
-/*float(vector source, vector targ, float zspeed) SUB_Elevat =
-{
-	local float g;				// Gravity
-	local float targx, targy;	// Sub parts of distance
-	local float v2, v4;			// speed*speed & speed*speed*speed*speed
-	local vector dist;			// Distance to travel	
-	local float ang, theta;
-	
-	g = map_gravity;			// default 800
-	dist = targ - source;		// vector distance
-	targy = dist_z;				// Up direction
-	dist_z = 0;
-	targx = vlen(dist);			// X,Y direction
-
-	v2 = zspeed * zspeed;
-	v4 = v2 * v2;
-	
-	// First part of equation
-	ang = v4 - (g * ( (g * targx * targx) + (2 * targy * v2) ) );
-	// Cap elevation angle at default value
-	//if(ang < 0) return ELEV_DEFAULT;
-
-	// Second section of equation
-	theta = mathlib_atan2 ((v2 - mathlib_sqrt(ang)) / (g * targx),1);
-	return theta;
-}; */

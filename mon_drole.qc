@@ -229,7 +229,8 @@ void(float side) drole_claw =
 	ai_face ();						// Turn towards enemy target
 	ai_damagebreakable(50);			// Damage any breakables
 
-	if (!ai_checkmelee(MONAI_MELEEDROLE1) || !self.enemy.takedamage) {
+	if (!ai_checkmelee(MONAI_MELEEDROLE1,MONAI_MELEEZTALL) 
+		|| !self.enemy.takedamage) {
 		// Melee claw miss sound
 		sound (self, CHAN_WEAPON, "drole/swipe.wav", 1, ATTN_NORM);
 	}
@@ -276,7 +277,7 @@ void() drole_clawR14 = [ $clawR14, drole_clawR15 ] {drole_charge(26);
 sound (self, CHAN_WEAPON, "drole/swipe.wav", 1, ATTN_NORM);};
 void() drole_clawR15 = [ $clawR15, drole_clawR16 ] {monster_footstep(FALSE);drole_charge(30);};
 void() drole_clawR16 = [ $clawR16, drole_run ] {drole_charge(28);
-	if (random() < 0.5 && ai_checkmelee(MONAI_MELEEDROLE2) && 
+	if (random() < 0.5 && ai_checkmelee(MONAI_MELEEDROLE2, MONAI_MELEEZTALL) && 
 		self.enemy.health > 0 && visible(self.enemy)) drole_clawL1();
 };
 
@@ -301,7 +302,7 @@ void() drole_clawL14 = [ $clawL14, drole_clawL15 ] {drole_charge(26);
 sound (self, CHAN_WEAPON, "drole/swipe.wav", 1, ATTN_NORM);};
 void() drole_clawL15 = [ $clawL15, drole_clawL16 ] {monster_footstep(FALSE);drole_charge(30);};
 void() drole_clawL16 = [ $clawL16, drole_run ] {drole_charge(28);
-	if (random() < 0.5 && ai_checkmelee(MONAI_MELEEDROLE2) && 
+	if (random() < 0.5 && ai_checkmelee(MONAI_MELEEDROLE2, MONAI_MELEEZTALL) && 
 		self.enemy.health > 0 && visible(self.enemy)) drole_clawR1();
 };
 
@@ -337,7 +338,6 @@ void() drole_fire =
 	if (self.health < 1) return;
 	
 	self.attack_speed = 80;
-	
 	makevectors (self.angles);
 	org = self.origin + attack_vector(self.attack_offset);
 	dir = normalize((self.attack_track + '0 0 -8') - org);
@@ -436,7 +436,8 @@ QUAKED monster_drole (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_drole =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_drole.mdl";
 	self.headmdl = "progs/h_drole.mdl";
@@ -485,6 +486,7 @@ void() monster_drole =
 	self.pain_longanim = TRUE;			// can be chopped with shadow axe
 	self.pain_timeout = 2;				// High pain threshold
 	self.steptype = FS_TYPEHEAVY;		// heavy feet
+	self.attack_explosive = TRUE;			// Has explosive attack
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.attack_offset = '0 0 34';		// Middle of chest
 	self.deathstring = " was decimated by a Drole\n";

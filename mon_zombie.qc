@@ -69,8 +69,7 @@ void() zombie_stand15	=[	$stand15,		zombie_stand1	] {ai_stand();};
 
 //============================================================================
 void() zombie_walk1		=[	$walk1,		zombie_walk2	] {
-	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_walk(0);
-};
+	self.inpain = 0; self.solid = SOLID_SLIDEBOX; ai_walk(0);};
 void() zombie_walk2		=[	$walk2,		zombie_walk3	] {monster_footstep(TRUE); ai_walk(2);};
 void() zombie_walk3		=[	$walk3,		zombie_walk4	] {ai_walk(3);};
 void() zombie_walk4		=[	$walk4,		zombie_walk5	] {ai_walk(2);};
@@ -88,7 +87,7 @@ void() zombie_walk15	=[	$walk15,	zombie_walk16	] {ai_walk(0);};
 void() zombie_walk16	=[	$walk16,	zombie_walk17	] {ai_walk(0);};
 void() zombie_walk17	=[	$walk17,	zombie_walk18	] {ai_walk(0);};
 void() zombie_walk18	=[	$walk18,	zombie_walk19	] {ai_walk(0);};
-void() zombie_walk19	=[	$walk19,	zombie_walk1	] {zombie_sound(2);};
+void() zombie_walk19	=[	$walk19,	zombie_walk1	] {zombie_sound(2);ai_walk(0);};
 
 //============================================================================
 void() zombie_run1		=[	$run1,		zombie_run2	] {
@@ -608,6 +607,10 @@ void() zombie_cruc_setup =
 	self.gibhealth = 0 - self.health;	// Work out damage trigger
 	self.pain_flinch = 10;				// Always in pain
 	self.nomonstercount = TRUE;			// Don't include in initial total
+	// make sure angle field is within range (0-360)
+	// interestingly, if angles_y is negative the engine will ignore it
+	if (self.angles_y < 0) self.angles_y = 0;
+	if (self.angles_y > 360) self.angles_y = 360;
 
 	// Zombies cannot be crucified and on the floor at once!
 	self.spawnflags = self.spawnflags - (self.spawnflags & MON_ONFLOOR);
@@ -636,7 +639,10 @@ If crucified, stick the bounding box 12 pixels back into a wall to look right.
 ======================================================================*/
 void() monster_zombie =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	// Stupid ID getting the crucified and ambush back to front on zombies
 	// Lets fix the problem and reverse the flags to match everything else
@@ -701,7 +707,7 @@ void() monster_zombie =
 	if (self.spawnflags & MON_CRUCIFIED) zombie_cruc_setup();
 	else {
 		// Setup zombie ready for placement
-		self.health = 60;						// Basic health (cannot override)
+		self.health = HP_MONZOMBIE;				// Basic health (cannot override)
 		self.gibhealth = -60;					// Gib value, not used
 		self.gibbed = FALSE;					// In one piece
 		self.pain_flinch = MONAI_ZOMBIEHGH_DAM;
@@ -711,6 +717,10 @@ void() monster_zombie =
 		if (!self.movespeed) self.movespeed = 1;// Adjustable speed via skill level
 		self.inpain = 0;						// Zombie starts with no pain lock
 		self.count = 0;							// Reset get up timer
+
+		// Check for random rotation setup and angle limits
+		if (self.angles_y < 0) self.angles_y = rint(random()*359);
+		if (self.angles_y > 360) self.angles_y = 360;
 
 		self.th_stand = zombie_stand1;
 		self.th_walk = zombie_walk1;
@@ -739,4 +749,3 @@ void() monster_mummy =
 	// The mummy is just poisonous, it is still a zombie
 	monster_zombie();
 };
-

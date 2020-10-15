@@ -23,6 +23,17 @@ float(string s) checkextension = #99;
 //	ext_setcolor = TRUE;
 //from then on you can check ext_setcolor to know if that extension is available
 
+float(__variant funcref) checkbuiltin = #0:checkbuiltin;
+// Checks to see if the specified builtin is supported/mapped. This is intended
+// as a way to check for #0 functions, allowing for simple single-builtin functions.
+// Warning, if two different engines map different builtins to the same number,
+// then this function will not tell you which will be called, only that it won't 
+// crash (the exception being #0, which are remapped as available).
+
+float(string builtinname) builtin_find = #100;
+// Looks to see if the named builtin is valid, and returns the builtin number
+// it exists at.
+
 //BX_WAL_SUPPORT
 //idea: id Software
 //darkplaces implementation: LordHavoc
@@ -281,10 +292,18 @@ float EF_LOWPRECISION = 4194304;
 //darkplaces implementation: LordHavoc
 //field definitions:
 .float traileffectnum;
-//description:
-//use a custom effectinfo.txt effect on this entity, assign it like this:
-//self.traileffectnum = particleeffectnum("mycustomeffect");
-//this will do both the dlight and particle trail as described in the effect, basically equivalent to trailparticles() in CSQC but performed on a server entity.
+// description:
+// use a custom effectinfo.txt effect on this entity, assign it like this:
+// self.traileffectnum = particleeffectnum("mycustomeffect");
+// this will do both the dlight and particle trail as described in the effect,
+// basically equivalent to trailparticles() in CSQC but performed on a
+// server entity.
+
+.float emiteffectnum;
+// description:
+// This should be set to the result of particleeffectnum, in order to
+// continually spawn particles in the direction that this entity faces.
+// self.emiteffectnum = particleeffectnum("configfile.mycustomeffect");
 
 //DP_ENT_VIEWMODEL
 //idea: LordHavoc
@@ -660,7 +679,8 @@ float CVAR_TYPEFLAG_READONLY = 32;
 //DarkPlaces implementation: LordHavoc
 //builtin definitions:
 entity(float entnum) edict_num = #459;
-float(entity ent) wasfreed = #353; // same as in EXT_CSQC extension
+// DEFINED IN CSQC instead
+// float(entity ent) wasfreed = #353; // same as in EXT_CSQC extension
 //description:
 //edict_num returns the entity corresponding to a given number, this works even for freed entities, but you should call wasfreed(ent) to see if is currently active.
 //wasfreed returns whether an entity slot is currently free (entities that have never spawned are free, entities that have had remove called on them are also free).
@@ -1570,9 +1590,10 @@ float MF_TRACER3 = 128; // purple trail
 //idea: Spike
 //darkplaces implementation: LordHavoc
 //function definitions:
-float(string effectname) particleeffectnum = #335; // same as in CSQC
-void(entity ent, float effectnum, vector start, vector end) trailparticles = #336; // same as in CSQC
-void(float effectnum, vector org, vector vel, float howmany) pointparticles = #337; // same as in CSQC
+// DEFINED with CSQC stuff instead!?!
+//float(string effectname) particleeffectnum = #335; // same as in CSQC
+//void(entity ent, float effectnum, vector start, vector end) trailparticles = #336; // same as in CSQC
+//void(float effectnum, vector org, vector vel, float howmany) pointparticles = #337; // same as in CSQC
 //SVC definitions:
 //float svc_trailparticles = 60; // [short] entnum [short] effectnum [vector] start [vector] end
 //float svc_pointparticles = 61; // [short] effectnum [vector] start [vector] velocity [short] count
@@ -1650,7 +1671,8 @@ void(entity e, vector torque) physics_addtorque = #542; // add relative torque
 //DP_SV_PRINT
 //idea: id Software (QuakeWorld Server)
 //darkplaces implementation: Black, LordHavoc
-void(string s, ...) print = #339; // same number as in EXT_CSQC
+// DEFINED in CSQC instead
+//void(string s, ...) print = #339; // same number as in EXT_CSQC
 //description:
 //this is identical to dprint except that it always prints regardless of the developer cvar.
 

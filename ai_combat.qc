@@ -48,7 +48,7 @@ void(entity targ, entity attacker) Killed =
 
 	// func bmodels, triggers, breakables etc
 	// Horrible hack for pushables; They switch movetype, hard to catch
-	if (self.movetype == MOVETYPE_PUSH || self.movetype == MOVETYPE_NONE ||
+	if (self.movetype == MOVETYPE_PUSH || (self.movetype == MOVETYPE_NONE && !(self.flags & FL_MONSTER)) ||
 		self.classtype == CT_FUNCPUSHABLE) {	
 		self.th_die ();
 	}
@@ -101,13 +101,16 @@ void(entity targ, entity attacker) Killed =
 	inflictor = entity causing damage (bullets)
 	attacker = parent entity of inflictor (player firing bullets)
 	damage = quantity (before modifiers, quad etc)
-	checkarmor = can bypass armour (DAMARMOR, NOARMOR)
+	checkarmor = can bypass armour (DAMARMOR, NOARMOR, DAMSPLASH)
+	DAMARMOR    - Typical damage to health + armour
+	NOARMOR     - Ingnores armour for damage reduction
+	DAMSPLASH   - Splash damage only
 ======================================================================*/
 void(entity targ, entity inflictor, entity attacker, float damage, float checkarmor) T_Damage =
 {
 	local vector dir;
 	local entity oldself;
-	local float save, take, flinch;
+	local float save, take, flinch, noarmordmg;
 
 	// Cannot hurt the world or enemy targets (fake flying markers)
 	if (targ.classtype == CT_WORLD) return;
@@ -123,7 +126,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 			else take = 1;
 			
 			// Keep taking health off after death
-			targ.health = targ.health - (damage*take);
+			targ.health = targ.health - (ceil(damage)*take);
 		}
 		return;
 	}
@@ -140,7 +143,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	damage_attacker = attacker;
 
 	// check for quad damage powerup on the attacker
-	if (attacker.super_damage_finished > 0) damage = damage * 4;
+	if (attacker.super_damage_finished > 0) damage = ceil(damage * 4);
 
 	// co-op team play damage avoidance
 	if ( (teamplay == 1) && (targ.team > 0) && (targ.team == attacker.team) ) return;
@@ -149,6 +152,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	if (targ.classgroup == CG_ZOMBIE) {
 		// If a zombie falls into slime or lava, instant death
 		if (targ.watertype == CONTENT_SLIME || targ.watertype == CONTENT_LAVA) {
+			// gib health is usually negative, hence the fabs
 			damage = fabs(targ.gibhealth * 4);
 			//dprint("\b[T_DAMAGE]\b Instant death, in slime or lava\n");
 		}
@@ -158,7 +162,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	
 	// Are monsters infighting and is there a damage modifier active?
 	if (attacker.infightextra && targ.flags & FL_MONSTER)
-		damage = damage * attacker.infightextra;
+		damage = ceil(damage * attacker.infightextra);
 
 	//----------------------------------------------------------------------
 	// Check for plasma burn/explosion on fatal hit
@@ -180,28 +184,51 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	// The key is usually checked with ai_damagebreakable function
 	// Needs to be checked with projectiles as well
 	if (targ.classgroup == CG_BREAKABLE && attacker.flags & FL_MONSTER) {
-		if (targ.brkmondmg > 0) damage = damage + targ.brkmondmg;
+		if (targ.brkmondmg > 0) damage = ceil(damage + targ.brkmondmg);
 	}
 	
+	// Blast Belt resistance prevents armour being decreased
+	if (checkarmor == DAMSPLASH && targ.flags & FL_CLIENT 
+		&& targ.moditems & IT_ARTBLASTBELT) noarmordmg = TRUE;
+	// Default for any kind of damage through this function
+	else noarmordmg = FALSE;
+
 	//----------------------------------------------------------------------
-	// save damage based on the target's armor level
+	// Special artifact combo setups for extra abilities 
+	//----------------------------------------------------------------------
+	// Blast Belt + Quad reduces incoming damage by 50%
+	if (targ.flags & FL_CLIENT && targ.moditems & IT_ARTBLASTBELT
+		&& targ.items & IT_QUAD) damage = ceil(damage * 0.5);
+
+	// Lava Shield + Pentagram prevents armour from being damaged
+	if (targ.flags & FL_CLIENT && targ.moditems & IT_ARTLAVASHIELD
+		&& targ.items & IT_INVULNERABILITY) noarmordmg = TRUE;
+
+	//----------------------------------------------------------------------
+	// Work out damage reduction based on armor level
+	// This is why the pentagram of protection loses armour
 	//----------------------------------------------------------------------
 	save = 0;
-	if (checkarmor == DAMARMOR) {
+	if (checkarmor == DAMARMOR || checkarmor == DAMSPLASH) {
 		save = ceil(targ.armortype*damage);
+		// Run out of amour?
 		if (save >= targ.armorvalue) {
+			// Use remaining armour
 			save = targ.armorvalue;
-			targ.armortype = 0;	// lost all armor
-			targ.items = targ.items - (targ.items & (IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3));
+			// If no armour block, remove armour
+			if (noarmordmg == FALSE) {
+				targ.armortype = 0;	// lost all armor
+				targ.items = targ.items - (targ.items & (IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3));
+			}
 		}
 		// Reduce armour based on save forumla above
-		targ.armorvalue = targ.armorvalue - save;
+		if (noarmordmg == FALSE) targ.armorvalue = targ.armorvalue - save;
 		// CEIL function will round up any fractional damage
 		// TBH it is better to round up than round down
 		take = ceil(damage-save);
 	}
 	else take = damage;
-	
+
 	//----------------------------------------------------------------------
 	// add to the damage total for clients, which will be sent as a single
 	// message at the end of the frame
@@ -214,45 +241,90 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	}
 
 	// figure momentum add
+	// This is what gives Rocket Jumps its Velocity!
 	if ( (inflictor != world) && (targ.movetype == MOVETYPE_WALK) ) {
 		dir = targ.origin - (inflictor.absmin + inflictor.absmax) * 0.5;
 		dir = normalize(dir);
 		targ.velocity = targ.velocity + dir*damage*8;
 	}
 
-	// check for godmode or invincibility
-	if (targ.flags & FL_GODMODE || targ.invincible_finished >= time) {
-		if (targ.invincible_sound < time) {
-			sound (targ, CHAN_ITEM, SOUND_ARTPENT3, 1, ATTN_NORM);
-			targ.invincible_sound = time + 2;
-		}
+	// Check for Blast Belt 100% splashdamage resistance
+	if (checkarmor == DAMSPLASH && targ.flags & FL_CLIENT 
+		&& targ.moditems & IT_ARTBLASTBELT) {
+		PlayBlastBeltSound(targ);
 		return;
 	}
 
+	// check for godmode or pentagram / invincibility
+	if (targ.flags & FL_GODMODE || targ.invincible_finished >= time) {
+		PlayPentagramSound(targ);
+		return;
+	}
+	
 	//----------------------------------------------------------------------
 	// do the damage
 	//----------------------------------------------------------------------
 	targ.health = targ.health - take;
 	
 	//----------------------------------------------------------------------
+	// Changed the turret code to allow for monster % HP triggers
+	// The turret movespeed is no longer a pre-condition
+	// Can have trigger events for larger HP monsters like shamblers
+	// Greater opportunity to keep the pacing insync with the player
+	// With any monster having this trigger, need a check for bosses
+	//
 	// Check monster turret is to be released based on % health
 	// Fire any targets (once only) when this condition is met
 	//----------------------------------------------------------------------
-	if (targ.turrethealth > 0 && targ.movespeed < 0) {
-		if (targ.health < (targ.max_health * targ.turrethealth)) {
-			if (targ.turrettarget != "") {
-				// Fire all targets and remove trigger string
-				trigger_strs(targ.turrettarget, attacker);
-				targ.turrettarget = "";
+	if (targ.turrethealth > 0) {
+		// Warning/reset about trying to % HP trigger a boss monster
+		if (targ.bossflag > 0) {
+			dprint("\b[MONSTER]\b Cannot add HP triggers to bosses!\n");
+			targ.turrethealth = targ.turrethealth2 = 0;
+			targ.turrettarget = targ.turrettarget2 = "";
+		}
+		// HP % trigger's only work for monsters
+		else if (targ.flags & FL_MONSTER) {
+			// Check if HP % trigger should happen? (less than = event)
+			if (targ.health < (targ.max_health * targ.turrethealth)) {
+				// Trigger HP debug info (developer 1 mode)
+				dprint("Target ("); dprint(targ.classname);
+				dprint(") HP ("); dprint(ftos(targ.health));
+				dprint(") % ("); dprint(ftos(targ.turrethealth));
+				dprint(") Trig ("); dprint(targ.turrettarget);
+				dprint(")\n");
+				// Fire all targets if string exists
+				if (targ.turrettarget != "") trigger_strs(targ.turrettarget, attacker);
+				// Release turret, free movement
+				if (targ.movespeed < 0) targ.movespeed = 1;
+				
+				// Is there a second HP % event?
+				if (targ.turrethealth2 > 0) {
+					if (targ.turrethealth2 >= targ.turrethealth) {
+						dprint("\b[MONSTER]\b Second HP % trigger high than first!\n");
+						// Reset health + target fields
+						targ.turrethealth = targ.turrethealth2 = 0;
+						targ.turrettarget = targ.turrettarget2 = "";
+					}
+					else {
+						// Copy over targets
+						targ.turrethealth = targ.turrethealth2;
+						targ.turrettarget = targ.turrettarget2;
+						targ.turrethealth2 = 0; // Reset					
+					}
+				}
+				else {
+					// Reset health + target fields
+					targ.turrethealth = 0;
+					targ.turrettarget = "";
+				}
 			}
-			// Release turret, free movement
-			targ.movespeed = 1;
 		}
 	}
 
 	//----------------------------------------------------------------------
 	// When the SG projectile system is active each monster needs to keep
-	//track of cumulative damage so that pain flinches work correctly
+	// track of cumulative damage so that pain flinches work correctly
 	// AmmoShells classgroup is only active when SG projectiles are fired
 	//----------------------------------------------------------------------
 		// Is the Shotguns projectile system active?
@@ -346,7 +418,9 @@ void(entity targ, entity inflictor, entity attacker, float damage, float checkar
 	if (targ.classtype != CT_TARGETDUMMY) {
 		if (targ.resist_shells > 0 && inflictor.classgroup == CG_PROJSHELLS) return;
 		else if (targ.resist_nails > 0 && inflictor.classgroup == CG_PROJNAILS) return;
+		// Rocket ammo resistance needs to cope with grenades and rockets (+homing)
 		else if (targ.resist_rockets > 0 && inflictor.classgroup == CG_PROJROCKETS) return;
+		else if (targ.resist_rockets > 0 && inflictor.classgroup == CG_PROJGRENADES) return;
 		else if (targ.resist_cells > 0 && inflictor.classgroup == CG_PROJCELLS) return;
 	}
 	
@@ -456,17 +530,25 @@ void(entity inflictor, entity attacker, float damage, entity ignore, float check
 							// It will do several traces (source->target) to check
 							// for any blocking entities (lifts, doors, walls etc)
 							if (CanDamage (head, inflictor)) {
-								// Splash damage is part of rocket resistance
-								if (head.resist_rockets > 0)
-									points = Resist_Damage(head, IT_ROCKETS, points);
-								
+								// Two types of splash damage (rocket / cell)
+								if (inflictor.classgroup == CG_PROJCELLS) {
+									// Does target have cell resistance?
+									if (head.resist_cells != 0)
+										points = Resist_Damage(head, IT_CELLS, points);
+								}
+								else {
+									// Does target have rocket resistance?
+									if (head.resist_rockets != 0)
+										points = Resist_Damage(head, IT_ROCKETS, points);
+								}
+
 								// Zombies should really be blown from explosives
 								// especially from ogre grenades right under their feet
 								// Check for glancing damage or if too far away
 								if (head.classgroup == CG_ZOMBIE && points > (head.health*0.25))
 									points = DAMAGE_ZOMBIECLASS;
 								// Any damage left? Check for poison as well
-								if (points > 0) T_Damage (head, inflictor, attacker, points, DAMARMOR);
+								if (points > 0) T_Damage (head, inflictor, attacker, points, DAMSPLASH);
 								if (attacker.poisonous) PoisonDeBuff(head);
 							}
 						}

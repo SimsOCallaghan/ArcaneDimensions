@@ -9,10 +9,10 @@
 .void()		th_tether;			// Function to call when at max range
 .float		tethered;			// is the monster tethered during combat
 .float		tetherrange;		// The circular range around tether point
-.float		tetherdist;			// Distance from nonster to tether point
+.float		tetherdist;			// Distance from monster to tether point
 .float		tetherenemy;		// Distance from enemy to tether point
 .float		tetherwait;			// Amount of time to wait before returning
-.float		tethertimer;		// Time before returning to tether point
+.float		tethertimer;		// Time before returning (code generated)
 .float		tetherturn;			// Make sure monster turns towards enemy
 .float		tetherpause;		// % to not pause attack at max range
 .entity		tetherfocus;		// Enemy to turn towards while waiting
@@ -22,6 +22,41 @@ float TETHER_WAIT = 30;			// Default timer to wait before reset
 
 // Defined under defs.qc
 //.float tetherlock;		// Is the monster locked from movement
+
+//----------------------------------------------------------------------
+void(entity targ) display_tethersystem =
+{
+	local vector org;
+	
+	// Find origin of tether target
+	if (targ.tethertarg) {
+		if (targ.tethertarg.bsporigin) org = bmodel_origin(targ.tethertarg);
+		else org = targ.tethertarg.origin;
+	}
+	// Use own origin as backup
+	else org = targ.origin;
+	
+	// Find out own distance to tether
+	self.tetherdist = vlen(targ.origin - org);
+	// Find out enemy distance to tether
+	if (targ.enemy) targ.tetherenemy = vlen(targ.enemy.origin - org);
+	else targ.tetherenemy = 0;
+
+	dprint("\b[Tether system]\b\n"); 
+	dprint("--------------------------------------\n");
+	dprint("Class ("); dprint(targ.classname); 
+	if (targ.tethered) dprint(") Active (YES)\n");
+	else dprint(") Active (NO)\n");
+	dprint("Dist Max ("); dprint(ftos(targ.tetherrange));
+	dprint(") Tether ("); dprint(ftos(targ.tetherdist)); 
+	dprint(") Enemy ("); dprint(ftos(targ.tetherenemy)); 
+	dprint(")\n");
+	dprint("Wait time ("); dprint(ftos(targ.tetherwait));
+	dprint(") Turn ("); dprint(ftos(targ.tetherturn));
+	dprint(") Pause ("); dprint(ftos(targ.tetherpause));
+	dprint(")\n");
+	dprint("--------------------------------------\n");
+};
 
 //----------------------------------------------------------------------
 // Check for tether point (find and setup entity)
@@ -57,6 +92,9 @@ void() setup_tethersystem =
 			// Don't need tethertarget anymore
 			self.tethertarget = "";
 		}
+		
+		// Display debug info to console
+		//display_tethersystem(self);
 	}
 };
 
@@ -94,6 +132,13 @@ float() check_tethersystem =
 			// Can monster see the enemy?
 			if (enemy_vis) return TRUE;
 			else {
+				// Check for any passive monsters
+				if (self.passive_mode) {
+					// Return to passive monster state (reset)
+					self.passive_state = MON_PASSIVESTATE_RESET;
+					return FALSE;
+				}
+				
 				// Check for no pause override
 				if (self.tetherpause > 0) {
 					if (random() <= self.tetherpause) return TRUE;

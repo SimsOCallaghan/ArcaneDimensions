@@ -336,7 +336,7 @@ void() hogreham_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) {
-		sound (self, CHAN_VOICE, "ogre/ogdth.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		self.lip = random();
 		if (self.lip < 0.5) hogreham_dieA1();
 		else hogreham_dieB1();
@@ -367,7 +367,7 @@ void() hogreham_wakeup7a	=[	$smash12,		hogreham_wakeup8a ] {};
 void() hogreham_wakeup8a	=[	$smash13,		hogreham_wakeup9a ] {};
 void() hogreham_wakeup9a	=[	$smash14,		hogreham_run1	] {};
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_hogreham (0.5 0.75 0) (-32 -32 -24) (32 32 64) AMBUSH x METAL NOSIGHT NOIDLE NOGFX STARTOFF ANGRY Not_Easy Not_Normal Not_Hard Not_DM
 { model(":progs/mon_hogreham.mdl"); }
 Ogre, 300 health points.
@@ -379,7 +379,8 @@ METAL : Full plate metal armour and +100HP
 ======================================================================*/
 void() monster_hogreham =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_hogreham.mdl";		// New Ogre Model
 	self.headmdl = "progs/h_hogreham.mdl";		// Large head
@@ -404,7 +405,8 @@ void() monster_hogreham =
 	precache_sound (self.idle_soundcom);
 
 	precache_sound ("ogre/ogdrag.wav");		// Chainsaw scrap on floor sound
-	precache_sound ("ogre/ogdth.wav");		// Death sound
+	self.death_sound = "ogre/ogdth.wav";
+	precache_sound (self.death_sound);		// Death sound
 	self.pain_sound = "ogre/ogpain1.wav";
 	precache_sound (self.pain_sound);		// Pain
 	
@@ -450,6 +452,7 @@ void() monster_hogreham =
 	self.pain_timeout = 2;		// High pain resistance
 	self.pain_longanim = FALSE;
 	self.steptype = FS_TYPEHEAVY;
+	self.attack_explosive = TRUE;			// Has explosive attack
 	self.meleecontact = FALSE;				// Smash contact
 	self.meleerange = MONAI_MELEEBLUNTOGRE;	// Hammer range
 	self.movespeed = 0;						// Cannot be turret
@@ -469,7 +472,8 @@ void() monster_hogreham =
 	self.th_pain = hogreham_pain;
 	self.th_wakeup = hogreham_wakeup1a;
 	
-	self.ammo_rockets = 4;
+	if (self.ammo_rockets < 0) self.ammo_rockets = 0;
+	else if (self.ammo_rockets == 0) self.ammo_rockets = 4;
 	self.classtype = CT_MONHOGREHAM;	// new style hunter ogre
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
 	self.classmove = MON_MOVEWALK;

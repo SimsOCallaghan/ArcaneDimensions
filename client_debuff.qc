@@ -2,18 +2,17 @@
   CheckDeBuff - Check for negative buffs affecting the player
 ======================================================================*/
 
-.float		cshift_upd;			// Screen updates (v_cshift) are active
-.float		cshift_time;		// Timer (0.1s tick) for screen updates
-.vector		cshift_col;			// RGB / XYZ values for screen colour
-.float		cshift_den;			// Screen colour density
-.float		cshift_step;		// Quantity to reduce density by per tick
-
 .float		debuff_sound;		// Heartbeat sound when tick happens
 .float		debuff_qty;			// Quantity to do something with (temp)
 
 .float		bleeding;			// Bleeding debuff status
 .float		bleeding_time;		// Timer (1s tick) for screen/sound update
 .float		bleeding_qty;		// Total amount of health stored (HoT)
+
+.float		rotting;			// Rotting debuff status (DoT)
+.float		rotting_time;		// Timer (1s tick) for health update
+// Has to be defined early in defscustom.qc because of the randomizer.qc
+//.float		rotting_qty;		// Total ammount to rot down (DoT)
 
 .float		burning;			// Burning debuff status
 .float		burning_time;		// Timer (1s tick) for screen/sound update
@@ -28,24 +27,29 @@
 float ALL_ITARTIFACTS = 7864320;
 
 // Wraith Health drain
-vector DEBUFF_BLEED_COL = '200 0 0';	// Strong red
-float DEBUFF_BLEED_DEN = 120;
+vector DEBUFF_BLEED_COL = '50 35 0';		// Dark Orange
+float DEBUFF_BLEED_DEN = 80;
 float DEBUFF_BLEED_STEP = 10;
-float DEBUFF_BLEED_HEAL = 5;
-float DEBUFF_BLEED_MIN = 5;
+
+vector DEBUFF_START_BLEED_COL = '200 0 0';	// Strong red
+float DEBUFF_START_BLEED_DEN = 160;
+float DEBUFF_START_BLEED_STEP = 7;
+
+float DEBUFF_BLEED_MIN = 5;				// Minimum health to apply debuff
+float DEBUFF_BLEED_DMG = 10;			// Immunity with pent/envsuit
 
 // Pyro flame burn
 vector DEBUFF_BURN_COL = '200 100 0';	// Orange
 float DEBUFF_BURN_DEN = 120;
 float DEBUFF_BURN_STEP = 10;
-float DEBUFF_BURN_DMG = 1;
-float DEBUFF_BURN_MAX = 10;
+float DEBUFF_BURN_DMG = 1;				// Damage Over Time
+float DEBUFF_BURN_MAX = 10;				// Max amount of burning multiplier
 
 // Mummy poisoned gibs
 vector DEBUFF_POISON_COL = '0 200 0';	// Strong Green
-float DEBUFF_POISON_DEN = 84;
+float DEBUFF_POISON_DEN = 80;
 float DEBUFF_POISON_STEP = 7;
-float DEBUFF_POISON_DMG = 1;
+float DEBUFF_POISON_DMG = 1;			// Damage Over Time
 
 //----------------------------------------------------------------------
 // Various debuff reset functions, used all over the place
@@ -62,14 +66,25 @@ void(entity targ) ResetDebuffScreen =
 void(entity targ) ResetDebuffBurning =
 { targ.burning = targ.burning_qty = 0; };
 
+void(entity targ) ResetDebuffRotting = {
+	targ.rotting = 0; 
+	// Force reset health and remove MH inventory item
+	if (targ.health > targ.max_health) targ.health = targ.max_health;
+	targ.items = targ.items - (targ.items & IT_SUPERHEALTH);
+};
+
 void(entity targ) ResetDebuffPoisoned =
 { targ.poisoned = targ.poisoned_qty = 0; };
 
 void(entity targ) ResetDebuffBleeding =
 { targ.bleeding = targ.bleeding_qty = 0; };
 
+//----------------------------------------------------------------------
 void(entity targ) ResetDebuffSystem =
 {
+	// This only works for player clients
+	if (!(targ.flags & FL_CLIENT)) return;
+	
 	ResetDebuffScreen(targ);
 	ResetDebuffBurning(targ);
 	ResetDebuffPoisoned(targ);
@@ -81,7 +96,13 @@ void(entity targ) ResetDebuffSystem =
 //----------------------------------------------------------------------
 void() ClientDeBuff =
 {
+	// Check is self is a NOT player (client) FIRST!
+	// Bug fix from ericw on func msgboard
+	// #655 posted by ericw on 2018/04/10 09:53:36
+	if (!(self.flags & FL_CLIENT)) return;
+	
 	// If player is dead or intermission running, turn everything off
+	// Cinematic camera system exception is later on in code
 	if (intermission_running > 0 || self.health < 1) {
 		ResetDebuffSystem(self);
 		return;
@@ -171,17 +192,15 @@ void() ClientDeBuff =
 				self.cshift_step = DEBUFF_BLEED_STEP;
 
 				// Setup default healing
-				self.debuff_qty = DEBUFF_BLEED_HEAL;
 				// Check healing does not exceed current reserve
-				if (self.bleeding_qty < self.debuff_qty) self.debuff_qty = self.bleeding_qty;
-				// Subtract bleeding heals from counters
+				if (self.bleeding_qty < map_bleedingdmg_y) self.debuff_qty = self.bleeding_qty;
+				else self.debuff_qty = map_bleedingdmg_y;
+				// Subtract bleeding heals from counter
 				self.bleeding_qty = self.bleeding_qty - self.debuff_qty;
-				// Check healing does not go over max player limit
-				if (self.health + self.debuff_qty > self.max_health)
-					self.debuff_qty = self.max_health - self.health;
 				
 				// Directly add health back to player
 				self.health = self.health + self.debuff_qty;
+				if (self.health > self.max_health) self.health = self.max_health;
 			}
 		}
 		// Check if player is over max health or run out of healing
@@ -189,6 +208,24 @@ void() ClientDeBuff =
 			ResetDebuffBleeding(self);
 		}
 	}
+
+	// Check for rotting debuff (DoT)
+	if (self.rotting) {
+		// Is it time for a debuff update
+		if (self.rotting_time < time) {
+			if (self.health > self.max_health) {
+				// Reset rotting tick timer
+				self.rotting_time = time + 1;
+				// Directly subject health from player
+				self.health = self.health - self.rotting_qty;
+			}
+		}
+		// Reset (if over max) HP and remove inventory item
+		if (self.health <= self.max_health) ResetDebuffRotting(self);
+	}
+	
+	// Don't need sound or visual updates for cinematic stuff
+	if (cinematic_running) return;
 	
 	// Check for any debuff screen updates?
 	if (self.cshift_upd) {
@@ -198,10 +235,7 @@ void() ClientDeBuff =
 
 			// Sound exception for god/pentagram mode
 			if (self.flags & FL_GODMODE || self.invincible_finished >= time) {
-				if (self.invincible_sound < time) {
-					sound (self, CHAN_VOICE, SOUND_ARTPENT3, 1, ATTN_NORM);
-					self.invincible_sound = time + 2;
-				}
+				PlayPentagramSound(self);
 			}
 			else {
 				// Play heartbeat only for bleeding/healing
@@ -258,27 +292,65 @@ void() ClientDeBuff =
 //----------------------------------------------------------------------
 void(entity targ) BleedDeBuff =
 {
-	local float debuffqty;
+	local float pain_type;
 	
-	// Check for minimum amount of health for debuff
+	// Sanity check!
+	if (!(targ.flags & FL_CLIENT)) return;
+	// Check for bleeding and minimum amount of health for debuff
+	if (targ.health <= DEBUFF_BLEED_MIN) return;
+	if (targ.bleeding == TRUE) {
+		// Do minimum damage, checked min does not kill before
+		T_Damage (targ, self, self, DEBUFF_BLEED_MIN, DAMARMOR);
+		return;
+	}
 	// Immune to debuff if using Pent of Protection or BioSuit
-	if (targ.health < DEBUFF_BLEED_MIN) return;
-	if (targ.flags & FL_CLIENT == FALSE) return;
 	if (targ.items & (IT_INVULNERABILITY | IT_SUIT)) {
-		T_Damage (targ, self, self, DAMGE_WRAITHBOLT, DAMARMOR);
+		T_Damage (targ, self, self, DEBUFF_BLEED_DMG, DAMARMOR);
 		return;
 	}
 	
-	// if debuff not active, starting bleeding!
-	if (!targ.bleeding) {
-		targ.bleeding = TRUE;
-		targ.bleeding_time = -1;
-	}
+	// Starting bleeding!
+	targ.bleeding = TRUE;
+	// Pause before bleeding Healing starts (def=1s)
+	targ.bleeding_time = time + map_bleedingdmg_z;
 
-	// Take health from player and store it
-	debuffqty = rint(targ.health * 0.5);
-	T_Damage (targ, self, self, debuffqty, NOARMOR);
-	targ.bleeding_qty = targ.bleeding_qty + debuffqty;
+	// Pick a random player sound
+	pain_type = rint(random() * 3);
+	if (pain_type < 1) sound (targ, CHAN_VOICE, "player/pain4.wav", 1, ATTN_NORM);
+	else if (pain_type < 2) sound (targ, CHAN_VOICE, "player/pain5.wav", 1, ATTN_NORM);
+	else sound (targ, CHAN_VOICE, "player/pain6.wav", 1, ATTN_NORM);
+
+	// Work out maximum bleed HP (remove MH excess)
+	targ.bleeding_qty = targ.health;
+	if (targ.bleeding_qty > targ.max_health) targ.bleeding_qty = targ.max_health;
+	// Reduce HP down to % (def=0.25) and restore the rest later on
+	targ.health = rint(targ.bleeding_qty * map_bleedingdmg_x);
+	targ.bleeding_qty = targ.bleeding_qty - targ.health;
+
+	targ.cshift_upd = TRUE;		// Update screen colour
+	targ.cshift_time = -1;		// Update striaght away
+	targ.cshift_col = DEBUFF_START_BLEED_COL;
+	targ.cshift_den = DEBUFF_START_BLEED_DEN;
+	targ.cshift_step = DEBUFF_START_BLEED_STEP;
+};
+
+//----------------------------------------------------------------------
+void(entity targ, float rotoverride) RotDeBuff =
+{
+	// Only need to check for player/client
+	if (targ.flags & FL_CLIENT == FALSE) return;
+
+	// Extra Health is added via item pickup
+	targ.rotting = TRUE;
+	
+	// Check for a rotting override value
+	if (rotoverride <= 1) targ.rotting_qty = 1;
+	else targ.rotting_qty = rotoverride;
+	
+	// Always give inventory item
+	targ.items = targ.items | IT_SUPERHEALTH;
+	// 5s second pause to start of HP rot
+	targ.rotting_time = time + 5;
 };
 
 //----------------------------------------------------------------------
@@ -322,18 +394,22 @@ void(entity targ) PoisonDeBuff =
 	if (targ.items & (IT_INVULNERABILITY | IT_SUIT)) return;
 	if (targ.poisoned) return;	// Only poison once
 	
-	// if debuff not active, start poison!
-	targ.poisoned = TRUE;
-	targ.poisoned_time = -1;
 	// work out time remaining on debuff
-	debuffqty = rint(skill + 3 + 2*random());
-	targ.poisoned_qty = targ.poisoned_qty + debuffqty;
-
-	targ.cshift_upd = TRUE;		// Update screen colour
-	targ.cshift_time = -1;		// Update striaght away
-	targ.cshift_col = DEBUFF_POISON_COL;
-	targ.cshift_den = DEBUFF_POISON_DEN;
-	targ.cshift_step = DEBUFF_POISON_STEP;
+	// poison time Easy=3+2 Normal=4+2, Hard=5+2, NM=6+2, Evil=7+2
+	debuffqty = floor(skill + 3 + 2*random());
+	// Air tanks help reduce poison debuff duration
+	if (targ.moditems & IT_ARTAIRTANK) debuffqty = floor(debuffqty * 0.5);
+	// Is there any poison debuff time left?
+	if (debuffqty > 0) {
+		targ.poisoned = TRUE;
+		targ.poisoned_time = -1;
+		targ.poisoned_qty = debuffqty;
+		targ.cshift_upd = TRUE;		// Update screen colour
+		targ.cshift_time = -1;		// Update striaght away
+		targ.cshift_col = DEBUFF_POISON_COL;
+		targ.cshift_den = DEBUFF_POISON_DEN;
+		targ.cshift_step = DEBUFF_POISON_STEP;
+	}
 };
 
 //----------------------------------------------------------------------

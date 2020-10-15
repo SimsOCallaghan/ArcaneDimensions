@@ -229,7 +229,7 @@ void() wiz_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) { 
-		sound (self, CHAN_VOICE, "wizard/wdeath.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		self.velocity_x = -200 + 400*random();
 		self.velocity_y = -200 + 400*random();
 		self.velocity_z = 100 + 100*random();
@@ -244,7 +244,10 @@ QUAKED monster_wizard (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 void() setup_wizard;
 void() monster_wizard =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_wizard.mdl";
 	self.headmdl = "progs/h_wizard.mdl";
@@ -264,12 +267,14 @@ void() monster_wizard =
 	precache_sound (self.idle_sound);
 	precache_sound (self.idle_sound2);
 
-	precache_sound ("wizard/wdeath.wav");
-	self.pain_sound = "wizard/wpain.wav";
-	precache_sound (self.pain_sound);
-
+	// Must exist (hardcoded)
 	precache_sound ("wizard/hit.wav");		// used by c code
 	precache_sound ("wizard/wattack.wav");
+
+	self.pain_sound = "wizard/wpain.wav";
+	precache_sound (self.pain_sound);
+	self.death_sound = "wizard/wdeath.wav";
+	precache_sound (self.death_sound);
 
 	self.sight_sound = "wizard/wsight.wav";
 	precache_sound (self.sight_sound);
@@ -282,7 +287,7 @@ void() monster_wizard =
 		self.gib1skin = self.gib2skin = self.gib3skin = 1;
 	}
 
-	// Cache gargoyle is a special class used for precache only
+	// Cache wizard is a special class used for precache only
 	if (self.classtype != CT_CACHEWIZARD) setup_wizard();
 };
 
@@ -299,12 +304,15 @@ void() setup_wizard =
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
 	if (self.bboxtype < 1) self.bboxtype = BBOX_TALL;
-	if (self.health < 1) self.health = 80;
+	if (self.health < 1) self.health = HP_MONWIZARD;
 	self.gibhealth = -30;
+	self.gibbed = FALSE;				// Not falling apart
 	self.pain_flinch = 70;				// high pain threshold
 	self.pain_longanim = TRUE;			// Has long pain animation for Shadow Axe
 	self.blockudeath = TRUE;			// no humanoid death sound
+	self.steptype = FS_FLYING;			// Wandering around!
 	if (self.height < 1) self.height = MONAI_ABOVEDIST; // Custom height
+	self.enemymaxdist = TRUE;			// Really high distance checks
 	self.attack_offset = '0 0 30';		// Acid spit start location
 	self.deathstring = " was wrecked by a Wizard\n";
 
@@ -312,27 +320,18 @@ void() setup_wizard =
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
 
-	// Allow wizards to keep a certain distance above the enemy
-	if (self.spawnflags & MON_WIZARD_ABOVE) {
-		self.th_checkattack = GargoyleCheckAttack;
-	}
-	else {
-		// Default behaviour, really high distance checks
-		self.th_checkattack = WizardCheckAttack;
-		self.enemymaxdist = TRUE;
-	}
+	self.th_checkattack = WizardCheckAttack;
 	self.th_pain = wiz_pain;
 	self.th_die = wiz_die;
 		
-	if(!self.classtype) self.classtype = CT_MONWIZARD;
-	if (!self.classgroup) self.classgroup = CG_WIZARD;
-	self.classmove = MON_MOVEFLY;
-	
+	//----------------------------------------------------------------------
 	if (self.classtype == CT_MINIONWIZARD) {
 		self.th_stand = self.th_walk = self.th_run = wiz_wakeup;
 		self.th_missile = self.th_slide = wiz_wakeup;
 	}
+	//----------------------------------------------------------------------
 	else {
+		// Default wizard setup
 		self.th_stand = wiz_stand1;
 		self.th_walk = wiz_walk1;
 		self.th_run = wiz_run1;
@@ -340,6 +339,10 @@ void() setup_wizard =
 		self.th_slide = wiz_side1;
 	}
 
+	if (!self.classtype) self.classtype = CT_MONWIZARD;
+	if (!self.classgroup) self.classgroup = CG_WIZARD;
+	self.classmove = MON_MOVEFLY;
+	
 	monster_start();
 };
 
@@ -353,7 +356,6 @@ void(vector minion_org, entity minion_targ, float minion_sflag) minion_wizard =
 	// Check if there is space to spawn entity
 	if (entity_pcontent(minion_org)) return;
 	
-	// Self = minotaur, there is no egg 
 	update_minioncount(self, 1);			// Update spawn counters
 	
 	minion = spawn();
@@ -382,10 +384,11 @@ void(vector minion_org, entity minion_targ, float minion_sflag) minion_wizard =
 	minion.gib2mdl = "progs/gib_wzarm2.mdl";	// Right arm/stump
 	minion.gib3mdl = "progs/gib_wztail.mdl";	// Tail section
 
-	minion.pain_sound = "wizard/wpain.wav";
 	minion.idle_sound = "wizard/widle1.wav";
 	minion.idle_sound2 = "wizard/widle2.wav";
 	minion.sight_sound = "wizard/wsight.wav";
+	minion.pain_sound = "wizard/wpain.wav";
+	minion.death_sound = "wizard/wdeath.wav";
 	
 	minion.nextthink = time + 0.01;
 	minion.think = setup_wizard;

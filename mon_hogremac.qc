@@ -341,7 +341,7 @@ void()	hogremac_dieA6	=[	$deathA6,	hogremac_dieA7	] {ai_forward(1);};
 void()	hogremac_dieA7	=[	$deathA7,	hogremac_dieA8	] {};
 void()	hogremac_dieA8	=[	$deathA8,	hogremac_dieA9	] {hogremac_sound(3);};	// Chainsaw hits floor
 void()	hogremac_dieA9	=[	$deathA9,	hogremac_dieA10	] {monster_death_postcheck();};
-void()	hogremac_dieA10	=[	$deathA10,	hogremac_dieA10	] {};
+void()	hogremac_dieA10	=[	$deathA10,	hogremac_dieA10	] {monster_deadbody_check();};
 
 //----------------------------------------------------------------------
 // deathB (Backward)
@@ -360,7 +360,7 @@ void()	hogremac_dieB10=[	$deathB10,	hogremac_dieB11] {};
 void()	hogremac_dieB11=[	$deathB11,	hogremac_dieB12] {};
 void()	hogremac_dieB12=[	$deathB12,	hogremac_dieB13] {};
 void()	hogremac_dieB13=[	$deathB13,	hogremac_dieB14] {monster_death_postcheck();};
-void()	hogremac_dieB14=[	$deathB14,	hogremac_dieB14] {};
+void()	hogremac_dieB14=[	$deathB14,	hogremac_dieB14] {monster_deadbody_check();};
 
 //======================================================================
 void() hogremac_die =
@@ -369,7 +369,7 @@ void() hogremac_die =
 	monster_death_precheck();
 
 	if (!self.gibbed) {
-		sound (self, CHAN_VOICE, "ogre/ogdth.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		if (self.lip < 0.5) hogremac_dieA1();
 		else hogremac_dieB1();
 	}
@@ -399,7 +399,7 @@ void() hogremac_wakeup7a	=[	$smash12,		hogremac_wakeup8a ] {};
 void() hogremac_wakeup8a	=[	$smash13,		hogremac_wakeup9a ] {};
 void() hogremac_wakeup9a	=[	$smash14,		hogremac_run1	] {};
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_hogremac (0.5 0.75 0) (-32 -32 -24) (32 32 64) AMBUSH x METAL NOSIGHT NOIDLE NOGFX STARTOFF ANGRY Not_Easy Not_Normal Not_Hard Not_DM
 { model(":progs/mon_hogremac.mdl"); }
 Ogre, 200 health points.
@@ -411,7 +411,8 @@ METAL : Chain mail metal armour and +100HP
 ======================================================================*/
 void() monster_hogremac =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_hogremac.mdl";		// New Ogre Model
 	self.headmdl = "progs/h_hogre.mdl";			// Large Head
@@ -439,7 +440,8 @@ void() monster_hogremac =
 	precache_sound (self.idle_soundcom);
 
 	precache_sound ("ogre/ogdrag.wav");		// Chainsaw scrap on floor sound
-	precache_sound ("ogre/ogdth.wav");		// Death sound
+	self.death_sound = "ogre/ogdth.wav";
+	precache_sound (self.death_sound);		// Death sound
 	self.pain_sound = "ogre/ogpain1.wav";
 	precache_sound (self.pain_sound);		// Pain
 	
@@ -476,6 +478,7 @@ void() monster_hogremac =
 	self.pain_flinch = 30;
 	self.pain_longanim = TRUE;
 	self.steptype = FS_TYPEMEDIUM;
+	self.attack_explosive = TRUE;			// Has explosive attack
 	self.meleecontact = FALSE;				// Smash contact
 	self.meleerange = MONAI_MELEEBLUNTOGRE;	// Blunt mace attack
 	self.deathstring = " was smashed by a Mace Ogre\n";
@@ -491,11 +494,13 @@ void() monster_hogremac =
 	self.th_die = hogremac_die;
 	self.th_melee = hogremac_melee;
 	self.th_missile = hogremac_shoot1;
-//	self.th_jump = hogre_leap1;
+	// Unfortunately no animations done for this
+	//	self.th_jump = hogre_leap1;
 	self.th_pain = hogremac_pain;
 	self.th_wakeup = hogremac_wakeup1a;
 	
-	self.ammo_rockets = 2;
+	if (self.ammo_rockets < 0) self.ammo_rockets = 0;
+	else if (self.ammo_rockets == 0) self.ammo_rockets = 2;
 	self.classtype = CT_MONHOGREMAC;	// new style hunter ogre
 	self.classgroup = CG_OGRE;			// One big happy ogre family!
 	self.classmove = MON_MOVEWALK;

@@ -188,11 +188,24 @@ void() NextIntermissionCamera =
 		self.goalentity.target = "";
 	}
 
-	// Test for any fog changes on intermission entity
+	// CHANGE fog for intermission camera
 	if (fog_active && self.goalentity.fog_density > 0) {
 		// Double check for quake.rc parameter
-		if (query_configflag(SVR_NOFOGCMDS)) self.goalentity.fog_density = 0;
-		else fade_fog(self.goalentity.fog_density, self.goalentity.fog_colour, self.goalentity.speed);
+		// AD 1.8 removed SVR_NOFOGCMDS (winquake idea)
+		fade_fog(self.goalentity.fog_density, self.goalentity.fog_colour, self.goalentity.speed);
+	}
+	
+	// CHANGE sky_fog for intermission camera
+	if (fog_active && self.goalentity.skyfog_density > 0) {
+		// Double check for quake.rc parameter
+		// AD 1.8 removed SVR_NOFOGCMDS (winquake idea)
+		fade_skyfog(self.goalentity.skyfog_density, self.goalentity.speed);
+	}
+	
+	// CHANGE skybox for intermission camera
+	if (self.goalentity.skybox != "") {
+		trig_skybox = self.goalentity.skybox;
+		trigger_skybox_change(self);
 	}
 };
 
@@ -246,11 +259,8 @@ void() StartIntermissionCamera =
 		self.waitmin = time + 0.5;			// Delay before start
 		self.think = SUB_Null;				// Stop player.qc
 
-		// Finish all other artifacts - stop all the timers
-		self.radsuit_finished = self.invisible_finished = 0;
-		self.invincible_finished = self.super_damage_finished = 0;
-		self.sharpshoot_finished = self.nailpiercer_finished = 0;
-		self.wetsuit_finished = 0;
+		// Finish artifacts timers, except vania items
+		ResetPowerSystem(self,0,FALSE);
 
 		// Setup default - first camera to look through
 		self.goalentity = camera_ent;

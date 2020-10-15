@@ -49,10 +49,21 @@ $frame axattd1 axattd2 axattd3 axattd4 axattd5 axattd6
 
 void() player_run;
 
+//----------------------------------------------------------------------
 // Updated player idle/fire weapon frame logic to be consistent
 // Bug highlighted by Stas "dwere" Kuznetsov
+//----------------------------------------------------------------------
 float IDLE_WEAPON_FRAME = 0;	// Default idle state
 float FIRE_WEAPON_FRAME = 1;	// Start of firing frames
+
+//----------------------------------------------------------------------
+// 
+//----------------------------------------------------------------------
+float() frame_pause =
+{
+	if (intermission_running > 0 || cinematic_running > 0) return TRUE;
+	else return FALSE;
+};
 
 /*==============================================================================
 PLAYER AXE
@@ -67,33 +78,36 @@ Axe D		Original - 5,6,7,8		New - 24,25,26,28		d3,d4,d5,d7
 Axe E		Original - x,x,x,x		New - 31,32,34,35		e3,e4,e6,e7
 
 ============================================================================*/
-void()	player_axe1 =	[$axatt1, player_axe2	] {self.weaponframe=1;};
-void()	player_axe2 =	[$axatt2, player_axe3	] {self.weaponframe=2;};
-void()	player_axe3 =	[$axatt3, player_axe4	] {self.weaponframe=3;W_FireAxe();};
-void()	player_axe4 =	[$axatt4, player_run	] {self.weaponframe=4;};
+void()	player_axe1 =	[$axatt1, player_axe2	] {if (!frame_pause()) self.weaponframe=1;};
+void()	player_axe2 =	[$axatt2, player_axe3	] {if (!frame_pause()) self.weaponframe=2;};
+void()	player_axe3 =	[$axatt3, player_axe4	] {if (!frame_pause()) {self.weaponframe=3;W_FireAxe();} };
+void()	player_axe4 =	[$axatt4, player_run	] {if (!frame_pause()) self.weaponframe=4;};
 
-void()	player_axeb1 =	[$axattb1, player_axeb2	] {self.weaponframe=5;};
-void()	player_axeb2 =	[$axattb2, player_axeb3	] {self.weaponframe=6;};
-void()	player_axeb3 =	[$axattb3, player_axeb4	] {self.weaponframe=7;W_FireAxe();};
-void()	player_axeb4 =	[$axattb4, player_run	] {self.weaponframe=8;};
+void()	player_axeb1 =	[$axattb1, player_axeb2	] {if (!frame_pause()) self.weaponframe=5;};
+void()	player_axeb2 =	[$axattb2, player_axeb3	] {if (!frame_pause()) self.weaponframe=6;};
+void()	player_axeb3 =	[$axattb3, player_axeb4	] {if (!frame_pause()) {self.weaponframe=7;W_FireAxe();} };
+void()	player_axeb4 =	[$axattb4, player_run	] {if (!frame_pause()) self.weaponframe=8;};
 
-void()	player_axec1 =	[$axattc1, player_axec2	] {self.weaponframe=9;};
-void()	player_axec2 =	[$axattc2, player_axec3	] {self.weaponframe=10;};
-void()	player_axec3 =	[$axattc3, player_axec4	] {self.weaponframe=11;W_FireAxe();};
-void()	player_axec4 =	[$axattc4, player_run	] {self.weaponframe=12;};
+void()	player_axec1 =	[$axattc1, player_axec2	] {if (!frame_pause()) self.weaponframe=9;};
+void()	player_axec2 =	[$axattc2, player_axec3	] {if (!frame_pause()) self.weaponframe=10;};
+void()	player_axec3 =	[$axattc3, player_axec4	] {if (!frame_pause()) {self.weaponframe=11;W_FireAxe();} };
+void()	player_axec4 =	[$axattc4, player_run	] {if (!frame_pause()) self.weaponframe=12;};
 
-void()	player_axed1 =	[$axattd1, player_axed2	] {self.weaponframe=13;};
-void()	player_axed2 =	[$axattd2, player_axed3	] {self.weaponframe=14;};
-void()	player_axed3 =	[$axattd3, player_axed4	] {self.weaponframe=15;W_FireAxe();};
-void()	player_axed4 =	[$axattd4, player_run	] {self.weaponframe=16;};
+void()	player_axed1 =	[$axattd1, player_axed2	] {if (!frame_pause()) self.weaponframe=13;};
+void()	player_axed2 =	[$axattd2, player_axed3	] {if (!frame_pause()) self.weaponframe=14;};
+void()	player_axed3 =	[$axattd3, player_axed4	] {if (!frame_pause()) {self.weaponframe=15;W_FireAxe();} };
+void()	player_axed4 =	[$axattd4, player_run	] {if (!frame_pause()) self.weaponframe=16;};
 
-void()	player_axee1 =	[$axattd1, player_axee2	] {self.weaponframe=17;};
-void()	player_axee2 =	[$axattd2, player_axee3	] {self.weaponframe=18;};
-void()	player_axee3 =	[$axattd3, player_axee4	] {self.weaponframe=19;W_FireAxe();};
-void()	player_axee4 =	[$axattd4, player_run	] {self.weaponframe=20;};
+void()	player_axee1 =	[$axattd1, player_axee2	] {if (!frame_pause()) self.weaponframe=17;};
+void()	player_axee2 =	[$axattd2, player_axee3	] {if (!frame_pause()) self.weaponframe=18;};
+void()	player_axee3 =	[$axattd3, player_axee4	] {if (!frame_pause()) {self.weaponframe=19;W_FireAxe();} };
+void()	player_axee4 =	[$axattd4, player_run	] {if (!frame_pause()) self.weaponframe=20;};
 
 //============================================================================
 void()	player_stand1 =[	$axstnd1,	player_stand1	] {
+	// Stop if intermission/cinematic running
+	if (frame_pause()) return;
+	// Get out of any weapon animation
 	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (self.velocity_x || self.velocity_y) {
 		self.walkframe = 0;
@@ -114,7 +128,8 @@ void()	player_stand1 =[	$axstnd1,	player_stand1	] {
 
 //============================================================================
 void()	player_run =[ $rockrun1, player_run ] {
-	
+	// Stop if intermission/cinematic running
+	if (frame_pause()) return;
 	// Get out of any weapon animation
 	self.weaponframe = IDLE_WEAPON_FRAME;
 	// Standing around has different animation sets
@@ -146,7 +161,8 @@ void()	player_run =[ $rockrun1, player_run ] {
 
 //============================================================================
 void()	player_run_nofeet =[ $rockrun1, player_run ] {
-	
+	// Stop if intermission/cinematic running
+	if (frame_pause()) return;
 	// Get out of any weapon animation
 	self.weaponframe = IDLE_WEAPON_FRAME;
 	// Standing around has different animation sets
@@ -183,55 +199,101 @@ void(entity targ) remoteplayer_run =
 };
 
 //============================================================================
-void()	player_sgreset =	[$shotatt1, player_sg2	] {
-	self.weaponframe=FIRE_WEAPON_FRAME;
+// Grapple Hook (From Rogue Entertainment, coder=ZOID)
+//============================================================================
+void()	player_ghreset =[$axattd1, player_grapple2] {
+	if (!frame_pause()) self.weaponframe=FIRE_WEAPON_FRAME; };
+void() player_grapple4;
+void() player_grapple5;
+	
+void() player_grapple1 =[$axattd1, player_grapple2] {
+	if (frame_pause()) return;
+	self.weaponframe=1; W_FireGrapple();};
+void() player_grapple2 =[$axattd2, player_grapple3] {
+	if (!frame_pause()) self.weaponframe=2;};
+// Grapple loop -----------------------------------------
+void() player_grapple3 =[$axattd3, player_grapple3] {
+	if (frame_pause()) return;
+	self.weaponframe=2;
+	if (!self.gh_hookout) { player_grapple5(); return; }
+	GrappleHook_Distance();
+	if (self.gh_hookdist >= self.hookent.gh_minbeam) {
+		if (self.gh_onhook) { player_grapple4(); return; }
+	}
+};
+void() player_grapple4 =[$deathc4, player_grapple4] {
+	if (frame_pause()) return;
+	self.weaponframe=2;
+	// Exit loop when hook not out
+	if (!self.gh_hookout) { player_grapple5(); return; }
+	GrappleHook_Distance();
+	if (!self.gh_onhook || self.gh_hookdist < self.hookent.gh_minbeam) {
+		player_grapple3(); return; 
+	}
+};
+// End of loop -----------------------------------------
+void() player_grapple5 = [$axattd4, player_run] {
+	if (!frame_pause()) self.weaponframe=1;};
+
+//============================================================================
+// Single Shotgun and Super Shotgun
+//============================================================================
+void()	player_sgreset = [$shotatt1, player_sg2] {
+	if (!frame_pause()) self.weaponframe=FIRE_WEAPON_FRAME;
 };
 
-void()	player_sg1 =	[$shotatt1, player_sg1	] { 
+void()	player_sg1 = [$shotatt1, player_sg1] { 
+	if (frame_pause()) return;
 	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireShotgun ();
 };
-void()	player_sg2 =	[$shotatt2, player_sg3	] { self.weaponframe=2; };
-void()	player_sg3 =	[$shotatt3, player_sg4	] { self.weaponframe=3; };
-void()	player_sg4 =	[$shotatt4, player_sg5	] { self.weaponframe=4; };
-void()	player_sg5 =	[$shotatt5, player_sg1	] { self.weaponframe=5; };
+void() player_sg2 =[$shotatt2, player_sg3] { if (!frame_pause()) self.weaponframe=2; };
+void() player_sg3 =[$shotatt3, player_sg4] { if (!frame_pause()) self.weaponframe=3; };
+void() player_sg4 =[$shotatt4, player_sg5] { if (!frame_pause()) self.weaponframe=4; };
+void() player_sg5 =[$shotatt5, player_sg1] { if (!frame_pause()) self.weaponframe=5; };
 
 //============================================================================
-void()	player_ssgreset =	[$shotatt1, player_supersg2	] {
-	self.weaponframe=FIRE_WEAPON_FRAME;
+void() player_ssgreset =[$shotatt1, player_supersg2] {
+	if (!frame_pause()) self.weaponframe=FIRE_WEAPON_FRAME;
 };
 
-void()	player_supersg1 =	[$shotatt1, player_supersg1	] { 
+void() player_supersg1 =[$shotatt1, player_supersg1] { 
+	if (frame_pause()) return;
 	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireSuperShotgun ();
 };
-void()	player_supersg2 =	[$shotatt2, player_supersg3	] { self.weaponframe=2; };
-void()	player_supersg3 =	[$shotatt3, player_supersg4	] { self.weaponframe=3; };
-void()	player_supersg4 =	[$shotatt4, player_supersg5	] { self.weaponframe=4; };
-void()	player_supersg5 =	[$shotatt5, player_supersg6	] { self.weaponframe=5; };
-void()	player_supersg6 =	[$shotatt6, player_supersg1	] { self.weaponframe=6;
-	// If player has one shell left, switch to SG after SSG fire animation
-	if (self.ammo_shells < 2) { forceweaponswitch(0.2); return;}};
+void() player_supersg2 =[$shotatt2, player_supersg3] { if (!frame_pause()) self.weaponframe=2; };
+void() player_supersg3 =[$shotatt3, player_supersg4] { if (!frame_pause()) self.weaponframe=3; };
+void() player_supersg4 =[$shotatt4, player_supersg5] { if (!frame_pause()) self.weaponframe=4; };
+void() player_supersg5 =[$shotatt5, player_supersg6] { if (!frame_pause()) self.weaponframe=5; };
+void() player_supersg6 =[$shotatt6, player_supersg1] { 
+	if (!frame_pause()) {
+		self.weaponframe=6;
+		// If player has one shell left, switch to SG after SSG fire animation
+		if (self.ammo_shells < 2) { forceweaponswitch(0.2); return;}
+	}
+};
 
 //============================================================================
 // The Nailgun
 //============================================================================
 void(float oframe, float ox) nail_upd = {
+	if (frame_pause()) return;
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = oframe;
 	W_FireSpikes (0,ox);
 };
 
-void() player_nail1 = [$nailatt1, player_nail2 ] {nail_upd(1,2);};
-void() player_nail2 = [$nailatt2, player_nail3 ] {nail_upd(2,-2);};
-void() player_nail3 = [$nailatt1, player_nail4 ] {nail_upd(3,2);};
-void() player_nail4 = [$nailatt2, player_nail5 ] {nail_upd(4,-2);};
-void() player_nail5 = [$nailatt1, player_nail6 ] {nail_upd(5,2);};
-void() player_nail6 = [$nailatt2, player_nail7 ] {nail_upd(6,-2);};
-void() player_nail7 = [$nailatt1, player_nail8 ] {nail_upd(7,2);};
-void() player_nail8 = [$nailatt2, player_nail1 ] {nail_upd(8,-2);};
+void() player_nail1 =[$nailatt1, player_nail2] {nail_upd(1,2);};
+void() player_nail2 =[$nailatt2, player_nail3] {nail_upd(2,-2);};
+void() player_nail3 =[$nailatt1, player_nail4] {nail_upd(3,2);};
+void() player_nail4 =[$nailatt2, player_nail5] {nail_upd(4,-2);};
+void() player_nail5 =[$nailatt1, player_nail6] {nail_upd(5,2);};
+void() player_nail6 =[$nailatt2, player_nail7] {nail_upd(6,-2);};
+void() player_nail7 =[$nailatt1, player_nail8] {nail_upd(7,2);};
+void() player_nail8 =[$nailatt2, player_nail1] {nail_upd(8,-2);};
 
 //============================================================================
 // The Super Nailgun
@@ -242,28 +304,31 @@ void() player_nail8 = [$nailatt2, player_nail1 ] {nail_upd(8,-2);};
 // - SNG projectile offset idea by Kinn
 //============================================================================
 void(float oframe, float oz, float ox) snail_upd = {
+	if (frame_pause()) return;
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = oframe;
 	W_FireSpikes (oz,ox);
 };
 
-void() player_snail1 = [$nailatt1, player_snail2 ] {snail_upd(1,8,2.5);};
-void() player_snail2 = [$nailatt2, player_snail3 ] {snail_upd(2,5.5,-3.5);};
-void() player_snail3 = [$nailatt1, player_snail4 ] {snail_upd(3,3,2.5);};
-void() player_snail4 = [$nailatt2, player_snail5 ] {snail_upd(4,9,0);};
-void() player_snail5 = [$nailatt1, player_snail6 ] {snail_upd(5,3,-2.5);};
-void() player_snail6 = [$nailatt2, player_snail7 ] {snail_upd(6,5.5,3.5);};
-void() player_snail7 = [$nailatt1, player_snail8 ] {snail_upd(7,8,-2.5);};
-void() player_snail8 = [$nailatt2, player_snail1 ] {snail_upd(8,2,0);};
+void() player_snail1 =[$nailatt1, player_snail2] {snail_upd(1,8,2.5);};
+void() player_snail2 =[$nailatt2, player_snail3] {snail_upd(2,5.5,-3.5);};
+void() player_snail3 =[$nailatt1, player_snail4] {snail_upd(3,3,2.5);};
+void() player_snail4 =[$nailatt2, player_snail5] {snail_upd(4,9,0);};
+void() player_snail5 =[$nailatt1, player_snail6] {snail_upd(5,3,-2.5);};
+void() player_snail6 =[$nailatt2, player_snail7] {snail_upd(6,5.5,3.5);};
+void() player_snail7 =[$nailatt1, player_snail8] {snail_upd(7,8,-2.5);};
+void() player_snail8 =[$nailatt2, player_snail1] {snail_upd(8,2,0);};
 
 //============================================================================
-void() player_plasma1   =[$light1, player_plasma2  ] {
+void() player_plasma1 =[$light1, player_plasma2] {
+	if (frame_pause()) return;
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
 	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
 	W_FirePlasma();
 };
-void() player_plasma2   =[$light2, player_plasma1  ] {
+void() player_plasma2 =[$light2, player_plasma1] {
+	if (frame_pause()) return;
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
 	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
@@ -271,13 +336,15 @@ void() player_plasma2   =[$light2, player_plasma1  ] {
 };
 
 //============================================================================
-void() player_light1   =[$light1, player_light2  ] {
+void() player_light1 =[$light1, player_light2] {
+	if (frame_pause()) return;
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
 	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
 	W_FireLightning();
 };
-void() player_light2   =[$light2, player_light1  ] {
+void() player_light2 =[$light2, player_light1] {
+	if (frame_pause()) return;
 	if (!self.button0) { player_run(); return; }
 	self.weaponframe = self.weaponframe + 1;
 	if (self.weaponframe >= 5) self.weaponframe = FIRE_WEAPON_FRAME;
@@ -285,36 +352,38 @@ void() player_light2   =[$light2, player_light1  ] {
 };
 
 //============================================================================
-void() player_rockreset   =[$rockatt1, player_rocket2  ] {
-	self.weaponframe=FIRE_WEAPON_FRAME;
+void() player_rockreset =[$rockatt1, player_rocket2] {
+	if (!frame_pause()) self.weaponframe=FIRE_WEAPON_FRAME;
 };
 
-void() player_rocket1   =[$rockatt1, player_rocket1  ] { 
+void() player_rocket1 =[$rockatt1, player_rocket1] { 
+	if (frame_pause()) return;
 	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireRocket();
 };
-void() player_rocket2   =[$rockatt2, player_rocket3  ] { self.weaponframe=2;};
-void() player_rocket3   =[$rockatt3, player_rocket4  ] { self.weaponframe=3;};
-void() player_rocket4   =[$rockatt4, player_rocket5  ] { self.weaponframe=4;};
-void() player_rocket5   =[$rockatt5, player_rocket6  ] { self.weaponframe=5;};
-void() player_rocket6   =[$rockatt6, player_rocket1  ] { self.weaponframe=6;};
+void() player_rocket2 =[$rockatt2, player_rocket3] { if (!frame_pause()) self.weaponframe=2;};
+void() player_rocket3 =[$rockatt3, player_rocket4] { if (!frame_pause()) self.weaponframe=3;};
+void() player_rocket4 =[$rockatt4, player_rocket5] { if (!frame_pause()) self.weaponframe=4;};
+void() player_rocket5 =[$rockatt5, player_rocket6] { if (!frame_pause()) self.weaponframe=5;};
+void() player_rocket6 =[$rockatt6, player_rocket1] { if (!frame_pause()) self.weaponframe=6;};
 
 //============================================================================
-void() player_grenreset   =[$rockatt1, player_grenade2  ] {
-	self.weaponframe=FIRE_WEAPON_FRAME;
+void() player_grenreset =[$rockatt1, player_grenade2] {
+	if (!frame_pause()) self.weaponframe=FIRE_WEAPON_FRAME;
 };
 
-void() player_grenade1   =[$rockatt1, player_grenade1  ] {
+void() player_grenade1 =[$rockatt1, player_grenade1] {
+	if (frame_pause()) return;
 	self.weaponframe=IDLE_WEAPON_FRAME;
 	if (!self.button0) { player_run(); return; }
 	W_FireGrenade();
 };
-void() player_grenade2   =[$rockatt2, player_grenade3  ] { self.weaponframe=2;};
-void() player_grenade3   =[$rockatt3, player_grenade4  ] { self.weaponframe=3;};
-void() player_grenade4   =[$rockatt4, player_grenade5  ] { self.weaponframe=4;};
-void() player_grenade5   =[$rockatt5, player_grenade6  ] { self.weaponframe=5;};
-void() player_grenade6   =[$rockatt6, player_grenade1  ] { self.weaponframe=6;};
+void() player_grenade2 =[$rockatt2, player_grenade3] { if (!frame_pause()) self.weaponframe=2;};
+void() player_grenade3 =[$rockatt3, player_grenade4] { if (!frame_pause()) self.weaponframe=3;};
+void() player_grenade4 =[$rockatt4, player_grenade5] { if (!frame_pause()) self.weaponframe=4;};
+void() player_grenade5 =[$rockatt5, player_grenade6] { if (!frame_pause()) self.weaponframe=5;};
+void() player_grenade6 =[$rockatt6, player_grenade1] { if (!frame_pause()) self.weaponframe=6;};
 
 //----------------------------------------------------------------------
 // Only used for the player when they die
@@ -587,7 +656,7 @@ void() player_death =
 	if (deathmatch || coop) DropBackpack();
 	
 	// Remove all powerup/debuff effects
-	ResetPowerSystem(self);
+	ResetPowerSystem(self,0,TRUE);
 	ResetDebuffSystem(self);
 
 	self.weaponmodel="";

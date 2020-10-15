@@ -467,7 +467,8 @@ QUAKED monster_dguard (1 0 0) (-16 -16 -24) (16 16 40) Ambush
 ======================================================================*/
 void() monster_dguard =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_dguard.mdl";
 	self.headmdl = "progs/h_dguard.mdl";				// Large head

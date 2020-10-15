@@ -317,7 +317,7 @@ void()	zombiek_jump3	=[	$atta3,		zombiek_jump4 ] {
 	self.jump_flag = time + MONAI_JUMPZOMBTIME;
 	self.touch = zombiek_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * (150 + random() * 50) + '0 0 200';
+	self.velocity = (v_forward*(self.jumpdist_x + random()*50)) + ('0 0 1'*self.jumpdist_z);
 	self.origin_z = self.origin_z + 4;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
@@ -646,6 +646,7 @@ void(float frameno) zombiek_onground = {
 		
 		// Check for spawning onfloor orientation flag
 		// aflag = 1 Forward = 2 Backward
+		// This logic will randomize if aflag = 0
 		if (self.aflag < 1 || self.aflag > 2) {
 			if (random() < 0.5) self.aflag = 1;
 			else self.aflag = 2;
@@ -796,7 +797,8 @@ void() zombiek_die =
 ======================================================================*/
 void() monster_zombiek =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_zombiek.mdl";		// Zombie Knight
 	self.headmdl = "progs/h_zombiek.mdl";
@@ -849,6 +851,11 @@ void() monster_zombiek =
 	self.count = 0;						// Reset get up timer
 	self.deathstring = " was cornered by a Zombie Knight\n";
 
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '150 0 200';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPZKNEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPZKFAR;
+
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;
 	self.resist_rockets = self.resist_cells = 0;
@@ -864,6 +871,10 @@ void() monster_zombiek =
 	self.th_die = zombiek_die;
 	self.th_wakeup = zombiek_wakeup;	// Get off floor
 	
+	// Check for random rotation setup and angle limits
+	if (self.angles_y < 0) self.angles_y = rint(random()*359);
+	if (self.angles_y > 360) self.angles_y = 360;
+
 	self.classtype = CT_MONZOMBIEK;
 	self.classgroup = CG_ZOMBIE;		// One big happy zombie family!
 	self.classmove = MON_MOVEWALK;

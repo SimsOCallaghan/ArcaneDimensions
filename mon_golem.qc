@@ -599,7 +599,8 @@ QUAKED monster_golem (1 0.2 0) (-16 -16 -24) (16 16 24)
 ======================================================================*/
 void() monster_golem =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_golem.mdl";
 	precache_model (self.mdl);

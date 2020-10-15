@@ -130,7 +130,7 @@ void()	swampling_slide5	=[	$walk5,		swampling_run1	] {ai_run(4);};
 //======================================================================
 void(float sideang) swampling_spitacid =
 {
-	local	vector org, ang, dir, avel;
+	local vector org, dir, ang, avel;
 	
 	if (!self.enemy) return;
 	if (self.health < 1) return;
@@ -147,7 +147,7 @@ void(float sideang) swampling_spitacid =
 	ang_x = -self.attack_elev;	// Negative = upwards angle 
 	makevectors (ang);
 	// fire spit in arc pattern (sideang)
-	dir = (v_forward + v_right * sideang) * SPEED_SWAMPLING;	
+	dir = (v_forward + (v_right * sideang)) * SPEED_SWAMPLING;	
 
 	avel = vecrand(100,200,FALSE);
 	Launch_Grenade(org, dir, avel, CT_PROJ_SWAMP);
@@ -179,7 +179,7 @@ void() swampling_melee =
 		
 	ai_charge(10);										// Get closer for extra bite
 	ai_damagebreakable(10);								// Damage any breakables
-	if (!ai_checkmelee(MONAI_MELEESWAMPLING)) return;	// Too far away
+	if (!ai_checkmelee(MONAI_MELEESWAMPLING,FALSE)) return;	// Too far away
 
 	// Can the target bleed?
 	if (!self.enemy.takedamage) return;
@@ -207,7 +207,7 @@ void()	swampling_bite3	=[	$bite3, swampling_bite4 ] {ai_face();};
 void()	swampling_bite4 = [	$bite4, swampling_bite5 ] {swampling_melee();};
 void()	swampling_bite5 = [	$bite5, swampling_bite6 ] {};
 void()	swampling_bite6 =[	$bite6, swampling_bite7 ] {
-	if (ai_checkmelee(MONAI_MELEESWAMPLING) && self.enemy.health > 0) self.think = swampling_bite2;};
+	if (ai_checkmelee(MONAI_MELEESWAMPLING,FALSE) && self.enemy.health > 0) self.think = swampling_bite2;};
 // Exit bite attack loop
 void()	swampling_bite7	=[	$bite7, swampling_run1	] {};
 
@@ -227,7 +227,7 @@ void()	swampling_JumpTouch =
 
 	// Do not damage other swamplings with jump attacks
 	// Prevents packs from killing themselves
-	if (self.classtype != other.classtype && other.takedamage) {
+	if (self.classgroup != other.classgroup && other.takedamage) {
 		if ( vlen(self.velocity) > 300 ) {
 			ldmg = 5 + 5*random();
 			T_Damage (other, self, self, ldmg, DAMARMOR);	
@@ -260,7 +260,7 @@ void() swampling_leap3	=[	$jump3, swampling_leap4	] {
 	self.jump_flag = time + MONAI_JUMPTIMEOUT; // Stop jumping so much
 	self.touch = swampling_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * MONAI_JUMPSWAMPLINGDIST + '0 0 200';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.origin_z = self.origin_z + 4;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
@@ -507,12 +507,13 @@ void() swampling_die =
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED monster_swampling (1 0 0) (-16 -16 -24) (16 16 24) Ambush
 ======================================================================*/
 void() monster_swampling =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	if (self.spawnflags & MON_SWAMPLING_LARGE) {
 		self.mdl = "progs/mon_swamplingp.mdl";
@@ -586,6 +587,17 @@ void() monster_swampling =
 		self.gibhealth = -20;
 		self.th_jump = swampling_leap1;
 		self.th_jumpexit = swampling_leap7;
+		// Default jump forward/up distance
+		if (CheckZeroVector(self.jumpdist)) self.jumpdist = '500 0 200';
+		if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPSWAMPLINGNEAR;
+		if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPSWAMPLINGFAR;
+	}
+
+	//----------------------------------------------------------------------
+	// Check for quoth on ceiling entity flag
+	//----------------------------------------------------------------------
+	if (self.dangle) {
+		self.spawnflags = self.spawnflags | MON_SWAMPLING_CEILING;
 	}
 
 	//----------------------------------------------------------------------

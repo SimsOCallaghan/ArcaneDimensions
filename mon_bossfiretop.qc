@@ -41,6 +41,7 @@ void() ftop_track =
 	// Check for any no combat conditions
 	if (self.enemy.flags & FL_NOTARGET) self.enemy = world;
 	else if (intermission_running > 0) self.enemy = world;
+	else if (cinematic_running > 0) self.enemy = world;
 	else if (self.enemy.health < 1) self.enemy = world;
 		
 	// Update particle effect around base of Chthon
@@ -180,7 +181,7 @@ void(entity inflictor, entity attacker, float damage) ftop_pain = {
 //----------------------------------------------------------------------
 void() ftop_death1 = [$death1, ftop_death2] {
 	ftop_lightning();
-	sound (self, CHAN_VOICE, "chthon/death1.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 	if (self.noise3 != "") trigger_strs(self.noise3, self);
 };
 void() ftop_death2 = [$death2, ftop_death3] {ftop_lightning();};
@@ -260,7 +261,7 @@ void() ftop_deathsequence =
 		self.movetarget3 = find(world, targetname, self.noise2);
 	
 	sound (self, CHAN_WEAPON, "misc/power.wav", 1, ATTN_NORM);
-	sound (self, CHAN_VOICE, "chthon/pain1.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
 
 	self.attack_finished = time + 1.5;
 	self.lip = random();
@@ -304,7 +305,7 @@ void() ftop_wakeup =
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
 	self.velocity = '0 0 0';
-	self.flags = FL_MONSTER;
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	setmodel(self, self.mdl);					// Setup model
 	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
 
@@ -328,7 +329,8 @@ void() ftop_wakeup =
 ======================================================================*/
 void() monster_firetopboss =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_bosschthon.mdl";
 	precache_model (self.mdl);
@@ -340,7 +342,8 @@ void() monster_firetopboss =
 
 	self.pain_sound = "chthon/pain1.wav";
 	precache_sound (self.pain_sound);
-	precache_sound ("chthon/death1.wav");
+	self.death_sound = "chthon/death1.wav";
+	precache_sound (self.death_sound);
 
 	// Rise from lava roar + splash
 	self.sight_sound = "chthon/sight1.wav";
@@ -352,10 +355,15 @@ void() monster_firetopboss =
 	self.bbmins = '-128 -128 -24';		// has own entity setup
 	self.bbmaxs = '128 128 256';
 	self.bboxtype = BBOX_CUSTOM;
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
 	self.poisonous = FALSE;			// Cannot be poisonous
 	self.deathstring = " was destroyed by the Firetop Guardian\n";
+	self.lastorigin = self.origin;	// Origin for camera interpolation
 
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
+	
 	self.health = self.max_health = MEGADEATH;
 	self.takedamage = DAMAGE_NO;
 	self.classtype = CT_MONFIRETOP;

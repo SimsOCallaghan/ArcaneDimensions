@@ -110,7 +110,7 @@ void(vector weapofs) fred_fireweapon =
 
 	// Switch projectile type based on spawnflag
 	if (self.spawnflags & MON_FREDDIE_LASER) {
-		sound (self, CHAN_WEAPON, "enforcer/enfire.wav", 1, ATTN_NORM);	
+		sound (self, CHAN_WEAPON, SOUND_LASER_FIRE, 1, ATTN_NORM);	
 		launch_projectile(org, dir, CT_PROJ_LASER, self.attack_speed);
 	}
 	else {
@@ -257,7 +257,7 @@ void(float side) fred_blade =
 	if (self.health < 1) return;
 
 	ai_damagebreakable(20);							// Damage any breakables
-	if (!ai_checkmelee(self.meleerange)) return;	// Too far away
+	if (!ai_checkmelee(self.meleerange, MONAI_MELEEZTALL)) return;	// Too far away
 
 	// Can the target bleed? - generate blood
 	if (!CanDamage (self.enemy, self)) return;
@@ -315,7 +315,7 @@ void() fred_fswing11 = [ $fswing11, fred_fswinge1 ] {
 	// Always check for enemy and health before changing think
 	if (self.enemy && self.enemy.health > 1 && self.health > 0) {
 		// Check if within range to do a second (back) swing attack
-		if (ai_checkmelee(self.meleerange)) self.think = fred_bswing1;
+		if (ai_checkmelee(self.meleerange, MONAI_MELEEZTALL)) self.think = fred_bswing1;
 	}
 };
 
@@ -362,15 +362,19 @@ void(entity inflictor, entity attacker, float damage) fred_pain =
 
 	// Any pain animation/sound required?
 	if (self.pain_check > 0) {
-		if (random() < 0.2) {
-			sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
-			self.pain_finished = time + 3 + random()*2;
-			fred_pain1();
-		}
-		else {
-			sound (self, CHAN_VOICE, self.pain_sound2, 1, ATTN_NORM);
+		// Random pain sounds
+		if (random() < 0.5) sound (self, CHAN_VOICE, self.pain_sound, 1, ATTN_NORM);
+		else sound (self, CHAN_VOICE, self.pain_sound2, 1, ATTN_NORM);
+		if (self.pain_check == 1) {
 			self.pain_finished = time + 2 + random()*2;
+			// Really short 5 frame re-coil
 			fred_painb1();
+		}
+		else if (self.pain_check == 2) {
+			self.pain_finished = time + 3 + random()*2;
+			self.axhitme = 0;
+			// Long classic pain animation
+			fred_pain1();
 		}
 	}
 };
@@ -430,8 +434,8 @@ void() fred_explode =
 	WriteCoord (MSG_BROADCAST, self.origin_z);
 	T_RadiusDamage (self, self, self.death_dmg, world, DAMAGEALL);
 	
-	// Sprite + Dust
-	SpawnExplosion(EXPLODE_BIG, self.origin, self.death_sound);
+	// Sprite + Dust (+ explosion death sound)
+	SpawnExplosion(EXPLODE_BIG, self.origin, self.death_sound2);
 	SpawnProjectileSmoke(self.origin, 200, 250, 100);
 	SpawnProjectileSmoke(self.origin, 200, 250, 100);
 
@@ -454,7 +458,7 @@ void() fred_die =
 
 	// regular death
 	if (!self.gibbed) {
-		sound (self, CHAN_VOICE, "freddie/death.wav", 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 		fred_death1 ();
 	}
 };
@@ -464,7 +468,8 @@ QUAKED monster_freddie (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_freddie =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_freddie.mdl";			// was edie.mdl
 	self.headmdl = "progs/h_ogre.mdl";			// ID ogre
@@ -494,14 +499,14 @@ void() monster_freddie =
 	// Alternative attack - lasers!?!
 	if (self.spawnflags & MON_FREDDIE_LASER) {
 		precache_model (MODEL_PROJ_LASER);
-		precache_sound("seeker/range_laser.wav");
-		precache_sound ("enforcer/enfire.wav");
-		precache_sound ("enforcer/enfstop.wav");
+		precache_sound (SOUND_LASER_FIRE);
+		precache_sound (SOUND_LASER_HIT);
 	}
 
-	precache_sound ("freddie/death.wav");
-	self.death_sound = "seeker/explode_major.wav";
+	self.death_sound = "freddie/death.wav";
+	self.death_sound2 = "freddie/explode_major.wav";
 	precache_sound (self.death_sound);
+	precache_sound (self.death_sound2);
 	self.pain_sound = "freddie/pain.wav";
 	self.pain_sound2 = "freddie/painshrt.wav";
 	precache_sound (self.pain_sound);

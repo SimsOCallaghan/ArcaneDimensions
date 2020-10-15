@@ -1,20 +1,15 @@
-/*======================================================================
- ITEM FUNCTIONS
-======================================================================*/
+//======================================================================
+// ITEM FUNCTIONS
+//======================================================================
+/* Moved to defscustom.qc
 float ITEM_RESPAWN = 16;	// Item will respawn
 float ITEM_FLOATING = 32;	// Spawn floating
 float ITEM_NOEFFECTS = 128;	// Disable particles and effects
 
-float H_ROTTEN = 1;		// Rotten
-float H_MEGA = 2;		// Mega Health
-
-float A_LARGE = 1;		// Used by ammo boxes
-float A_LID = 2;		// Display Lid
-
-float ITEM_CKEY1 = 1;	// Arcane Key 1
-float ITEM_CKEY2 = 2;	// Arcane Key 2
-float ITEM_CKEY3 = 4;	// Arcane Key 3
-float ITEM_CKEY4 = 8;	// Arcane Key 4
+float H_ROTTEN = 1;			// Rotten
+float H_MEGA = 2;			// Mega Health
+float A_LARGE = 1;			// Used by ammo boxes
+float A_LID = 2;			// Display Lid
 
 float BACKPACK_SHELLS = 1;
 float BACKPACK_NAILS = 2;
@@ -22,7 +17,22 @@ float BACKPACK_ROCKETS = 4;
 float BACKPACK_CELLS = 8;
 float BACKPACK_GRNTYPE = 1;
 float BACKPACK_YELTYPE = 2;
-float BACKPACK_REDTYPE = 4;
+float BACKPACK_REDTYPE = 4;*/
+
+float AIRTANK_SILENT = 8;	// No sound with airtank
+
+float SKIN_BASE = 0;		// Green ammo boxes and square health packs
+float SKIN_MEDIEVAL = 1;	// Wood ammo boxes and red health flasks
+
+float ITEM_CKEY1 = 1;	// Arcane Key 1
+float ITEM_CKEY2 = 2;	// Arcane Key 2
+float ITEM_CKEY3 = 4;	// Arcane Key 3
+float ITEM_CKEY4 = 8;	// Arcane Key 4
+
+// Used for weapons only
+string WEAPON_PICKUP = "weapons/pkup.wav";
+// Used for ammo, custom items and backpacks
+string AMMO_PICKUP = "weapons/lock4.wav";
 
 // Various bounding boxes for items
 // vector	VEC_ORID_MIN = '0 0 0';
@@ -63,11 +73,38 @@ float MODEL_ANIM_RANGE = 3;
 //----------------------------------------------------------------------
 void() item_coopcheck =
 {
+	// coop active?
+	if (coop <= 0) return;
+	// Coop checks for prog list done elsewhere
+	if (self.progspawnlist) return;
+	// Check for any target(s) on coop sensitive items?
 	if (self.target != "" || self.target2 != "") {
 		dprint("\b[Coop]\b (");
 		dprint(self.classname);
 		dprint(") unreliable target(s) in coop!\n");
 	}
+};
+
+//----------------------------------------------------------------------
+// Setup skin parameter for ammo and health items
+//----------------------------------------------------------------------
+// world.worldtype			Model style				Skin
+// 0 = default (Medieval)	wood / flasks			1
+// 1 = runic / metal		wood / flasks			1
+// 2 = base					green / square packs	0
+//
+// skin_override			Model style				Skin
+// 0 = default				-						-
+// 1 = base					green / square packs	0
+// 2 = Medieval				wood / flasks			1
+//----------------------------------------------------------------------
+float(entity targ) item_skintype =
+{
+	// Go through medieval exceptions based on table above
+	if (world.worldtype == 0 && !targ.skin_override) return SKIN_MEDIEVAL;
+	else if (world.worldtype == 1 && !targ.skin_override) return SKIN_MEDIEVAL;
+	else if (targ.skin_override == 2) return SKIN_MEDIEVAL;
+	else return SKIN_BASE;
 };
 
 //----------------------------------------------------------------------
@@ -118,34 +155,43 @@ void() item_reset =
 };
 
 //----------------------------------------------------------------------
+void() item_debugcustomdl =
+{
+	if (self.mdl != "") {
+		dprint("\b[ITEMS]\b "); dprint(self.classname);
+		dprint(" with Custom mdl ("); dprint(self.mdl);
+		dprint(")\n");
+		spawn_marker(self.origin+'0 0 32', SPNMARK_GREEN);
+	}
+};
+
+//----------------------------------------------------------------------
 void() item_finished =
 {
 	// Check for coop respawn options
+	// This system can easily be abused by switching coop on/off
+	// But its better the respawns are added, rather than not
 	if (coop > 0) {
 		if (self.classgroup == CG_WEAPON) {
-			if (coop_weapons == TRUE)
-				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
-			else if (coop_weapons == FALSE && self.respawn_time > 0) {
-				self.respawn_time = RESPAWN_COOP;
+			// This is just crazy back to front logic!
+			// The id default is respawning weapons for coop
+			// Which means coop_weapons is FALSE when TRUE!!!
+			if (coop_weapons == FALSE && self.respawn_time > 0) {
+				// make sure weapon respawn timer is lower for coop
+				if (self.respawn_time > RESPAWN_COOP) self.respawn_time = RESPAWN_COOP;
 				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
 			}
 		}
 		else if (self.classgroup == CG_HEALTH) {
-			if (coop_health == FALSE)
-				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
-			else if (coop_health == TRUE && self.respawn_time > 0)
+			if (coop_health == TRUE && self.respawn_time > 0)
 				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
 		}
 		else if (self.classgroup == CG_AMMOITEM) {
-			if (coop_ammoboxes == FALSE)
-				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
-			else if (coop_ammoboxes == TRUE && self.respawn_time > 0)
+			if (coop_ammoboxes == TRUE && self.respawn_time > 0)
 				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
 		}
 		else if (self.classgroup == CG_ARTIFACT) {
-			if (coop_powerups == FALSE)
-				self.spawnflags = self.spawnflags - (self.spawnflags & ITEM_RESPAWN);
-			else if (coop_powerups == TRUE && self.respawn_time > 0)
+			if (coop_powerups == TRUE && self.respawn_time > 0)
 				self.spawnflags = self.spawnflags | ITEM_RESPAWN;
 		}
 	}
@@ -294,7 +340,7 @@ void() item_touch =
 	
 	if ( !(other.flags & FL_CLIENT) ) return;
 	if ( other.health < 1 ) return;
-	if ( other.flags & FL_NOTARGET ) return;
+	if ( other.flags & FL_NOTARGET && map_notargetblock == 0) return;
 	if (self.attack_finished > time) return;
 	
 	self.touch2();	// defined by item function
@@ -320,9 +366,9 @@ void() item_restore =
 			// Match angle and stored frame setup from ammo box
 			self.attachment.angles = self.angles;
 			
-			// lid frame options 0=random, 1-7=exact
+			// lid frame options -1/0=random, 1-7=exact
 			// Always generate a new lid position for respawning items
-			if (self.frame_box == 0) self.attachment.frame = rint(1 + random()*6);
+			if (self.frame_box <= 0) self.attachment.frame = rint(1 + random()*6);
 			else if (self.frame_box > 7) self.frame_box = 1;
 			if (self.frame_box > 0) self.attachment.frame = self.frame_box;
 			
@@ -354,16 +400,6 @@ void() item_delay =
 	if (self.touchedvoid) {entity_hide(self); return;}
 	if (self.estate == ESTATE_DISABLE) return;
 	
-	//----------------------------------------------------------------------
-	// Check for Axe / Shotgun / LG upgrade monster spawn exceptions?
-	if (self.upgrade_axe || self.upgrade_ssg || self.upgrade_lg) {
-		// Has ANY player (server test not individual) 
-		// picked up the relevant upgrade weapons?
-		if (self.upgrade_axe && !query_configflag(SVR_UPDAXE) ) return;
-		if (self.upgrade_ssg && !query_configflag(SVR_UPDSSG) ) return;
-		if (self.upgrade_lg && !query_configflag(SVR_UPDLG) ) return;
-	}
-
 	// Reset use function and any touch/skin triggers
 	self.estate_use = item_use;
 	self.touch = item_touch;
@@ -377,26 +413,49 @@ void() item_delay =
 	setorigin(self, self.oldorigin);
 	self.velocity = '0 0 0';
 	
-	// Finalize item location (check drop to floor)
+	// Check if item is floating? = does not interact with world
 	if(self.spawnflags & ITEM_FLOATING) {
 		// Cannot check the floor of an item if its floating!?!
 		if (self.item_flrcheck > 0) self.item_flrcheck = 0;
 	}
 	else {
+		// Finalize item location (check drop to floor)
+		// Need this movetype for items to move with bmodels
 		self.movetype = MOVETYPE_TOSS;	
 		self.velocity = '0 0 0';
 		self.origin_z = self.origin_z + 6;
-		// ID originally use a droptofloor test for space check
+		// ID originally used a droptofloor test for space check
 		// Tried a pointcontents check but it can allows things
 		// to fall through the floor and just keep going
-//		if (pointcontents(self.origin) == CONTENT_SOLID) {
+		//if (pointcontents(self.origin) == CONTENT_SOLID) {
 		if (!droptofloor()) {
 			dprint ("\n\b[Item]\b "); dprint (self.classname);
 			dprint (" stuck at ("); dprint (vtos(self.origin)); dprint (")\n");
 			spawn_marker(self.origin, SPNMARK_YELLOW);
-			remove(self);
-			return;
+			// The item is stuck, might still be useful to the player
+			// Originally the item was removed which is not super useful
+			// The mapper should see the console warning and yellow marker
+			// Changed to check for origin in solid instead
+			if (pointcontents(self.origin) == CONTENT_SOLID) {
+				remove(self); return;
+			}
 		} 
+	}
+
+	// Toss velocity is designed for breakable objects to spawn items
+	// Will add forward/up velocity to an item so it does not get stuck
+	// Has to happen after the droptofloor otherwise position is wrong
+	if (self.item_tossvel > 0) {
+		// Make sure item can fly/move
+		self.movetype = MOVETYPE_TOSS;	
+		self.velocity = '0 0 0';
+		// Must remove onground flag otherwise velocity does nothing
+		self.flags = self.flags - (self.flags & FL_ONGROUND);
+		// Push the item in the angle direction
+		makevectors(self.angles);
+		self.velocity = v_forward * self.item_tossvel;
+		// Push the item upward to make it travel
+		self.velocity_z = self.velocity_z + self.item_tossvel;
 	}
 
 	// If check floor under item enabled, workout distance check
@@ -475,8 +534,10 @@ void() item_off =
 //----------------------------------------------------------------------
 void() item_estate_setup =
 {
+	// check for map hacks (redirects to item_delay)
+	if (self.use == SUB_regen) self.use = SUB_regen;
 	// Setup Entity State functionality
-	if (self.targetname != "") self.use = entity_state_use;
+	else if (self.targetname != "") self.use = entity_state_use;
 	self.estate_on = item_on;
 	self.estate_off = item_off;
 	self.estate_use = item_delay;
@@ -499,23 +560,6 @@ void() item_start =
 	// This is especially obvious for delay spawned items
 	self.effects = 0;
 	
-	// Check for spawning conditions (nightmare, coop)
-	if (check_nightmare() == TRUE) return;
-	if (check_coop() == TRUE) return;
-	
-	// Cannot have multiple upgrade restrictions on items
-	remove_duplicate_upgrades();
-	
-	// Check for Axe / Shotgun item exceptions?
-	if (self.upgrade_axe || self.upgrade_ssg) {
-		if ( !(self.spawnflags & ENT_STARTOFF) ) {
-			dprint("\b[ITEM]\b need spawn delay for axe/shotgun\n");
-			spawn_marker(self.origin, SPNMARK_YELLOW);
-			remove(self);
-			return;
-		}
-	}
-
 	// If respawn timer negative then wait for a trigger
 	if (self.respawn_time < 0) self.respawn_trig = TRUE;
 	// Respawn times < 1 break sound and particle spawners
@@ -529,63 +573,65 @@ void() item_start =
 	// has left a rogue sounds key on some item somewhere!
 	if (self.sounds == 4) self.noise = SOUND_EMPTY;
 
-	// Setup Entity State functionality
-	item_estate_setup();
-
-	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+	// Check if item is part of a progression spawner list
+	// Hide all progression items, only required for caching
+	if (self.progspawnlist) item_proglist_setup(self);
 	else {
-		// delay drop to floor to make sure all doors have been spawned
-		// spread think times so they don't all happen at same time
-		self.nextthink = time + 0.1 + random()*0.5;
-		self.think = self.estate_use;
+		// Check for spawning conditions (nightmare, coop)
+		if (check_nightmare() == TRUE) return;
+		if (check_coop() == TRUE) return;
+	
+		// Setup Entity State functionality
+		item_estate_setup();
+
+		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+		else {
+			// delay drop to floor to make sure all doors have been spawned
+			// spread think times so they don't all happen at same time
+			self.nextthink = time + 0.1 + random()*0.5;
+			self.think = self.estate_use;
+		}
 	}
 };
 
-/*======================================================================
- HEALTH FLASK/BOX
- 
- targ - entity to receive healing
- t_healamount - the quanity to heal entity with
- ignore - whether to ignore max health amount
- returns FALSE if cannot heal entity by healamount
- returns TRUE if healamount applied
-======================================================================*/
+//======================================================================
+// HEALTH FLASK/BOX
+//======================================================================
+float(entity hpplayer, entity hpitem) health_pickupcondition =
+{
+	// Simple test first, player dead?
+	if (hpplayer.health <= 0) return TRUE;
+	
+	// Mega Health pickups are awkward because the player can keep
+	// picking them up, unless they are at max HP already!
+	if (hpitem.classtype == CT_HEALMEGA) {
+		if (hpplayer.health >= hpplayer.mega_health) return TRUE;
+	}
+	// Regular Health pack can be wasteful with amount
+	else if (hpplayer.health >= hpplayer.max_health) return TRUE;
+	// Health Pack good to use!
+	return FALSE;
+};
+
+//----------------------------------------------------------------------
+// targ - entity to receive healing
+// t_healamount - the quanity to heal entity with
+// ignore - whether to ignore max health amount
+// returns FALSE if cannot heal entity by healamount
+// returns TRUE if healamount applied
+//
 float (entity targ, float t_healamount, float ignore) T_Heal =
 {
 	if (targ.health <= 0) return FALSE;
 	if ((!ignore) && (targ.health >= other.max_health)) return FALSE;
 	t_healamount = ceil(t_healamount);
-
+	
 	targ.health = targ.health + t_healamount;
 	if ((!ignore) && (targ.health >= other.max_health))
 		targ.health = other.max_health;
 		
-	if (targ.health > HEAL_MEGAMAX) targ.health = HEAL_MEGAMAX;
-	
-	// Healing the player negates some debuffs
-	ResetDebuffBurning(targ);
-	ResetDebuffPoisoned(targ);
+	if (targ.health > targ.mega_health) targ.health = targ.mega_health;
 	return TRUE;
-};
-
-//----------------------------------------------------------------------
-void() item_megahealth_rot =
-{
-	// Check for maximum health limit
-	if (self.owner.health > self.owner.max_health) {
-		self.owner.health = self.owner.health - 1;
-		self.nextthink = time + 1;
-	}
-	else {
-		// it is possible for a player to die and respawn between rots
-		// Double check player has megahealth before removing it
-		if (self.owner.items & IT_SUPERHEALTH)
-			self.owner.items = self.owner.items - IT_SUPERHEALTH;
-		
-		// Check to see if item can respawn
-		self.alpha = 0.1;
-		check_item_respawn();
-	}
 };
 
 //----------------------------------------------------------------------
@@ -595,13 +641,20 @@ void() health_touch =
 
 	// Megahealth?  Ignore max_health...
 	if (self.classtype == CT_HEALMEGA) {
-		if (other.health >= HEAL_MEGAMAX) return;
+		if (other.health >= other.mega_health) return;
 		if (!T_Heal(other, self.healamount, 1)) return;
 	}
 	else { 
 		if (!T_Heal(other, self.healamount, 0)) return;
 	}
-	
+		
+	// Check for randomizer megahealth
+	health_touchrandomizer();
+
+	// Healing the player negates some debuffs
+	ResetDebuffBurning(other);
+	ResetDebuffPoisoned(other);
+
 	sprint(other, "You receive ");
 	s = ftos(self.healamount);
 	sprint(other, s);
@@ -610,23 +663,22 @@ void() health_touch =
 		sound(other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
-	item_finished();
-
-	// Megahealth = rot down the player's super health
-	// Need to wait for megahealth to finish before respawn
-	if (self.classtype == CT_HEALMEGA) {
-		other.items = other.items | IT_SUPERHEALTH;
-		self.nextthink = time + 5;
-		self.think = item_megahealth_rot;
-		self.owner = other;
-	}
-	else check_item_respawn();
-	
 	activator = other;
 	SUB_UseTargets();
+
+	// Megahealth = rot down the player's super health
+	// Moved functionality to debuff (rotting) system
+	// Rotting_Qty is set to zero (default) on item spawn
+	if (self.classtype == CT_HEALMEGA) RotDeBuff(other, self.rotting_qty);
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+
+	item_finished();
+	check_item_respawn();
 };	
 
-/*======================================================================
+//----------------------------------------------------------------------
 /*QUAKED item_health (0.3 0.3 1) (-16 -16 0) (16 16 32) ROTTEN MEGA x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/health_25.mdl"); }
 15, 25 or 100 Health
@@ -634,9 +686,7 @@ void() health_touch =
 targetname    : toggle state (use trigger ent for exact state)
 angle         : = -1 Random rotation everytime spawned (default)
 skin_override : Override world type 1=Base Green, 2=Medieval Wood
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+healamount    : Override heal quantity for pickup (def=15/25/100)
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -650,66 +700,68 @@ STARTOFF : Starts off and waits for trigger
 NOEFFECTS : No particle or effects active
 -------- NOTES --------
 Health box gives 15, 25 or 100 points depending on spawnflags.
-
-======================================================================*/
+*/
+//----------------------------------------------------------------------
 void() item_health =
 {
+	// Check for any random monster setups
+	if (health_checkrandomizer() == TRUE) return;
+	
 	if (self.spawnflags & H_ROTTEN) {
 		// worldtype 0 = medieval, 1 = metal, 2 = base
-		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 1) {
+		if (item_skintype(self) == SKIN_MEDIEVAL) {
 			// New Medieval style red flask
-			self.mdl = "progs/health_15.mdl";
+			self.mdl = MODEL_HEAL15;
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
 		}
 		else {
 			// Original ID pickup model
-			self.mdl = "progs/health_15b.mdl";
+			self.mdl = MODEL_HEAL15B;
 			self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 		}
 		self.noise = SOUND_HEAL15;
-		self.healamount = HEAL_ROT;
+		if (self.healamount < 1) self.healamount = HEAL_ROT;
 		self.classtype = CT_HEALROT;
 		self.respawn_effect = TRUE;
 		self.respawn_ofs = '0 0 16';
 	}
 	else if (self.spawnflags & H_MEGA) {
-		// worldtype 0 = medieval, 1 = metal, 2 = base
-		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 1) {
-			// New Medieval style red flask
-			self.mdl = "progs/health_100.mdl";
+		if (item_skintype(self) == SKIN_MEDIEVAL) {
+		// New Medieval style red flask
+			self.mdl = MODEL_HEAL100;
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
 		}
 		else {
 			// Original ID pickup model
-			self.mdl = "progs/health_100b.mdl";
+			self.mdl = MODEL_HEAL100B;
 			self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 			self.item_skinanim = TRUE;
 		}
 		self.noise = SOUND_HEAL100;
-		self.healamount = HEAL_MEGA;
+		if (self.healamount < 1) self.healamount = HEAL_MEGA;
 		self.classtype = CT_HEALMEGA;
 		self.part_active = PARTICLE_STYLE_MEGAH;
 		self.respawn_effect = TRUE;
 		self.respawn_ofs = '0 0 28';
+		// Use default rotting value
+		self.rotting_qty = 0;
 	}
 	else {
-		// worldtype 0 = medieval, 1 = metal, 2 = base
-		if ((world.worldtype < 2 && !self.skin_override) || self.skin_override == 1)
-		{
+		if (item_skintype(self) == SKIN_MEDIEVAL) {
 			// New Medieval style red flask
-			self.mdl = "progs/health_25.mdl";
+			self.mdl = MODEL_HEAL25;
 			self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
 			self.respawn_ofs = '0 0 24';
 		}
 		else {
 			// Original ID pickup model
-			self.mdl = "progs/health_25b.mdl";
+			self.mdl = MODEL_HEAL25B;
 			self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 			self.respawn_ofs = '0 0 16';
 			self.item_skinanim = TRUE;
 		}
 		self.noise = SOUND_HEAL25;
-		self.healamount = HEAL_NORM;
+		if (self.healamount < 1) self.healamount = HEAL_NORM;
 		self.classtype = CT_HEALNORM;
 		self.respawn_effect = TRUE;
 	}
@@ -726,6 +778,11 @@ void() item_health =
 		setorigin(self, self.oldorigin);
 	}
 
+	// An old worldspawn key (not used anymore)
+	// This is backward compatibility with this key
+	// Will force all items to have an angle
+	if (world.no_item_rotate && self.angles_y == 0) self.angles_y = 360;	
+	
 	// Setting the angle key in the editor to UP/DOWN/0 = random rotation	
 	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
@@ -740,27 +797,98 @@ void() item_health =
 	item_start ();
 };
 
+//----------------------------------------------------------------------
+/*QUAKED item_healthvial (0.3 0.3 1) (-8 -8 0) (8 8 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/health_5.mdl"); }
+Health item giving 2-5 points
+-------- KEYS --------
+targetname    : toggle state (use trigger ent for exact state)
+angle         : = -1 Random rotation everytime spawned (default)
+healamount    : Override heal quantity for pickup (def=2+random*3)
+message       : centerprint message when item is picked up
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig : = 1 Wait for trigger before respawning
+-------- SPAWNFLAGS --------
+RESPAWN   : Can respawn after being picked up
+FLOAT     : No drop to floor test
+STARTOFF  : Starts off and waits for trigger
+NOEFFECTS : No particle or effects active
+-------- NOTES --------
+Health item giving 5 points
+*/
+//----------------------------------------------------------------------
+void() item_healthvial =
+{
+	self.classtype = CT_HEALVIAL;
+	self.respawn_effect = TRUE;
+	self.respawn_ofs = '0 0 20';
+
+	self.mdl = MODEL_HEAL5;
+	//if (self.healamount < 1) self.healamount = HEAL_GEM;
+	if (self.healamount < 1) self.healamount = rint(2 + (random() * 3));
+	self.noise = SOUND_HEAL05;
+
+	precache_model(self.mdl);
+	precache_sound(self.noise);
+	self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_CENTER;
+
+	self.touch2 = health_touch;
+	self.classgroup = CG_HEALTH;
+	self.bbmins = '-8 -8 0';
+	self.bbmaxs = '8 8 32';
+	if (self.respawn_time == 0) self.respawn_time = RESPAWN_HEALTH;
+
+	// Check for coop errors
+	item_coopcheck();
+	item_start ();
+};
+
+// Used to be called a gem, renamed to vial
+void() item_healthgem = { item_healthvial(); }
+
 //======================================================================
 // armor_touch
 //======================================================================
+float(entity armplayer, entity armitem) armor_pickupcondition =
+{
+	local float arm1, arm2;
+	
+	arm1 = armplayer.armortype * armplayer.armorvalue;
+	arm2 = armitem.armortype * armitem.armorvalue;
+	
+	if (arm1 >= arm2) return TRUE;
+	else return FALSE;
+};
+
+//----------------------------------------------------------------------
 void() armor_touch =
 {
-	if (other.armortype*other.armorvalue >= self.armortype*self.armorvalue) return;
-		
+	// Cannot pickup armour if wearing something better!
+	if (armor_pickupcondition(other, self)) return;
+
+	// Check for randomizer pickup conditions
+	armour_touchrandomizer();
+	
 	other.armortype = self.armortype;
 	other.armorvalue = self.armorvalue;
 	other.items = other.items - (other.items & (IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3)) + self.items;
 
-	sprint(other, "You got armor\n");
+	sprint (other, "You got the ");
+	sprint (other, self.netname);
+	sprint (other, "\n");
 	if (self.noise != SOUND_EMPTY) 
 		sound(other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
-	item_finished();
-	check_item_respawn();
-
 	activator = other;
 	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+	
+	item_finished();
+	check_item_respawn();
 };
 
 //----------------------------------------------------------------------
@@ -779,16 +907,15 @@ void() item_armor_setup =
 	item_start ();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_armor1 (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/armour.mdl"); }
 Green Armour with 100 points of protection
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+targetname    : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
+armortype     : Override Percentage armor reduction (GRN=0.3,YEL=0.6,RED=0.8)
+armorvalue    : Override Quantity armor to pickup (GRN=100,YEL=150,RED=200)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -803,29 +930,35 @@ Green Armour with 100 points of protection
 ======================================================================*/
 void() item_armor1 =
 {
-	self.mdl = "progs/armour.mdl";
+	// Check for any random setups
+	if (armour_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
+	// Setup default model
+	if (self.mdl == "") { self.mdl = "progs/armour.mdl"; self.skin = 0; }
 	precache_model (self.mdl);
-	self.skin = 0;
+
 	self.classtype = CT_ARMOR1;
 	self.items = IT_ARMOR1;
-	self.armortype = ARMOR_GRN_TYPE;
-	self.armorvalue = ARMOR_GRN_VALUE;
+	if (self.netname == "") self.netname = "Green Armour";
+	if (self.armortype <= 0) self.armortype = ARMOR_GRN_TYPE;
+	if (self.armorvalue <= 0) self.armorvalue = ARMOR_GRN_VALUE;
 	self.respawn_effect = TRUE;
 	self.respawn_style = PARTICLE_BURST_GREEN + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	item_armor_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_armor2 (0 0.5 0.8) (-16 -16 0) (16 16 56) x BLUESKIN x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/armour.mdl"); }
 Yellow Armour with 150 points of protection
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+targetname    : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
+armortype     : Override Percentage armor reduction (GRN=0.3,YEL=0.6,RED=0.8)
+armorvalue    : Override Quantity armor to pickup (GRN=100,YEL=150,RED=200)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -841,21 +974,30 @@ Yellow Armour with 150 points of protection
 ======================================================================*/
 void() item_armor2 =
 {
-	self.mdl = "progs/armour.mdl";
+	// Check for any random setups
+	if (armour_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
+	// Setup default model
+	if (self.mdl == "") self.mdl = "progs/armour.mdl";
 	precache_model (self.mdl);
+	
 	self.classtype = CT_ARMOR2;
 	self.items = IT_ARMOR2;
-	self.armortype = ARMOR_YEL_TYPE;
-	self.armorvalue = ARMOR_YEL_VALUE;
+	if (self.armortype <= 0) self.armortype = ARMOR_YEL_TYPE;
+	if (self.armorvalue <= 0) self.armorvalue = ARMOR_YEL_VALUE;
 	self.respawn_effect = TRUE;
 	self.respawn_ofs = '0 0 24';
 
 	// Setup alternative colour
 	if (self.spawnflags & ARMOR_BLUE) {
+		if (self.netname == "") self.netname = "Blue Armour";
 		self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_RING;
 		self.skin = 3;
 	}
 	else {
+		if (self.netname == "") self.netname = "Yellow Armour";
 		self.respawn_style = PARTICLE_BURST_YELLOW + PARTICLE_BURST_RING;
 		self.skin = 1;
 	}
@@ -863,16 +1005,15 @@ void() item_armor2 =
 	item_armor_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_armorInv (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/armour.mdl"); }
 Red Armour with 200 points of protection
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+armortype     : Override Percentage armor reduction (GRN=0.3,YEL=0.6,RED=0.8)
+armorvalue    : Override Quantity armor to pickup (GRN=100,YEL=150,RED=200)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -887,22 +1028,29 @@ Red Armour with 200 points of protection
 ======================================================================*/
 void() item_armorInv =
 {
-	self.mdl = "progs/armour.mdl";
+	// Check for any random setups
+	if (armour_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
+	// Setup default model
+	if (self.mdl == "") { self.mdl = "progs/armour.mdl"; self.skin = 2; }
 	precache_model (self.mdl);
-	self.skin = 2;
+
 	self.classtype = CT_ARMORINV;
 	self.items = IT_ARMOR3;
-	self.armortype = ARMOR_RED_TYPE;
-	self.armorvalue = ARMOR_RED_VALUE;
+	if (self.netname == "") self.netname = "Red Armour";
+	if (self.armortype <= 0) self.armortype = ARMOR_RED_TYPE;
+	if (self.armorvalue <= 0) self.armorvalue = ARMOR_RED_VALUE;
 	self.respawn_effect = TRUE;
 	self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	item_armor_setup();
 };
 
-/*======================================================================
- Deathmatch Weapon Rules
-======================================================================*/
+//======================================================================
+// Deathmatch Weapon Rules
+//======================================================================
 float(float w) DM_RankForWeapon =
 {
 	if (w == IT_LIGHTNING) return 1;
@@ -937,11 +1085,21 @@ void(entity targ) bound_other_ammo =
 //----------------------------------------------------------------------
 void() weapon_touch =
 {
-	local float pickupweapon, pickupammo, moditem;
+	local float pickupweapon, pickupmodweapon, pickupammo, moditem;
+
+	// Reset all weapon pickup items
+	pickupweapon = pickupmodweapon = IT_NOWEAPON;
+	moditem = FALSE;
 
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_UPGRADE_AXE) {
-		pickupweapon = IT_UPGRADE_AXE;
+		// Cannot have Shadow Axe AND Grapple Hook
+		if (other.moditems & IT_UPGRADE_GHOOK) {
+			sprint (other, "Removing Grapple Hook!\n");
+			other.moditems = other.moditems - (other.moditems & IT_UPGRADE_GHOOK);
+		}
+		pickupweapon = IT_AXE;
+		pickupmodweapon = IT_UPGRADE_AXE;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.moditems & pickupweapon) return;
 		// Update serverflag and highlight as MOD weapon
@@ -949,29 +1107,56 @@ void() weapon_touch =
 		moditem = TRUE;
 	}
 	//----------------------------------------------------------------------
+	else if (self.classtype == CT_UPGRADE_GHOOK) {
+		// Cannot have Shadow Axe AND Grapple Hook
+		if (other.moditems & IT_UPGRADE_AXE) {
+			sprint (other, "Removing Shadow Axe!\n");
+			other.moditems = other.moditems - (other.moditems & IT_UPGRADE_AXE);
+			update_configflag(SVR_UPDAXE, FALSE);
+		}
+		pickupweapon = IT_AXE;
+		pickupmodweapon = IT_UPGRADE_GHOOK;
+		// Deathmatch players cannot constantly pickup weapons
+		if (deathmatch > 0 && other.moditems & pickupweapon) return;
+		moditem = TRUE;
+		// Check for fall damage override
+		if (self.fall_dmg != 0) {
+			if (self.fall_dmg < 0) map_falldmg= 0;
+			else map_falldmg = self.fall_dmg;
+		}
+	}
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_AXE) {
+		pickupweapon = IT_AXE;
+		pickupmodweapon = IT_NOWEAPON;
+		pickupammo = 0;
+	}
+	//----------------------------------------------------------------------
 	else if (self.classtype == CT_SHOTGUN) {
 		pickupweapon = IT_SHOTGUN;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_shells > AMMO_MAXSHELLS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_SHELLS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_SHELLS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_shells = other.ammo_shells + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_UPGRADE_SSG) {
-		pickupweapon = IT_UPGRADE_SSG;
+		pickupweapon = IT_SUPER_SHOTGUN;
+		pickupmodweapon = IT_UPGRADE_SSG;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.moditems & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.moditems & pickupweapon) {
 			if (other.ammo_shells > AMMO_MAXSHELLS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_SHELLS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_SHELLS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_shells = other.ammo_shells + pickupammo;
 		// Update serverflag and highlight as MOD weapon
 		update_configflag(SVR_UPDSSG, TRUE);
@@ -980,79 +1165,85 @@ void() weapon_touch =
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_SUPER_SHOTGUN) {
 		pickupweapon = IT_SUPER_SHOTGUN;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_shells > AMMO_MAXSHELLS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_SHELLS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_SHELLS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_shells = other.ammo_shells + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_NAILGUN) {
 		pickupweapon = IT_NAILGUN;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_nails > AMMO_MAXNAILS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_NAILS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_NAILS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_nails = other.ammo_nails + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_SUPER_NAILGUN) {
 		pickupweapon = IT_SUPER_NAILGUN;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_nails > AMMO_MAXNAILS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_NAILS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_NAILS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_nails = other.ammo_nails + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_GRENADE_LAUNCHER) {
 		pickupweapon = IT_GRENADE_LAUNCHER;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_rockets > AMMO_MAXROCKETS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_ROCKETS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_ROCKETS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_rockets = other.ammo_rockets + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_ROCKET_LAUNCHER) {
 		pickupweapon = IT_ROCKET_LAUNCHER;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_rockets > AMMO_MAXROCKETS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_ROCKETS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_ROCKETS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_rockets = other.ammo_rockets + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_UPGRADE_LG) {
-		pickupweapon = IT_UPGRADE_LG;
+		pickupweapon = IT_LIGHTNING;
+		pickupmodweapon = IT_UPGRADE_LG;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.moditems & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.moditems & pickupweapon) {
 			if (other.ammo_cells > AMMO_MAXCELLS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_CELLS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_CELLS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_cells = other.ammo_cells + pickupammo;
 		// Update serverflag and highlight as MOD weapon
 		update_configflag(SVR_UPDLG, TRUE);
@@ -1061,21 +1252,27 @@ void() weapon_touch =
 	//----------------------------------------------------------------------
 	else if (self.classtype == CT_LIGHTNING) {
 		pickupweapon = IT_LIGHTNING;
+		pickupmodweapon = IT_NOWEAPON;
 		// Deathmatch players cannot constantly pickup weapons
 		if (deathmatch > 0 && other.items & pickupweapon) return;
 		// Coop players can use weapon spawns as ammo dispensers
 		if (coop > 0 && other.items & pickupweapon) {
 			if (other.ammo_cells > AMMO_MAXCELLS*0.5) pickupammo = 0;
-			else pickupammo = AMMO_CELLS_WPN;
+			else pickupammo = self.aflag;
 		}
-		else pickupammo = AMMO_CELLS_WPN;
+		else pickupammo = self.aflag;
 		other.ammo_cells = other.ammo_cells + pickupammo;
 	}
 	//----------------------------------------------------------------------
 	else return;
+	
+	// Keep track of ammo used
+	self.aused = self.aused + self.aflag;
 
 	if (self.classtype == CT_UPGRADE_AXE && other.moditems & IT_UPGRADE_AXE)
 		sprint (other, "You got another axe to grind\n");
+	else if (self.classtype == CT_UPGRADE_GHOOK && other.moditems & IT_UPGRADE_GHOOK)
+		sprint (other, "You got a brand new left hook\n");
 	else if (self.classtype == CT_SUPER_SHOTGUN && other.moditems & IT_UPGRADE_SSG)
 		sprint (other, "You got a handful of Shells\n");
 	else if (self.classtype == CT_UPGRADE_SSG && other.moditems & IT_UPGRADE_SSG)
@@ -1099,8 +1296,9 @@ void() weapon_touch =
 	
 	// Stop the player switching to weapons already got
 	if (deathmatch > 0) {
-		// Check for new shadow axe and SG and skip weapon switch
-		if (moditem && pickupweapon == IT_UPGRADE_AXE && other.moditems & pickupweapon) pickupweapon = FALSE;
+		// Check for new shadow axe, grapplehook and SG and skip weapon switch
+		if (moditem && pickupmodweapon == IT_UPGRADE_AXE && other.moditems & pickupweapon) pickupweapon = FALSE;
+		else if (moditem && pickupmodweapon == IT_UPGRADE_GHOOK && other.moditems & pickupweapon) pickupweapon = FALSE;
 		else if (pickupweapon == IT_SHOTGUN && other.items & pickupweapon) pickupweapon = FALSE;
 		// Stop switching to a lower tier weapon (DM Rules)
 		// if (DM_RankForWeapon(other.weapon) < DM_RankForWeapon(new)) new = FALSE;
@@ -1110,7 +1308,7 @@ void() weapon_touch =
 	if (pickupweapon != FALSE) {
 		// change to the weapon and add to inventory
 		other.items = other.items | pickupweapon;
-		if (moditem) other.moditems = other.moditems | pickupweapon;
+		if (moditem) other.moditems = other.moditems | pickupmodweapon;
 		
 		// Check for best weapon (DM only) and switch to it!
 		if (deathmatch) DM_Weapon (other.weapon, pickupweapon);
@@ -1118,19 +1316,24 @@ void() weapon_touch =
 		W_SetCurrentAmmo(other);
 	}
 
+	// Fire any targets and display messages
+	activator = other;
+	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+	
 	// hide item and check for respawn
 	item_finished();
 	check_item_respawn();
 	
-	activator = other;
-	SUB_UseTargets();
 	// Triggers events work once in co-op
 	if (coop > 0) { self.target = ""; self.target2 = ""; }
 };
 
-/*======================================================================
-	WEAPONS
-======================================================================*/
+//======================================================================
+//	WEAPONS
+//======================================================================
 void() weapon_start =
 {
 	self.classgroup = CG_WEAPON;
@@ -1138,12 +1341,13 @@ void() weapon_start =
 	self.bbmins = VEC_WPNS_MIN;
 	self.bbmaxs = VEC_WPNS_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_WEAPON;
-	self.noise = "weapons/pkup.wav";
+	self.noise = WEAPON_PICKUP;
+	self.aused = 0;
 	
 	item_start ();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_upgrade_axe (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_shadaxe.mdl"); }
 Shadow Axe, extra dmg and gib zombies
@@ -1164,23 +1368,64 @@ Shadow Axe, extra dmg and gib zombies
 ======================================================================*/
 void() weapon_upgrade_axe =
 {
-	self.mdl = MODEL_GWEAP_UPAXE;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") { self.mdl = MODEL_GWEAP_UPAXE; self.skin = 4; }
 	precache_model (self.mdl);
 	self.weapon = IT_UPGRADE_AXE;
-	self.skin = 4;
 	self.classtype = CT_UPGRADE_AXE;
-	self.netname = "Shadow Axe";
+	if (self.netname == "") self.netname = "Shadow Axe";
 	if (self.upgrade_axe != 0) self.upgrade_axe = FALSE;
+	
+	self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
+/*QUAKED weapon_grapplehook (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/g_ghook.mdl"); }
+Grapple Hook, damage and flying!
+-------- KEYS --------
+targetname   : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig : = 1 Wait for trigger before respawning
+-------- SPAWNFLAGS --------
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS : No particle or effects active
+-------- NOTES --------
+Grapple Hook, damage and flying!
+
+======================================================================*/
+void() weapon_upgrade_ghook =
+{
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_GHOOK;
+	precache_model (self.mdl);
+	self.weapon = IT_UPGRADE_GHOOK;
+	self.classtype = CT_UPGRADE_GHOOK;
+	if (self.netname == "") self.netname = "Grapple Hook";
+	if (self.upgrade_ghook != 0) self.upgrade_ghook = FALSE;
+	// Default is not fall damage with grapple
+	if (self.fall_dmg == 0) self.fall_dmg = -1;
+	
+	self.aflag = 0;
+	weapon_start();
+};
+
+//======================================================================
 /*QUAKED weapon_upgrade_ssg (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_shot3.mdl"); }
 The Widowmaker Shotgun, extra dmg, triple shot
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=5)
+netname       : Override name of pickup (def=Widowmaker Shotgun)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1195,22 +1440,30 @@ The Widowmaker Shotgun, extra dmg, triple shot
 ======================================================================*/
 void() weapon_upgrade_ssg =
 {
-	self.mdl = MODEL_GWEAP_UPSSG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_UPSSG;
 	precache_model (self.mdl);
 	self.weapon = IT_UPGRADE_SSG;
 	self.classtype = CT_UPGRADE_SSG;
-	self.netname = "Widowmaker Shotgun";
+	if (self.netname == "") self.netname = "Widowmaker Shotgun";
 	if (self.upgrade_ssg != 0) self.upgrade_ssg = FALSE;
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_SHELLS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_upgrade_lg (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_plasma.mdl"); }
 The Plasma Gun, direct & splashdamage
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=15)
+netname       : Override name of pickup (def=Plasma Gun)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1225,25 +1478,65 @@ The Plasma Gun, direct & splashdamage
 ======================================================================*/
 void() weapon_upgrade_lg =
 {
-	self.mdl = MODEL_GWEAP_UPLG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_UPLG;
 	precache_model (self.mdl);
 	self.weapon = IT_UPGRADE_LG;
 	self.classtype = CT_UPGRADE_LG;
-	self.netname = "Plasma Gun";
+	if (self.netname == "") self.netname = "Plasma Gun";
 	if (self.upgrade_lg != 0) self.upgrade_lg = FALSE;
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_CELLS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
+/*QUAKED weapon_axe (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/g_axe.mdl"); }
+Quake Axe
+-------- KEYS --------
+targetname   : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=5)
+netname       : Override name of pickup (def=Sawn-off Shotgun)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig : = 1 Wait for trigger before respawning
+-------- SPAWNFLAGS --------
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS : No particle or effects active
+-------- NOTES --------
+Quake Axe
+
+======================================================================*/
+void() weapon_axe =
+{
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_AXE;
+	precache_model (self.mdl);
+	self.weapon = IT_AXE;
+	self.classtype = CT_AXE;
+	if (self.netname == "") self.netname = "Quake Axe";
+	
+	self.aflag = 0;
+	weapon_start();
+};
+
+//======================================================================
 /*QUAKED weapon_shotgun (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_shotgun.mdl"); }
 Single barrel Shotgun
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=5)
+netname       : Override name of pickup (def=Sawn-off Shotgun)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1258,24 +1551,29 @@ Single barrel Shotgun
 ======================================================================*/
 void() weapon_shotgun =
 {
-	self.mdl = MODEL_GWEAP_SG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_SG;
 	precache_model (self.mdl);
 	self.weapon = IT_SHOTGUN;
 	self.classtype = CT_SHOTGUN;
-	self.netname = "Sawn-off Shotgun";
+	if (self.netname == "") self.netname = "Sawn-off Shotgun";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_SHELLS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_supershotgun (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_shot.mdl"); }
 Super Shotgun
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=5)
+netname       : Override name of pickup (def=Double-barrelled Shotgun)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1290,29 +1588,42 @@ Super Shotgun
 ======================================================================*/
 void() weapon_supershotgun =
 {
+	// Switch out Super Shotgun for Widowmaker for last ID map
+	if (world.model == "maps/end.bsp") {
+		self.classname = "weapon_upgrade_ssg";
+		weapon_upgrade_ssg();
+		return;
+	}
+	
+	// Quake.rc feature to replace all SSG with WM instead
 	// Query console variable 'temp1' for model upgrade option.
 	// Cannot use global vars because they don't exist at this point
 	if (query_configflag(SVR_UPDSSG)) { weapon_upgrade_ssg(); return; }
 
-	self.mdl = MODEL_GWEAP_SSG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_SSG;
 	precache_model (self.mdl);
-	precache_model (MODEL_GWEAP_UPSSG);	// New Shotgun (pre-cache)
+	precache_model (MODEL_GWEAP_UPSSG);	// Widowmaker (pre-cache)
 	self.weapon = IT_SUPER_SHOTGUN;
 	self.classtype = CT_SUPER_SHOTGUN;
-	self.netname = "Double-barrelled Shotgun";
+	if (self.netname == "") self.netname = "Double-barrelled Shotgun";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_SHELLS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_nailgun (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_nail.mdl"); }
 Perforator (Nailgun)
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=30)
+netname       : Override name of pickup (def=Nailgun)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1327,24 +1638,29 @@ Perforator (Nailgun)
 ======================================================================*/
 void() weapon_nailgun =
 {
-	self.mdl = MODEL_GWEAP_NG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_NG;
 	precache_model (self.mdl);
 	self.weapon = IT_NAILGUN;
 	self.classtype = CT_NAILGUN;
-	self.netname = "Nailgun";
+	if (self.netname == "") self.netname = "Nailgun";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_NAILS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_supernailgun (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_nail2.mdl"); }
 Super Perforator (Super Nailgun)
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=30)
+netname       : Override name of pickup (def=Super Nailgun)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1359,24 +1675,29 @@ Super Perforator (Super Nailgun)
 ======================================================================*/
 void() weapon_supernailgun =
 {
-	self.mdl = MODEL_GWEAP_SNG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_SNG;
 	precache_model (self.mdl);
 	self.weapon = IT_SUPER_NAILGUN;
 	self.classtype = CT_SUPER_NAILGUN;
-	self.netname = "Super Nailgun";
+	if (self.netname == "") self.netname = "Super Nailgun";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_NAILS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_grenadelauncher (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_rock.mdl"); }
 Grenade Launcher
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=5)
+netname       : Override name of pickup (def=Grenade Launcher)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1391,24 +1712,29 @@ Grenade Launcher
 ======================================================================*/
 void() weapon_grenadelauncher =
 {
-	self.mdl = MODEL_GWEAP_GL;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_GL;
 	precache_model (self.mdl);
 	self.weapon = IT_GRENADE_LAUNCHER;
 	self.classtype = CT_GRENADE_LAUNCHER;
-	self.netname = "Grenade Launcher";
+	if (self.netname == "") self.netname = "Grenade Launcher";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_ROCKETS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_rocketlauncher (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_rock2.mdl"); }
 Rocket Launcher
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=5)
+netname       : Override name of pickup (def=Rocket Launcher)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1423,24 +1749,29 @@ Rocket Launcher
 ======================================================================*/
 void() weapon_rocketlauncher =
 {
-	self.mdl = MODEL_GWEAP_RL;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_RL;
 	precache_model (self.mdl);
 	self.weapon = IT_ROCKET_LAUNCHER;
 	self.classtype = CT_ROCKET_LAUNCHER;
-	self.netname = "Rocket Launcher";
+	if (self.netname == "") self.netname = "Rocket Launcher";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag == 0) self.aflag = AMMO_ROCKETS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED weapon_lightning (0 0.5 0.8) (-16 -16 0) (16 16 56) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/g_light.mdl"); }
 Thunderbolt Cannon
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+aflag         : Override ammo quantity for pickup (def=15)
+netname       : Override name of pickup (def=Thunderbolt)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig  : = 1 Wait for trigger before respawning
@@ -1455,45 +1786,76 @@ Thunderbolt Cannon
 ======================================================================*/
 void() weapon_lightning =
 {
+	// Switch out Lightning Gun for Plasma for last ID map
+	if (world.model == "maps/end.bsp") {
+		self.classname = "weapon_upgrade_lg";
+		weapon_upgrade_lg();
+		return;
+	}
+	
 	// Query console variable 'temp1' for model upgrade option.
 	// Cannot use global vars because they don't exist at this point
 	if (query_configflag(SVR_UPDLG)) { weapon_upgrade_lg(); return; }
 
-	self.mdl = MODEL_GWEAP_LG;
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = MODEL_GWEAP_LG;
 	precache_model (self.mdl);
 	self.weapon = IT_LIGHTNING;
 	self.classtype = CT_LIGHTNING;
-	self.netname = "Thunderbolt";
+	if (self.netname == "") self.netname = "Thunderbolt";
+	
+	// Allow for mapper override on weapon ammo start
+	if (self.aflag < 1) self.aflag = AMMO_CELLS_WPN;
+	else if (self.aflag < 0) self.aflag = 0;
 	weapon_start();
 };
 
-/*======================================================================
- AMMO
-======================================================================*/
+//======================================================================
+// AMMO
+//======================================================================
+float(entity ammoplayer, entity ammoitem) ammo_pickupcondition =
+{
+	// Check if the player can pickup anymore ammo
+	if (ammoitem.classtype == CT_AMMOSHELLS) {
+		if (ammoplayer.ammo_shells >= AMMO_MAXSHELLS) return TRUE;
+		else return FALSE;
+	}
+	else if (ammoitem.classtype == CT_AMMONAILS) {
+		if (ammoplayer.ammo_nails >= AMMO_MAXNAILS) return TRUE;
+		else return FALSE;
+	}
+	else if (ammoitem.classtype == CT_AMMOROCKETS) {
+		if (ammoplayer.ammo_rockets >= AMMO_MAXROCKETS) return TRUE;
+		else return FALSE;
+	}
+	else if (ammoitem.classtype == CT_AMMOCELLS) {
+		if (ammoplayer.ammo_cells >= AMMO_MAXCELLS) return TRUE;
+		else return FALSE;
+	}
+	else return FALSE;
+};
+
+//----------------------------------------------------------------------
 void() ammo_touch =
 {
 	local float best;
 
+	// Check ammo limits first
+	if (ammo_pickupcondition(other,self)) return;
+	
 	//----------------------------------------------------------------------
-	if (self.classtype == CT_AMMOSHELLS) {
-		if (other.ammo_shells >= AMMO_MAXSHELLS) return;
+	if (self.classtype == CT_AMMOSHELLS)
 		other.ammo_shells = other.ammo_shells + self.aflag;
-	}
-	//----------------------------------------------------------------------
-	else if (self.classtype == CT_AMMONAILS) {
-		if (other.ammo_nails >= AMMO_MAXNAILS) return;
+	else if (self.classtype == CT_AMMONAILS)
 		other.ammo_nails = other.ammo_nails + self.aflag;
-	}
-	//----------------------------------------------------------------------
-	else if (self.classtype == CT_AMMOROCKETS) {
-		if (other.ammo_rockets >= AMMO_MAXROCKETS) return;
+	else if (self.classtype == CT_AMMOROCKETS)
 		other.ammo_rockets = other.ammo_rockets + self.aflag;
-	}
-	//----------------------------------------------------------------------
-	else if (self.classtype == CT_AMMOCELLS) {
-		if (other.ammo_cells >= AMMO_MAXCELLS) return;
+	else if (self.classtype == CT_AMMOCELLS)
 		other.ammo_cells = other.ammo_cells + self.aflag;
-	}
+	
+	// Keep track of ammo used
+	self.aused = self.aused + self.aflag;
 
 	// Check/cap ammo limits
 	bound_other_ammo (other);
@@ -1505,6 +1867,9 @@ void() ammo_touch =
 		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
+	// Check for randomizer pickup conditions
+	ammo_touchrandomizer();
+	
 	// if the player was using his best weapon, 
 	// change up to the new one if better		
 	best = W_BestWeapon(other);
@@ -1518,17 +1883,20 @@ void() ammo_touch =
 	// if changed current ammo, update it
 	W_SetCurrentAmmo(other);
 
-	// hide item and check for respawn
-	item_finished();
-	check_item_respawn();
-	
 	activator = other;
 	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+	
+	// hide item and check for respawn
+	item_finished();
+	check_item_respawn();	
 };
 
-/*======================================================================
-	Setup all Ammo with global parameters
-======================================================================*/
+//======================================================================
+//	Setup all Ammo with global parameters
+//======================================================================
 void() item_ammo_setup =
 {
 	self.frame = 0;
@@ -1537,7 +1905,13 @@ void() item_ammo_setup =
 	self.bbmins = VEC_AMMO_MIN;
 	self.bbmaxs = VEC_AMMO_MAX;
 	if (self.respawn_time == 0) self.respawn_time = RESPAWN_AMMO;
-	self.noise = "weapons/lock4.wav";
+	self.noise = AMMO_PICKUP;
+	self.aused = 0;
+	
+	// Items that spawn from pots with toss velocity
+	// should not have any lid options (remove them)
+	if (self.item_tossvel > 0) 
+		self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 
 	// Query console variable 'temp1' for model upgrade option.
 	// Cannot use global vars because they don't exist at this point
@@ -1548,12 +1922,14 @@ void() item_ammo_setup =
 		setorigin(self, self.oldorigin);
 	}
 
-	// Override the world theme skin type
-	if (self.skin_override > 0 && self.skin_override < 3)
-		self.skin = self.skin_override - 1;
-	// Switch to medieval (wood) skin for medieval/metal theme maps
-	else if (world.worldtype < 2) self.skin = 1;
+	// Setup the skin parameter for ammo boxes
+	self.skin = item_skintype(self);
 
+	// An old worldspawn key (not used anymore)
+	// This is backward compatibility with this key
+	// Will force all items to have an angle
+	if (world.no_item_rotate && self.angles_y == 0) self.angles_y = 360;	
+	
 	// Setting the angle key in the editor to UP/DOWN = random rotation	
 	if (self.angles_y <= 0) self.angles_y = rint(random()*359);
 
@@ -1571,8 +1947,9 @@ void() item_ammo_setup =
 	item_start ();
 };
 
-/*======================================================================
-/*QUAKED item_shells (0 .5 .8) (0 0 0) (32 32 32) BIG
+//======================================================================
+// ** Old id version with origin at corner **
+//QUAKED item_shells (0 .5 .8) (0 0 0) (32 32 32) BIG
 
 /*QUAKED item_shells (0 .5 .8) (-16 -16 0) (16 16 32) BIG LID x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/ammo_shells0.mdl"); }
@@ -1581,10 +1958,7 @@ void() item_ammo_setup =
 targetname    : toggle state (use trigger ent for exact state)
 frame_box     : special animation frame number for LID (1-7)
 skin_override : Override world type 1=Base Green, 2=Medieval Wood
-aflag         : Ammo quantity override
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+aflag         : Override ammo quantity for pickup (def=20/40)
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -1602,30 +1976,44 @@ NOEFFECTS : No particle or effects active
 ======================================================================*/
 void() item_shells =
 {
+	// Check for any random monster setups
+	if (ammo_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
 	if (self.spawnflags & A_LARGE) {
-		self.mdl = "progs/ammo_shells1.mdl";
-		self.headmdl = "progs/ammo_lidlarge.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_shells1.mdl";
+		if (self.headmdl == "") self.headmdl = "progs/ammo_lidlarge.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_SHELLS_LGR;
 	}
 	else {
-		self.mdl = "progs/ammo_shells0.mdl";
-		self.headmdl = "progs/ammo_lidsmall.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_shells0.mdl";
+		if (self.headmdl == "") self.headmdl = "progs/ammo_lidsmall.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_SHELLS_SML;
 	}
 	
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
 	self.classtype = CT_AMMOSHELLS;
-	self.netname = "box of shells";
+	if (self.netname == "") self.netname = "box of shells";
 	self.respawn_style = PARTICLE_BURST_YELLOW + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
 	self.frame_override = FALSE;
+	
+	// Randomly pick between having a lid or not
+	if (self.frame_box == -1) {
+		// Add spawnflag so lid is spawned correctly
+		if (random() < 0.5) self.spawnflags = self.spawnflags | A_LID;
+		self.frame_box = 0;
+	}
+	
 	item_ammo_setup();
 };
 
-/*======================================================================
-/*QUAKED item_spikes (0 .5 .8) (0 0 0) (32 32 32) BIG
+//======================================================================
+// ** Old id version with origin at corner **
+//QUAKED item_spikes (0 .5 .8) (0 0 0) (32 32 32) BIG
 
 /*QUAKED item_spikes (0 .5 .8) (-16 -16 0) (16 16 32) BIG LID x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/ammo_nails0.mdl"); }
@@ -1634,10 +2022,7 @@ void() item_shells =
 targetname    : toggle state (use trigger ent for exact state)
 frame_box     : special animation frame number for LID (1-7)
 skin_override : Override world type 1=Base Green, 2=Medieval Wood
-aflag         : Ammo quantity override
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+aflag         : Override ammo quantity for pickup (def=25/50)
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -1655,30 +2040,44 @@ NOEFFECTS : No particle or effects active
 ======================================================================*/
 void() item_spikes =
 {
+	// Check for any random monster setups
+	if (ammo_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
 	if (self.spawnflags & A_LARGE) {
-		self.mdl = "progs/ammo_nails1.mdl";
-		self.headmdl = "progs/ammo_lidlarge.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_nails1.mdl";
+		if (self.headmdl == "") self.headmdl = "progs/ammo_lidlarge.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_NAILS_LGR;
 	}
 	else {
-		self.mdl = "progs/ammo_nails0.mdl";
-		self.headmdl = "progs/ammo_lidsmall.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_nails0.mdl";
+		if (self.headmdl == "") self.headmdl = "progs/ammo_lidsmall.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_NAILS_SML;
 	}
 	
 	precache_model (self.mdl);
 	precache_model (self.headmdl);
 	self.classtype = CT_AMMONAILS;
-	self.netname = "box of nails";
+	if (self.netname == "") self.netname = "box of nails";
 	self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
 	self.respawn_effect = TRUE;
 	self.frame_override = FALSE;
+
+	// Randomly pick between having a lid or not
+	if (self.frame_box == -1) {
+		// Add spawnflag so lid is spawned correctly
+		if (random() < 0.5) self.spawnflags = self.spawnflags | A_LID;
+		self.frame_box = 0;
+	}
+
 	item_ammo_setup();
 };
 
-/*======================================================================
-/*QUAKED item_rockets (0 .5 .8) (0 0 0) (32 32 32) BIG
+//======================================================================
+// ** Old id version with origin at corner **
+//QUAKED item_rockets (0 .5 .8) (0 0 0) (32 32 32) BIG
 
 /*QUAKED item_rockets (0 .5 .8) (-16 -16 0) (16 16 32) BIG x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/ammo_rockets0.mdl"); }
@@ -1687,10 +2086,7 @@ void() item_spikes =
 targetname    : toggle state (use trigger ent for exact state)
 frame_box     : special animation frame number for box of ammo (1-7)
 skin_override : Override world type 1=Base Green, 2=Medieval Wood
-aflag         : Ammo quantity override
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+aflag         : Override ammo quantity for pickup (def=5/10)
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -1707,18 +2103,23 @@ NOEFFECTS : No particle or effects active
 ======================================================================*/
 void() item_rockets =
 {
+	// Check for any random monster setups
+	if (ammo_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
 	if (self.spawnflags & A_LARGE) {
-		self.mdl = "progs/ammo_rockets1.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_rockets1.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_ROCKETS_LGR;
 	}
 	else {
-		self.mdl = "progs/ammo_rockets0.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_rockets0.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_ROCKETS_SML;
 	}
 	
 	precache_model (self.mdl);
 	self.classtype = CT_AMMOROCKETS;
-	self.netname = "box of rockets";
+	if (self.netname == "") self.netname = "box of rockets";
 	self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	self.respawn_style = PARTICLE_BURST_WHITE + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
@@ -1727,8 +2128,9 @@ void() item_rockets =
 	item_ammo_setup();
 };
 
-/*======================================================================
-/*QUAKED item_cells (0 .5 .8) (0 0 0) (32 32 32) BIG
+//======================================================================
+// ** Old id version with origin at corner **
+//QUAKED item_cells (0 .5 .8) (0 0 0) (32 32 32) BIG
 
 /*QUAKED item_cells (0 .5 .8) (-16 -16 0) (16 16 32) BIG x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/ammo_battery0.mdl"); }
@@ -1736,10 +2138,7 @@ void() item_rockets =
 -------- KEYS --------
 targetname    : toggle state (use trigger ent for exact state)
 skin_override : Override world type 1=Base Green, 2=Medieval Wood
-aflag         : Ammo quantity override
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+aflag         : Override ammo quantity for pickup (def=6/12)
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -1756,18 +2155,23 @@ NOEFFECTS : No particle or effects active
 ======================================================================*/
 void() item_cells =
 {
+	// Check for any random monster setups
+	if (ammo_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
 	if (self.spawnflags & A_LARGE) {
-		self.mdl = "progs/ammo_battery1.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_battery1.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_CELLS_LGR;
 	}
 	else {
-		self.mdl = "progs/ammo_battery0.mdl";
+		if (self.mdl == "") self.mdl = "progs/ammo_battery0.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_CELLS_SML;
 	}
 	
 	precache_model (self.mdl);
 	self.classtype = CT_AMMOCELLS;
-	self.netname = "battery";
+	if (self.netname == "") self.netname = "battery";
 	self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	self.respawn_style = PARTICLE_BURST_GREEN + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
@@ -1776,9 +2180,7 @@ void() item_cells =
 	item_ammo_setup();
 };
 
-/*======================================================================
-/*QUAKED item_plasma (0 .5 .8) (0 0 0) (32 32 32) BIG
-
+//======================================================================
 /*QUAKED item_plasma (0 .5 .8) (-16 -16 0) (16 16 32) BIG x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/ammo_cells0.mdl"); }
 6 or 12 Cells
@@ -1786,10 +2188,7 @@ void() item_cells =
 targetname    : toggle state (use trigger ent for exact state)
 frame_box     : special animation frame number for box of ammo (1-7)
 skin_override : Override world type 1=Base Green, 2=Medieval Wood
-aflag         : Ammo quantity override
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+aflag         : Override ammo quantity for pickup (def=6/12)
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -1806,18 +2205,27 @@ NOEFFECTS : No particle or effects active
 ======================================================================*/
 void() item_plasma =
 {
+	// Check for any random monster setups
+	if (ammo_checkrandomizer() == TRUE) return;
+	
+	// Check for custom model setup?
+	item_debugcustomdl();
 	if (self.spawnflags & A_LARGE) {
-		self.mdl = "progs/ammo_cells1.mdl";
+		// It seems AD_DM5 has rogue MDL keys that crash the engine
+		// Have to add this hack to fix the map, not a good solution
+		if (world.model == "maps/ad_dm5.bsp") self.mdl = "progs/ammo_cells1.mdl";
+		else if (self.mdl == "") self.mdl = "progs/ammo_cells1.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_CELLS_LGR;
 	}
 	else {
-		self.mdl = "progs/ammo_cells0.mdl";
+		if (world.model == "maps/ad_dm5.bsp") self.mdl = "progs/ammo_cells0.mdl";
+		else if (self.mdl == "") self.mdl = "progs/ammo_cells0.mdl";
 		if (self.aflag < 1) self.aflag = AMMO_CELLS_SML;
 	}
 	
 	precache_model (self.mdl);
 	self.classtype = CT_AMMOCELLS;
-	self.netname = "box of cells";
+	if (self.netname == "") self.netname = "box of cells";
 	self.spawnflags = self.spawnflags - (self.spawnflags & A_LID);
 	self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_RING;
 	self.respawn_ofs = '0 0 24';
@@ -1826,9 +2234,9 @@ void() item_plasma =
 	item_ammo_setup();
 };
 
-/*======================================================================
- KEYS (Silver, Gold and Custom)
-======================================================================*/
+//======================================================================
+// KEYS (Silver, Gold and Custom)
+//======================================================================
 void() key_touchbindmsg =
 { 
 	sound (self.enemy, CHAN_VOICE, SOUND_TALK, 1, ATTN_NORM);
@@ -1836,17 +2244,24 @@ void() key_touchbindmsg =
 };
 
 //----------------------------------------------------------------------
-void() key_touch =
+float(entity keyplayer, entity keyitem) key_pickupcondition =
 {
 	// Check if the player has the custom key already?
-	if (self.classtype == CT_CUSTOMKEY) {
-		if (other.moditems & self.moditems) return;
+	if (keyitem.classtype == CT_CUSTOMKEY) {
+		if (keyplayer.moditems & keyitem.moditems) return TRUE;
+		else return FALSE;
 	}
-	else {
-		// Check if the player has the silver/gold key already?
-		if ( other.items & self.items ) return;
-	}
+	// Check if the player has the silver/gold key already?
+	if ( keyplayer.items & keyitem.items ) return TRUE;
+	else return FALSE;
+};
 
+void(float tvalue, string tdstr) trigger_timer_updateno;
+//----------------------------------------------------------------------
+void() key_touch =
+{
+	// Check if player has the key already
+	if (key_pickupcondition(other, self)) return;
 	
 	sprint (other, "You got the ");
 	sprint (other, self.netname);
@@ -1859,10 +2274,24 @@ void() key_touch =
 	if (self.moditems > 0) {
 		other.moditems = other.moditems | self.moditems;
 		// Store the key netname on the player/client for door ref later
-		if (self.moditems & IT_CKEY1) other.ckeyname1 = self.netname;
-		else if (self.moditems & IT_CKEY2) other.ckeyname2 = self.netname;
-		else if (self.moditems & IT_CKEY3) other.ckeyname3 = self.netname;
-		else other.ckeyname4 = self.netname;
+		// Skin number is used by the ClientServerQC AD HUD
+		// Sanity range check are done in the HUD, just in case!
+		if (self.moditems & IT_CKEY1) {
+			other.ckeyname1 = self.netname;
+			other.ckeyskin1 = self.ckeyhudskin;
+		}
+		else if (self.moditems & IT_CKEY2) {
+			other.ckeyname2 = self.netname;
+			other.ckeyskin2 = self.ckeyhudskin;
+		}
+		else if (self.moditems & IT_CKEY3) {
+			other.ckeyname3 = self.netname;
+			other.ckeyskin3 = self.ckeyhudskin;
+		}
+		else {
+			other.ckeyname4 = self.netname;
+			other.ckeyskin4 = self.ckeyhudskin;
+		}
 	}
 	// Add silver/gold key to player inventory
 	else other.items = other.items | self.items;
@@ -1873,21 +2302,29 @@ void() key_touch =
 		self.spawnflags = self.spawnflags | ITEM_RESPAWN;
 	}
 
+	activator = other;
+	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+	
 	// hide item and check for respawn
 	item_finished();
 	check_item_respawn();
 
-	activator = other;
-	SUB_UseTargets();
 	// Triggers events work once in co-op
 	if (coop > 0) self.target = "";
 	
 	// Warn player about new key binding for inventory (first time only)
 	if (self.moditems > 0 && other.ckeyhint == FALSE) {
 		self.enemy = other;		// Store for later
-		other.ckeyhint = TRUE;	// Only works once
-		self.think = key_touchbindmsg;
-		self.nextthink = time + 3;
+		// Check if custom key message is suppressed?
+		if (self.ckeyhint == TRUE) other.ckeyhint = TRUE;
+		else {
+			other.ckeyhint = TRUE;	// Only works once
+			self.think = key_touchbindmsg;
+			self.nextthink = time + 3;
+		}
 	}
 };
 
@@ -1912,16 +2349,15 @@ void() key_setup =
 	item_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_key1 (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/key_silver.mdl"); }
 SILVER key, changes based on worldtype on worldspawn
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+targetname    : toggle state (use trigger ent for exact state)
 message       : centerprint message when item is picked up
+worldtype     : Override model type (1=runic, 2=base, 3=medieval)
+netname       : Override name of pickup (def=silver runekey/keycard/key)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1939,17 +2375,19 @@ void() item_key1 =
 	// Check for any self worldtype override
 	if (!self.worldtype) self.worldtype = world.worldtype;
 	
-	if (self.worldtype == 0) {
-		self.mdl = "progs/key_medieval.mdl";	// progs/w_s_key.mdl
-		self.netname = "silver key";
-	}
-	else if (self.worldtype == 1) {
-		self.mdl = "progs/key_runic.mdl";	// progs/m_s_key.mdl
-		self.netname = "silver runekey";
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.worldtype == 1) {
+		if (self.mdl == "") self.mdl = "progs/key_runic.mdl";	// progs/m_s_key.mdl
+		if (self.netname == "") self.netname = "silver runekey";
 	}
 	else if (self.worldtype == 2) {
-		self.mdl = "progs/key_base.mdl";	// progs/b_s_key.mdl
-		self.netname = "silver keycard";
+		if (self.mdl == "") self.mdl = "progs/key_base.mdl";	// progs/b_s_key.mdl
+		if (self.netname == "") self.netname = "silver keycard";
+	}
+	else {
+		if (self.mdl == "") self.mdl = "progs/key_medieval.mdl";	// progs/w_s_key.mdl
+		if (self.netname == "") self.netname = "silver key";
 	}
 	
 	precache_model (self.mdl);
@@ -1962,16 +2400,15 @@ void() item_key1 =
 	key_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_key2 (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/key_gold.mdl"); }
 GOLD key, changes based on worldtype on worldspawn
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
+worldtype     : Override model type (1=runic, 2=base, 3=medieval)
+netname       : Override name of pickup (def=gold runekey/keycard/key)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -1989,17 +2426,19 @@ void() item_key2 =
 	// Check for any self worldtype override
 	if (!self.worldtype) self.worldtype = world.worldtype;
 	
-	if (self.worldtype == 0) {
-		self.mdl = "progs/key_medieval.mdl";	// progs/w_g_key.mdl
-		self.netname = "gold key";
-	}
+	// Check for custom model setup?
+	item_debugcustomdl();
 	if (self.worldtype == 1) {
-		self.mdl = "progs/key_runic.mdl";	// progs/m_g_key.mdl
-		self.netname = "gold runekey";
+		if (self.mdl == "") self.mdl = "progs/key_runic.mdl";	// progs/m_g_key.mdl
+		if (self.netname == "") self.netname = "gold runekey";
 	}
-	if (self.worldtype == 2) {
-		self.mdl = "progs/key_base.mdl";	// progs/b_g_key.mdl
-		self.netname = "gold keycard";
+	else if (self.worldtype == 2) {
+		if (self.mdl == "") self.mdl = "progs/key_base.mdl";	// progs/b_g_key.mdl
+		if (self.netname == "") self.netname = "gold keycard";
+	}
+	else {
+		if (self.mdl == "") self.mdl = "progs/key_medieval.mdl";	// progs/w_g_key.mdl
+		if (self.netname == "") self.netname = "gold key";
 	}
 	
 	precache_model (self.mdl);
@@ -2012,21 +2451,20 @@ void() item_key2 =
 	key_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_keyx (0 .5 .8) (-16 -16 -24) (16 16 32) CKEY1 CKEY2 CKEY3 CKEY4 RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/key_medieval.mdl"); }
 Custom key
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-mdl          : model name to load/display (progs/model.mdl)
-netname      : XXX Part of pickup string "You got the XXX"
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+targetname    : toggle state (use trigger ent for exact state)
+mdl           : model name to load/display (progs/model.mdl)
+netname       : XXX Part of pickup string "You got the XXX"
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
+respawn_trig  : = 1 Wait for trigger before respawning
+message2      : particle emitter types = KEYSILVER, KEYGOLD, KEYRED, KEYGREEN, KEYPURPLE, KEYWHITE
+ckeyhint      : 1 = Arcane key Inventory message blocked (no msg to player)
 -------- SPAWNFLAGS --------
 Ckey1 : Custom Key type 1
 Ckey2 : Custom Key type 2
@@ -2035,7 +2473,7 @@ Ckey4 : Custom Key type 4
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
 STARTOFF : Starts off and waits for trigger
-NOEFFECTS : No particle or effects active
+NOEFFECTS: No particle or effects active
 -------- NOTES --------
 Custom key
 
@@ -2054,10 +2492,16 @@ void() item_keyx =
 	}
 	precache_model (self.mdl);	
 
+	// HUD skin priority (ckeyhudskin > exactskin > skin)
+	if (self.exactskin > 0) self.skin = self.exactskin;
+	if (self.skin <= 0) self.skin = 0;
+	if (self.ckeyhudskin == 0) self.ckeyhudskin = self.skin;
+
 	// Setup custom key reference number (must exist)
 	if (self.spawnflags & ITEM_CKEY1) {
 		self.moditems = IT_CKEY1;
 		if (self.netname == "") self.netname = "Arcane Key 1";
+		self.ckeyskin1 = self.ckeyhudskin;
 	}
 	else if (self.spawnflags & ITEM_CKEY2) {
 		self.moditems = IT_CKEY2;
@@ -2080,7 +2524,6 @@ void() item_keyx =
 		
 	self.classtype = CT_CUSTOMKEY;
 	self.items = IT_KEY1 | IT_KEY2;
-	if (self.exactskin > 0) self.skin = self.exactskin;
 
 	// Check for any AD defined particle effects
 	if (self.message2 == "KEYGOLD") self.part_active = PARTICLE_STYLE_KEYGOLD;
@@ -2099,7 +2542,7 @@ void() item_keyx =
 	key_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_custom (0 .5 .8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/key_base.mdl"); }
 Custom Pickup Item
@@ -2111,9 +2554,6 @@ noise1       : Custom pickup sound (def=weapons/lock4.wav)
 pos1         : Pickup bounding box minimum (def=-16 -16 -24)
 pos2         : Pickup bounding box maximum (def=16 16 32)
 bodyfadeaway : Model will fade away on pickup
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 respawn_time : time to wait before respawning (1-x seconds, default varies)
 respawn_count: Total amount of times to respawn (counts down to zero)
 respawn_trig : = 1 Wait for trigger before respawning
@@ -2141,6 +2581,12 @@ void() item_custom_touch =
 		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
+	activator = other;
+	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+
 	// Check for a particle pickup burst (can be blocked)
 	if (self.part_style > 0 && !(self.spawnflags & ITEM_NOEFFECTS)) 
 		misc_particle_burst_use();
@@ -2154,22 +2600,21 @@ void() item_custom_touch =
 		self.wait = self.delay = 0;
 	}
 	else {
+		// This code is broken and should NOT endlessly respawn for coop
+		// 1.8 code removed this option and it is now back to default
 		// Do not remove/respawn in co-op
-		if (!coop) {
-			item_finished();
-			check_item_respawn();
-		}
+		//if (!coop) {
+		item_finished();
+		check_item_respawn();
+		//}
 	}		
-
-	activator = other;
-	SUB_UseTargets();
 };
 
 //----------------------------------------------------------------------
 void() item_custom =
 {
 	if (self.mdl == "") self.mdl = MODEL_BROKEN;
-	if (self.noise == "") self.noise = "weapons/lock4.wav";
+	if (self.noise == "") self.noise = AMMO_PICKUP;
 	precache_model (self.mdl);	
 	precache_sound (self.noise);
 
@@ -2201,15 +2646,12 @@ void() item_custom =
 	item_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_sigil (0 0.5 0.8) (-16 -16 -24) (16 16 32) Ep1 Ep2 Ep3 Ep4 RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/key_rune1.mdl"); }
 End of episode sigil / rune
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 message       : centerprint message when item is picked up
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -2232,11 +2674,19 @@ episodes, then the func_bossgate entity will NOT appear.  This is used to grant
 access to the final boss once the player has completed all episodes.
 
 ======================================================================*/
+float(entity sigilitem) sigil_pickupcondition =
+{
+	if (query_configflag(sigilitem.customkey)) return TRUE;
+	else return FALSE;
+};
+
+// ----------------------------------------------------------------
 void() sigil_touch =
 {
-	if (query_configflag(self.customkey)) return;
+	if (sigil_pickupcondition(self)) return;
 	
-	centerprint (other, "You got the rune!");
+	centerprint3( other, "You got ", self.netname, "!");
+	//centerprint (other, "You got the rune!");
 	if (self.noise != SOUND_EMPTY) 
 		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
@@ -2247,15 +2697,19 @@ void() sigil_touch =
 	// DP has special effect for sigil being picked up
 	if (ext_dppart) pointparticles(particleeffectnum(DPP_SIGILPICKUP), self.origin, '0 0 0', 1);
 	
-	// hide item and check for respawn
-	item_finished();
-	check_item_respawn();
-	
 	// This odd classname assignment does nothing, old code
+	// - It may have been used to hide runes from find commands
 	//self.classname = string_null;
 	
 	activator = other;
 	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+
+	// hide item and check for respawn
+	item_finished();
+	check_item_respawn();	
 };
 
 //----------------------------------------------------------------------
@@ -2267,23 +2721,25 @@ void() item_sigil =
 		return;		
 	}
 
+	// Check for custom model setup?
+	item_debugcustomdl();
 	// Based on what spawn key is selected, update model/spawnflag
 	// This will make sure only one rune is selected at once
 	// Also allow for the spawnflags to have other parameters
 	if (self.spawnflags & SVR_RUNE_KEY1) {
-		self.mdl = "progs/key_rune1.mdl";
+		if (self.mdl == "") self.mdl = "progs/key_rune1.mdl";
 		self.customkey = SVR_RUNE_KEY1;
 	}
 	else if (self.spawnflags & SVR_RUNE_KEY2) {
-		self.mdl = "progs/key_rune2.mdl";
+		if (self.mdl == "") self.mdl = "progs/key_rune2.mdl";
 		self.customkey = SVR_RUNE_KEY2;
 	}
 	else if (self.spawnflags & SVR_RUNE_KEY3) {
-		self.mdl = "progs/key_rune3.mdl";
+		if (self.mdl == "") self.mdl = "progs/key_rune3.mdl";
 		self.customkey = SVR_RUNE_KEY3;
 	}
 	else if (self.spawnflags & SVR_RUNE_KEY4) {
-		self.mdl = "progs/key_rune4.mdl";
+		if (self.mdl == "") self.mdl = "progs/key_rune4.mdl";
 		self.customkey = SVR_RUNE_KEY4;
 	}
 	
@@ -2294,6 +2750,7 @@ void() item_sigil =
 	self.touch2 = sigil_touch;
 	self.classtype = CT_RUNEKEY;
 	self.classgroup = CG_RUNE;
+	if (self.netname == "") self.netname = "The Rune";
 	self.part_active = PARTICLE_STYLE_SIGIL;
 	self.bbmins = VEC_KEYS_MIN;
 	self.bbmaxs = VEC_KEYS_MAX;
@@ -2306,16 +2763,15 @@ void() item_sigil =
 	item_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_artifact_tomeofpower (0 .5 .8) (-16 -16 -24) (16 16 32) x x x x x FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/key_tome.mdl"); }
 Custom event trigger
 -------- KEYS --------
 targetname   : toggle state (use trigger ent for exact state)
 target       : trigger targets to fire when item touched
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
+mdl           : Override the model used (def=progs/artifact_tome.mdl)
+netname       : Override name of pickup (def=Tome of Power)
 message      : centerprint message when item is picked up
 noise        : Custom pickup sound
 -------- SPAWNFLAGS --------
@@ -2335,25 +2791,32 @@ void() tomeofpower_touch =
 		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 	
-	// This is a trigger once condition (regardless of coop)
-	item_finished();
-
 	activator = other;
 	SUB_UseTargets();
+
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+
+	// This is a trigger once condition (regardless of coop)
+	item_finished();
 };
 
 //----------------------------------------------------------------------
 void() item_artifact_tomeofpower =
 {
-	self.mdl = "progs/artifact_tome.mdl";
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = "progs/artifact_tome.mdl";
 	precache_model (self.mdl);	
 	if (self.noise == "") self.noise = "misc/medkey.wav";
 	precache_sound (self.noise);
 
 	self.classtype = CT_ARTTOME;
 	self.classgroup = CG_ARTIFACT;
-	self.moditems = IT_ARTTOME;
-	self.netname = "Tome of Power";
+	// Holding this item in an inventory does nothing
+	// Re-using the bitflag for something else
+	self.moditems = 0;
+	if (self.netname == "") self.netname = "Tome of Power";
 
 	self.touch2 = tomeofpower_touch;
 	self.bbmins = VEC_POWR_MIN;
@@ -2362,55 +2825,129 @@ void() item_artifact_tomeofpower =
 	item_start();
 };
 
-/*======================================================================
- ARTIFACTS - suit, pent, invis, quad, sharpshooter, nailpiercer, westsuit
-======================================================================*/
+//======================================================================
+// ARTIFACTS
+// Environment Suit, Pentagram of Protection, Ring of Shadows, Quad,
+// Sharpshooter, Nailpiercer, Air Tank, Jump Boots, Blast Belt.
+//======================================================================
 void() artifact_touch =
 {
 	//----------------------------------------------------------------------
 	// Existing artifacts
 	//----------------------------------------------------------------------
-	if (self.classtype == CT_ARTSUIT) {
-		other.rad_time = TRUE;
-		other.radsuit_finished = time + self.cnt;
-		ResetDebuffBurning(other);
-		ResetDebuffPoisoned(other);
-		// Remove any wetsuit artifact
-		other.moditems = other.moditems - (other.moditems & IT_ARTWETSUIT);
-		other.wetsuit_finished = 0;
-		other.wetsuit_time = 0;
-	}
-	else if (self.classtype == CT_ARTPENT) {
-		other.invincible_time = TRUE;
-		other.invincible_finished = time + self.cnt;
-		ResetDebuffSystem(other);
-	}
-	else if (self.classtype == CT_ARTINVS) {
-		other.invisible_time = TRUE;
-		other.invisible_finished = time + self.cnt;
+	if (self.classtype == CT_ARTINVS) {
+		other.invisible_time = 1;
+		if (self.cnt < 0) other.invisible_finished = POWERUP_VANIA;
+		else other.invisible_finished = time + self.cnt;
+		
 		other.invisible_sound = time + 1;
 	}
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_ARTPENT) {
+		other.invincible_time = 1;
+		if (self.cnt < 0) other.invincible_finished = POWERUP_VANIA;
+		else other.invincible_finished = time + self.cnt;
+		
+		ResetDebuffSystem(other);
+	}
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_ARTSUIT) {
+		other.rad_time = 1;
+		if (self.cnt < 0) other.radsuit_finished = POWERUP_VANIA;
+		else other.radsuit_finished = time + self.cnt;
+		
+		ResetDebuffBurning(other);
+		ResetDebuffPoisoned(other);
+		// The airtank and envsuit don't share HUD icons and can
+		// exist together for different map styles
+	}
+	//----------------------------------------------------------------------
 	else if (self.classtype == CT_ARTQUAD) {
-		other.super_time = TRUE;
-		other.super_damage_finished = time + self.cnt;
+		// Cannot have QUAD if got Nail Piercer or Sharpshooter
+		// They have the Quad effects and share the hud with Quad
+		if (other.moditems & IT_ARTPIERCE) return;
+		if (other.moditems & IT_ARTSHARP) return;
+		
+		other.super_time = 1;
+		if (self.cnt < 0) other.super_damage_finished = POWERUP_VANIA;
+		else other.super_damage_finished = time + self.cnt;
 	}
+	//----------------------------------------------------------------------
 	else if (self.classtype == CT_ARTSHARP) {
-		other.sharpshoot_time = TRUE;
-		other.sharpshoot_finished = time + self.cnt;
+		// Cannot have the Nail Piercer if got the Sharpshooter
+		// They have the Quad effects and share the hud
+		if (other.moditems & IT_ARTPIERCE) return;
+		if (other.items & IT_QUAD) return;
+
+		other.sharpshoot_time = 1;
+		if (self.cnt < 0) other.sharpshoot_finished = POWERUP_VANIA;
+		else other.sharpshoot_finished = time + self.cnt;
 	}
+	//----------------------------------------------------------------------
 	else if (self.classtype == CT_ARTPIERCE) {
-		other.nailpiercer_time = TRUE;
-		other.nailpiercer_finished = time + self.cnt;
+		// Cannot have the Sharpshooter if got the Nail Piercer
+		// They have the Quad effects and share the hud
+		if (other.moditems & IT_ARTSHARP) return;
+		if (other.items & IT_QUAD) return;
+
+		other.nailpiercer_time = 1;
+		if (self.cnt < 0) other.nailpiercer_finished = POWERUP_VANIA;
+		else other.nailpiercer_finished = time + self.cnt;
 	}
-	else if (self.classtype == CT_ARTWETSUIT) {
-		other.wetsuit_time = TRUE;
-		other.wetsuit_finished = time + self.cnt;
-		other.wetsuit_sound = time + 2;
-		// Remove any envsuit artifact
-		other.items = other.items - (other.items & IT_SUIT);
-		other.radsuit_finished = 0;
-		other.rad_time = 0;
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_ARTAIRTANK) {
+		other.airtank_time = 1;
+		if (self.cnt < 0) other.airtank_finished = POWERUP_VANIA;
+		else other.airtank_finished = time + self.cnt;
+		
+		other.airtank_sound = time + 2;
+		// Check for suit override on breathing sound
+		if (self.spawnflags & AIRTANK_SILENT) other.airtank_silent = TRUE;
+		else other.airtank_silent = FALSE;
+		// Volume range modifier (0-1)
+		other.airtank_volume = self.volume;
+		other.airtank_outwater = self.distance;
+
+		ResetDebuffPoisoned(other);
+		// The airtank and envsuit don't share HUD icons and can
+		// exist together for different map styles
 	}
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_ARTLAVASHIELD) {
+		other.lavashield_time = 1;
+		// Volume range modifier (0-1)
+		other.lavashield_volume = self.volume;
+		if (self.cnt < 0) other.lavashield_finished = POWERUP_VANIA;
+		else other.lavashield_finished = time + self.cnt;
+	}
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_ARTBLASTBELT) {
+		other.blastbelt_time = 1;
+		// Volume range modifier (0-1)
+		other.blastbelt_volume = self.volume;
+		if (self.cnt < 0) other.blastbelt_finished = POWERUP_VANIA;
+		else other.blastbelt_finished = time + self.cnt;
+	}
+	//----------------------------------------------------------------------
+	else if (self.classtype == CT_ARTJUMPBOOTS) {
+		other.jumpboots_time = 1;
+		if (self.cnt < 0) other.jumpboots_finished = POWERUP_VANIA;
+		else other.jumpboots_finished = time + self.cnt;
+		
+		other.jumpboots_airlvl = 0;
+		// Check if jump max is endless, additive or exact
+		if (self.count < 0) other.jumpboots_airmax = -1;
+		else if (self.count > 0) other.jumpboots_airmax = self.count;
+		else other.jumpboots_airmax = other.jumpboots_airmax + 1;
+		// Make sure the max never goes too high
+		if (other.jumpboots_airmax > ART_JUMPBOOTS_AIRMAX)
+			other.jumpboots_airmax = ART_JUMPBOOTS_AIRMAX;
+		if (self.height > 0) other.jumpboots_height = self.height;
+		else other.jumpboots_height = ART_JUMPHEIGHT;
+		if (self.distance > 0) other.jumpboots_forward = self.distance;
+		else other.jumpboots_forward = 0;
+	}
+	//----------------------------------------------------------------------
 	else return;
 
 	//----------------------------------------------------------------------
@@ -2420,24 +2957,31 @@ void() artifact_touch =
 	sprint (other, self.netname);
 	sprint (other,"\n");
 	if (self.noise != SOUND_EMPTY) 
-		sound (other, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+		// Originally played on chan_voice, can be overwritten easily
+		sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 	stuffcmd (other, "bf\n");
 
 	// Update player item flags (regular + mod)
 	other.items = other.items | self.items;
 	other.moditems = other.moditems | self.moditems;
 
-	// hide item and check for respawn
-	item_finished();
-	check_item_respawn();
-	
 	activator = other;
 	SUB_UseTargets();
+
+	// Check for randomizer pickup conditions
+	artifact_touchrandomizer();
+	
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+
+	// hide item and check for respawn
+	item_finished();
+	check_item_respawn();	
 };
 
-/*======================================================================
-	setup all artifacts with similiar configurations
-======================================================================*/
+//======================================================================
+//	setup all artifacts with similiar configurations
+//======================================================================
 void() artifact_setup =
 {
 	self.touch2 = artifact_touch;
@@ -2446,7 +2990,9 @@ void() artifact_setup =
 	self.bbmaxs = VEC_POWR_MAX;
 	
 	// Allow for custom artifact timer
-	if (self.cnt < 1) self.cnt = POWERUP_TIMER;
+	if (self.cnt < 0) self.cnt = POWERUP_VANIA;
+	// Setup minimum/default timer
+	else if (self.cnt == 0) self.cnt = POWERUP_TIMER;
 	
 	// Setup skin override
 	if (self.exactskin < 1) self.exactskin = 0;
@@ -2462,21 +3008,21 @@ void() artifact_setup =
 	item_start ();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_artifact_envirosuit (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/artifact_envsuit.mdl"); }
 Player takes no damage from water or slime for 30 seconds
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-exactskin    : 0=Original, 1=Green, 2=Brown, 3=Aqua, 4=Blue
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 30s)
+targetname    : toggle state (use trigger ent for exact state)
+exactskin     : 0=Original, 1=Green, 2=Brown, 3=Aqua, 4=Blue
+mdl           : Override the model used (def=progs/artifact_envsuit.mdl)
+netname       : Override name of pickup (def=Environment Suit)
+message       : centerprint message when item is picked up
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+cnt           : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2484,19 +3030,26 @@ STARTOFF : Starts off and waits for trigger
 NOEFFECTS : No particle or effects active
 -------- NOTES --------
 Player takes no damage from water or slime for 30 seconds
-Immume from Wraith Healing Debuff but take small damage instead
+Immume to Fire Attack, but take small damage instead
 
 ======================================================================*/
 void() item_artifact_envirosuit =
 {
+	// Check for any random setups
+	if (artifact_checkrandomizer() == TRUE) return;
+
+	// Check for custom model setup?
+	item_debugcustomdl();
 	// cshifts 0,255,0,20
-	self.mdl = "progs/artifact_envsuit.mdl";
+	// Original id model = progs/suit.mdl
+	if (self.mdl == "") self.mdl = "progs/artifact_envsuit.mdl";
 	precache_model (self.mdl);
-	self.noise = SOUND_ARTSUIT1;
-	self.noise1 = SOUND_ARTSUIT2;
+	if (self.noise == "") self.noise = SOUND_ARTSUIT1;
+	self.noise2 = SOUND_EMPTY;		// not used (activation sound)
 	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	self.netname = "Environment Suit";
+	precache_sound ((self.noise1 = SOUND_ARTSUIT2));
+	precache_sound (self.noise2);
+	if (self.netname == "") self.netname = "Environment Suit";
 	self.items = IT_SUIT;
 	self.classtype = CT_ARTSUIT;
 	self.part_active = PARTICLE_STYLE_SUIT;
@@ -2505,70 +3058,67 @@ void() item_artifact_envirosuit =
 	artifact_setup();
 };
 
-/*======================================================================
-/*QUAKED item_artifact_wetsuit (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
-{ model(":progs/artifact_wetsuit.mdl"); }
-Player takes no damage from water for 5 mins (300s)
+//======================================================================
+/*QUAKED item_artifact_invisibility (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/artifact_invis.mdl"); }
+Player is invisible for 30 seconds
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-exactskin    : 0=Original, 1=Green, 2=Brown, 3=Aqua, 4=Blue
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 300s)
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_invis.mdl)
+netname       : Override name of pickup (def=Ring of Shadows)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+cnt           : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
 STARTOFF : Starts off and waits for trigger
 NOEFFECTS : No particle or effects active
 -------- NOTES --------
-Player takes no damage from water for 5 mins (300s)
-Immume from Wraith Healing Debuff but take small damage instead
+Player is invisible for 30 seconds
 
 ======================================================================*/
-void() item_artifact_wetsuit =
+void() item_artifact_invisibility =
 {
-	// cshifts 0,255,0,20
-	self.mdl = "progs/artifact_wetsuit.mdl";
+	// Check for any random setups
+	if (artifact_checkrandomizer() == TRUE) return;
+
+	// Check for custom model setup?
+	item_debugcustomdl();
+	// cshifts 100,100,100,100
+	// Original id model = progs/invisibl.mdl
+	if (self.mdl == "") self.mdl = "progs/artifact_invis.mdl";
 	precache_model (self.mdl);
-	self.noise = SOUND_ARTWETS1;
-	self.noise1 = SOUND_ARTWETS2;
-	self.noise2 = SOUND_ARTWETS3;
-	self.noise3 = SOUND_ARTWETS3B;
+	if (self.noise == "") self.noise = SOUND_ARTINV1;
 	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	precache_sound (self.noise2);
-	precache_sound (self.noise3);
-	self.netname = "Wet Suit";
-	self.items = 0;
-	self.moditems = IT_ARTWETSUIT;
-	self.classtype = CT_ARTWETSUIT;
-	self.part_active = PARTICLE_STYLE_WETSUIT;
-	self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_CENTER;
-	self.respawn_ofs = '0 0 28';
-	if (self.cnt < 1) self.cnt = 300;
-	if (self.exactskin < 1) self.exactskin = 4;
+	precache_sound ((self.noise1 = SOUND_ARTINV2));
+	precache_sound ((self.noise2 = SOUND_ARTINV3));
+	if (self.netname == "") self.netname = "Ring of Shadows";
+	self.items = IT_INVISIBILITY;
+	self.classtype = CT_ARTINVS;
+	self.part_active = PARTICLE_STYLE_SRING;
+	self.respawn_style = PARTICLE_BURST_YELLOW + PARTICLE_BURST_CENTER;
+	self.respawn_ofs = '0 0 6';
 	artifact_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_artifact_invulnerability (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/artifact_pent.mdl"); }
 Player is invulnerable for 30 seconds
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 30s)
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_pent.mdl)
+netname       : Override name of pickup (def=Pentagram of Protection)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+cnt           : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2581,16 +3131,17 @@ Immume from Wraith Healing Debuff
 ======================================================================*/
 void() item_artifact_invulnerability =
 {
+	// Check for custom model setup?
+	item_debugcustomdl();
 	// cshifts 255,255,0,30
-	self.mdl = "progs/artifact_pent.mdl";	// Originally - progs/invulner.mdl
+	// Original id model = progs/invulner.mdl
+	if (self.mdl == "") self.mdl = "progs/artifact_pent.mdl";
 	precache_model (self.mdl);
-	self.noise = SOUND_ARTPENT1;
-	self.noise1 = SOUND_ARTPENT2;
-	self.noise2 = SOUND_ARTPENT3;
+	if (self.noise == "") self.noise = SOUND_ARTPENT1;
 	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	precache_sound (self.noise2);
-	self.netname = "Pentagram of Protection";
+	precache_sound ((self.noise1 = SOUND_ARTPENT2));
+	precache_sound ((self.noise2 = SOUND_ARTPENT3));
+	if (self.netname == "") self.netname = "Pentagram of Protection";
 	self.items = IT_INVULNERABILITY;
 	self.classtype = CT_ARTPENT;
 	self.part_active = PARTICLE_STYLE_PENT;
@@ -2599,63 +3150,20 @@ void() item_artifact_invulnerability =
 	artifact_setup();
 };
 
-/*======================================================================
-/*QUAKED item_artifact_invisibility (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
-{ model(":progs/artifact_invis.mdl"); }
-Player is invisible for 30 seconds
--------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 30s)
--------- SPAWNFLAGS --------
-RESPAWN  : Can respawn after being picked up
-FLOAT    : No drop to floor test
-STARTOFF : Starts off and waits for trigger
-NOEFFECTS : No particle or effects active
--------- NOTES --------
-Player is invisible for 30 seconds
-
-======================================================================*/
-void() item_artifact_invisibility =
-{
-	// cshifts 100,100,100,100
-	self.mdl = "progs/artifact_invis.mdl";	// Originally - progs/invisibl.mdl
-	precache_model (self.mdl);
-	self.noise = SOUND_ARTINV1;
-	self.noise1 = SOUND_ARTINV2;
-	self.noise2 = SOUND_ARTINV3;
-	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	precache_sound (self.noise2);
-	self.netname = "Ring of Shadows";
-	self.items = IT_INVISIBILITY;
-	self.classtype = CT_ARTINVS;
-	self.part_active = PARTICLE_STYLE_SRING;
-	self.respawn_style = PARTICLE_BURST_YELLOW + PARTICLE_BURST_CENTER;
-	self.respawn_ofs = '0 0 6';
-	artifact_setup();
-};
-
-/*======================================================================
+//======================================================================
 /*QUAKED item_artifact_super_damage (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/artifact_quad.mdl"); }
 The next attack from the player will do 4x damage
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 30s)
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_quad.mdl)
+netname       : Override name of pickup (def=Quad Damage)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+cnt           : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2667,16 +3175,17 @@ The next attack from the player will do 4x damage
 ======================================================================*/
 void() item_artifact_super_damage =
 {
+	// Check for custom model setup?
+	item_debugcustomdl();
 	// cshifts 0,0,255,30
-	self.mdl = "progs/artifact_quad.mdl";	// Originally - progs/quaddama.mdl
+	// Original id model = progs/quaddama.mdl
+	if (self.mdl == "") self.mdl = "progs/artifact_quad.mdl";
 	precache_model (self.mdl);
-	self.noise = SOUND_ARTQUAD1;
-	self.noise1 = SOUND_ARTQUAD2;
-	self.noise2 = SOUND_ARTQUAD3;
+	if (self.noise == "") self.noise = SOUND_ARTQUAD1;
 	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	precache_sound (self.noise2);
-	self.netname = "Quad Damage";
+	precache_sound ((self.noise1 = SOUND_ARTQUAD2));
+	precache_sound ((self.noise2 = SOUND_ARTQUAD3));
+	if (self.netname == "") self.netname = "Quad Damage";
 	self.items = IT_QUAD;
 	self.classtype = CT_ARTQUAD;
 	self.part_active = PARTICLE_STYLE_QUAD;
@@ -2685,20 +3194,20 @@ void() item_artifact_super_damage =
 	artifact_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_artifact_sharp_shooter (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/artifact_sharp.mdl"); }
 Reduces the bullet spread of all Shotguns
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 30s)
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_sharp.mdl)
+netname       : Override name of pickup (def=Sharp Shooter)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+cnt           : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2710,15 +3219,15 @@ Reduces the bullet spread of all Shotguns
 ======================================================================*/
 void() item_artifact_sharp_shooter =
 {
-	self.mdl = "progs/artifact_sharp.mdl";
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = "progs/artifact_sharp.mdl";
 	precache_model (self.mdl);
-	self.noise = SOUND_ARTSHARP1;
-	self.noise1 = SOUND_ARTSHARP2;
-	self.noise2 = SOUND_ARTSHARP3;
+	if (self.noise == "") self.noise = SOUND_ARTSHARP1;
 	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	precache_sound (self.noise2);
-	self.netname = "Sharp Shooter";
+	precache_sound ((self.noise1 = SOUND_ARTSHARP2));
+	precache_sound ((self.noise2 = SOUND_ARTSHARP3));
+	if (self.netname == "") self.netname = "Sharp Shooter";
 	self.items = IT_QUAD;
 	self.moditems = IT_ARTSHARP;
 	self.classtype = CT_ARTSHARP;
@@ -2728,20 +3237,20 @@ void() item_artifact_sharp_shooter =
 	artifact_setup();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_artifact_nail_piercer (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/artifact_piercer.mdl"); }
 All nail attacks will travel through monsters
 -------- KEYS --------
-targetname   : toggle state (use trigger ent for exact state)
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
-message      : centerprint message when item is picked up
-respawn_time : time to wait before respawning (1-x seconds, default varies)
-respawn_count: Total amount of times to respawn (counts down to zero)
-respawn_trig : = 1 Wait for trigger before respawning
-cnt          : Duration override of artifact (default = 30s)
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_piercer.mdl)
+netname       : Override name of pickup (def=Nail Piercer)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+cnt           : Duration override of artifact (default = 30s)
 -------- SPAWNFLAGS --------
 RESPAWN  : Can respawn after being picked up
 FLOAT    : No drop to floor test
@@ -2753,21 +3262,261 @@ All nail attacks will travel through monsters
 ======================================================================*/
 void() item_artifact_nail_piercer =
 {
-	self.mdl = "progs/artifact_piercer.mdl";
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = "progs/artifact_piercer.mdl";
 	precache_model (self.mdl);
-	self.noise = SOUND_ARTNAILP1;
-	self.noise1 = SOUND_ARTNAILP2;
-	self.noise2 = SOUND_ARTNAILP3;
+	if (self.noise == "") self.noise = SOUND_ARTNAILP1;
 	precache_sound (self.noise);
-	precache_sound (self.noise1);
-	precache_sound (self.noise2);
-	self.netname = "Nail Piercer";
+	precache_sound ((self.noise1 = SOUND_ARTNAILP2));
+	precache_sound ((self.noise2 = SOUND_ARTNAILP3));
+	if (self.netname == "") self.netname = "Nail Piercer";
 	self.items = IT_QUAD;
 	self.moditems = IT_ARTPIERCE;
 	self.classtype = CT_ARTPIERCE;
 	self.part_active = PARTICLE_STYLE_PIERCE;
 	self.respawn_style = PARTICLE_BURST_PURPLE + PARTICLE_BURST_CENTER;
 	self.respawn_ofs = '0 0 16';
+	artifact_setup();
+};
+
+//======================================================================
+/*QUAKED item_artifact_airtank (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x SILENT RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/artifact_airtank.mdl"); }
+Player takes no damage from being in water
+-------- KEYS --------
+targetname    : toggle state (use trigger ent for exact state)
+exactskin     : 0=Original, 1=Green, 2=Brown, 3=Aqua, 4=Blue
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_airtank.mdl)
+netname       : Override name of pickup (def=Wet Suit)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+distance      : Breathing sound of water (def 1=off)
+volume        : Maximum range for volume (def=1, no sound=-1)
+cnt           : override duration of artifact (def=infinite)
+-------- SPAWNFLAGS --------
+SILENT   : No breathing sound when airtank active
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS: No particle or effects active
+-------- NOTES --------
+Primary   : Player takes no damage from being in water
+Secondary : Reduces Poisonous debuff by 50% and can surive LG/PG firing underwater
+
+======================================================================*/
+void() item_artifact_airtank =
+{
+	// Check for custom model setup?
+	item_debugcustomdl();
+	// cshifts 0,255,0,20
+	if (self.mdl == "") self.mdl = "progs/artifact_airtank.mdl";
+	precache_model (self.mdl);
+	if (self.noise == "") self.noise = SOUND_ARTAIRTANK1;
+	precache_sound (self.noise);
+	precache_sound ((self.noise1 = SOUND_ARTAIRTANK2));
+	precache_sound ((self.noise2 = SOUND_ARTAIRTANK3));
+	precache_sound ((self.noise3 = SOUND_ARTAIRTANK3B));
+	if (self.netname == "") self.netname = "Air Tank";
+	self.items = 0;
+	self.moditems = IT_ARTAIRTANK;
+	self.classtype = CT_ARTAIRTANK;
+	self.part_active = PARTICLE_STYLE_AIRTANK;
+	self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_CENTER;
+	self.respawn_ofs = '0 0 20';
+	// New default = Breathing sound out of water off
+	if (self.distance < 0) self.distance = 0;
+	else self.distance = 1;
+	
+	// Default = Infinite vania item
+	if (self.cnt <= 0) self.cnt = POWERUP_VANIA;
+	// Default volume = 1
+	if (self.volume < 0) self.volume = 0;
+	else if (self.volume < 0.1) self.volume = 1;
+	
+	artifact_setup();
+};
+
+//----------------------------------------------------------------------
+// Redirect/Fix for Sepulcher/Swampy maps having old 1.7 item
+void() item_artifact_wetsuit = { 
+	// Old wetsuit had lots of skin setups
+	self.exactskin = self.skin = 0; 
+	item_artifact_airtank();
+};
+
+//======================================================================
+/*QUAKED item_artifact_lavashield (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/artifact_lavashield.mdl"); }
+Player takes no HP/armour damage from lava
+-------- KEYS --------
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_lavashield.mdl)
+netname       : Override name of pickup (def=Aegis of Chthon)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+volume        : Maximum range for volume (def=1, no sound=-1)
+cnt           : override duration of artifact (def=infinite)
+-------- SPAWNFLAGS --------
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS: No particle or effects active
+-------- NOTES --------
+Primary   : Player takes no HP/armour damage from lava
+Secondary : Flame and lava attack damage is reduced (Chthon, Drole, Gargoyle, Quoth Dguard)
+
+======================================================================*/
+void() item_artifact_lavashield =
+{
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = "progs/artifact_lavashield.mdl";
+	precache_model (self.mdl);
+	if (self.noise == "") self.noise = SOUND_ARTLSHIELD1;
+	precache_sound (self.noise);
+	precache_sound ((self.noise1 = SOUND_ARTLSHIELD2));
+	precache_sound ((self.noise2 = SOUND_ARTLSHIELD3));
+	if (self.netname == "") self.netname = "Aegis of Chthon";
+	self.items = 0;
+	self.moditems = IT_ARTLAVASHIELD;
+	self.classtype = CT_ARTLAVASHIELD;
+	self.part_active = PARTICLE_STYLE_LAVASHIELD;
+	self.respawn_style = PARTICLE_BURST_RED + PARTICLE_BURST_CENTER;
+	self.respawn_ofs = '0 0 16';
+
+	// Default = Infinite vania item
+	if (self.cnt <= 0) self.cnt = POWERUP_VANIA;
+	// Default volume = 1
+	if (self.volume < 0) self.volume = 0;
+	else if (self.volume < 0.1) self.volume = 1;
+
+	artifact_setup();
+};
+
+//======================================================================
+/*QUAKED item_artifact_blastbelt (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/artifact_blastbelt.mdl"); }
+Player does not take splash damage, but take direct damage
+-------- KEYS --------
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_blastbelt.mdl)
+netname       : Override name of pickup (def=Blast Belt)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+volume        : Maximum range for volume (def=1, no sound=-1)
+cnt           : override duration of artifact (def=infinite)
+-------- SPAWNFLAGS --------
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS : No particle or effects active
+-------- NOTES --------
+Primary   : Player does not take splash damage, but take direct damage
+Secondary : Immune to floor impact attacks (hammer ogre, golems etc)
+
+======================================================================*/
+void() item_artifact_blastbelt =
+{
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = "progs/artifact_blastbelt.mdl";
+	precache_model (self.mdl);
+	if (self.noise == "") self.noise = SOUND_ARTBLASTBELT1;
+	precache_sound (self.noise);
+	precache_sound ((self.noise1 = SOUND_ARTBLASTBELT2));
+	precache_sound ((self.noise2 = SOUND_ARTBLASTBELT3));
+	if (self.netname == "") self.netname = "Blast Belt";
+	self.items = 0;
+	self.moditems = IT_ARTBLASTBELT;
+	self.classtype = CT_ARTBLASTBELT;
+	
+	self.respawn_ofs = '0 0 8';
+	self.part_active = PARTICLE_STYLE_BLASTBELT;
+	self.respawn_style = PARTICLE_BURST_BLUE + PARTICLE_BURST_CENTER;
+
+	// Default = Infinite vania item
+	if (self.cnt <= 0) self.cnt = POWERUP_VANIA;
+	// Default volume = 1
+	if (self.volume < 0) self.volume = 0;
+	else if (self.volume < 0.1) self.volume = 1;
+	
+	artifact_setup();
+};
+
+//======================================================================
+/*QUAKED item_artifact_jumpboots (0 0.5 0.8) (-16 -16 -24) (16 16 32) x x x x RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
+{ model(":progs/artifact_jumpboots.mdl"); }
+Player can do (1-4) extra jumps
+-------- KEYS --------
+targetname    : toggle state (use trigger ent for exact state)
+message       : centerprint message when item is picked up
+mdl           : Override the model used (def=progs/artifact_jumpboots.mdl)
+netname       : Override name of pickup (def=Jump Boots 1+)
+respawn_time  : time to wait before respawning (1-x seconds, default varies)
+respawn_count : Total amount of times to respawn (counts down to zero)
+respawn_trig  : = 1 Wait for trigger before respawning
+noise         : Custom pickup sound for powerup
+count         : Power level override (0=def, 1-4=exact level, -1=endless)
+height        : 2nd+ player jump height upward (def=320)
+distance      : Minimum forward momentum (def=0, recommend=320)
+volume        : Maximum range for volume (def=1, no sound=-1)
+cnt           : override duration of artifact (def=infinite)
+-------- SPAWNFLAGS --------
+RESPAWN  : Can respawn after being picked up
+FLOAT    : No drop to floor test
+STARTOFF : Starts off and waits for trigger
+NOEFFECTS : No particle or effects active
+-------- NOTES --------
+Primary   : Player can do (1-4) extra jumps
+Secondary : Can jump while falling off ledges or midair
+
+======================================================================*/
+void() item_artifact_jumpboots =
+{
+	// Check for custom model setup?
+	item_debugcustomdl();
+	if (self.mdl == "") self.mdl = "progs/artifact_jumpboots.mdl";
+	precache_model (self.mdl);
+	if (self.noise == "") self.noise  = SOUND_ARTJUMPBOOTS1;
+	precache_sound (self.noise);
+	// sounds 3a-3c are used in client.qc (lines 915+)
+	precache_sound ((self.noise1 = SOUND_ARTJUMPBOOTS2));
+	precache_sound ((self.noise2 = SOUND_ARTJUMPBOOTS3A));	// First jump
+	precache_sound ((self.noise3 = SOUND_ARTJUMPBOOTS3B));	// Second
+	precache_sound ((self.noise4 = SOUND_ARTJUMPBOOTS3C));	// No more
+	
+	self.items = 0;
+	self.moditems = IT_ARTJUMPBOOTS;
+	self.classtype = CT_ARTJUMPBOOTS;
+	self.part_active = PARTICLE_STYLE_JUMPBOOTS;
+	self.respawn_style = PARTICLE_BURST_YELLOW + PARTICLE_BURST_CENTER;
+	self.respawn_ofs = '0 0 10';
+
+	// Make sure count is within range 1-4
+	if (self.count < -1 || self.count > ART_JUMPBOOTS_AIRMAX) self.count = 1;	
+	// Setup more descriptive pickup names
+	if (self.count == 2) self.netname = "Jump Boots +2";
+	else if (self.count == 3) self.netname = "Jump Boots +3";
+	else if (self.count == 4) self.netname = "Jump Boots +4";
+	// Default name (count == 1)
+	else self.netname = "Jump Boots";
+
+	// Default = Infinite vania item
+	if (self.cnt <= 0) self.cnt = POWERUP_VANIA;
+	// Default volume = 1
+	if (self.volume < 0) self.volume = 0;
+	else if (self.volume < 0.1) self.volume = 1;
+	
 	artifact_setup();
 };
 
@@ -3045,13 +3794,6 @@ void() BackpackTouch =
 			other.sharpshoot_time = self.sharpshoot_time;
 			other.sharpshooter_sound = self.sharpshooter_sound;
 		}
-		if (self.moditems & IT_ARTWETSUIT) {
-			other.moditems = other.moditems | IT_ARTWETSUIT;
-			acount = BackpackText(other, "WetSuit", "", acount);
-			other.wetsuit_finished = self.wetsuit_finished;
-			other.wetsuit_time = self.wetsuit_time;
-			other.wetsuit_sound = self.wetsuit_sound;
-		}
 		if (self.moditems & IT_ARTPIERCE) {
 			other.moditems = other.moditems | IT_ARTPIERCE;
 			acount = BackpackText(other, "Piercer", "", acount);
@@ -3059,6 +3801,21 @@ void() BackpackTouch =
 			other.nailpiercer_time = self.nailpiercer_time;
 			other.nailpiercer_sound = self.nailpiercer_sound;
 		}		
+		if (self.moditems & IT_ARTAIRTANK) {
+			other.moditems = other.moditems | IT_ARTAIRTANK;
+			acount = BackpackText(other, "AirTank", "", acount);
+			other.airtank_finished = self.airtank_finished;
+			other.airtank_time = self.airtank_time;
+			other.airtank_sound = self.airtank_sound;
+		}
+		if (self.moditems & IT_ARTJUMPBOOTS) {
+			other.moditems = other.moditems | IT_ARTJUMPBOOTS;
+			acount = BackpackText(other, "JumpBoots", "", acount);
+			other.jumpboots_finished = self.jumpboots_finished;
+			other.jumpboots_time = self.jumpboots_time;
+			other.jumpboots_airlvl = self.jumpboots_airlvl;
+			other.jumpboots_airmax = self.jumpboots_airmax;
+		}
 	}
 
 	sprint (other, " from a backpack\n");
@@ -3071,8 +3828,11 @@ void() BackpackTouch =
 	if (deathmatch) other.weapon = W_BestWeapon(other);
 	W_SetCurrentAmmo (other);
 	
+	// Quick exit, no need for following stuff
+	if (self.progspawnlist) return;
+
 	// Random ammo backpacks are actual items
-	if (self.classtype == CT_AMMORANDOM) {
+	if (self.classtype == CT_AMMOITEMPACK) {
 		// hide item and check for respawn
 		item_finished();
 		check_item_respawn();
@@ -3094,19 +3854,19 @@ void() DropBackpack =
 	}
 
 	item = spawn();
-	item.classtype = CT_AMMOPACK;
+	item.classtype = CT_AMMODROPPACK;
 	item.classgroup = CG_AMMOITEM;
 	item.classname = "item_backpack";
 	item.origin = self.origin - '0 0 20';
 	// No way to cache something different without adding to world.qc
 	// Default quake sound for backpacks dropped from monsters
-	item.noise = "weapons/lock4.wav";
+	item.noise = AMMO_PICKUP;
 	
 	//----------------------------------------------------------------------
 	// Pyro Enforcers drop armor shards instead!!!
 	//----------------------------------------------------------------------
 	if (self.classtype == CT_MONPYRO || self.classtype == CT_MONFUMIGATOR) 
-		item.armorvalue = rint(1 + random() * self.ammo_shells);
+		item.armorvalue = floor(1 + (random() * self.ammo_shells));
 	else {
 		// Everything else drops ammo
 		item.ammo_shells = self.ammo_shells;
@@ -3161,15 +3921,21 @@ void() DropBackpack =
 					item.sharpshoot_time = self.sharpshoot_time;
 					item.sharpshooter_sound = self.sharpshooter_sound;
 				}
-				if (self.moditems & IT_ARTWETSUIT) {
-					item.wetsuit_finished = self.wetsuit_finished;
-					item.wetsuit_time = self.wetsuit_time;
-					item.wetsuit_sound = self.wetsuit_sound;
-				}
 				if (self.moditems & IT_ARTPIERCE) {
 					item.nailpiercer_finished = self.nailpiercer_finished;
 					item.nailpiercer_time = self.nailpiercer_time;
 					item.nailpiercer_sound = self.nailpiercer_sound;
+				}
+				if (self.moditems & IT_ARTAIRTANK) {
+					item.airtank_finished = self.airtank_finished;
+					item.airtank_time = self.airtank_time;
+					item.airtank_sound = self.airtank_sound;
+				}
+				if (self.moditems & IT_ARTJUMPBOOTS) {
+					item.jumpboots_finished = self.jumpboots_finished;
+					item.jumpboots_time = self.jumpboots_time;
+					item.jumpboots_airlvl = self.jumpboots_airlvl;
+					item.jumpboots_airmax = self.jumpboots_airmax;
 				}
 			}
 		}
@@ -3224,7 +3990,7 @@ void() DropBackpack =
 	item.nextthink = time + 0.3;		// Let backpack drop first
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED item_backpack (0 .5 .8) (-16 -16 0) (16 16 56) SHELLS NAILS ROCKETS CELLS RESPAWN FLOAT STARTOFF NOEFFECTS NOT_EASY NOT_NORMAL NOT_HARD NOT_DM
 { model(":progs/w_backpack.mdl"); }
 Backpack with random/exact amount of ammo
@@ -3238,9 +4004,6 @@ ammo_cells   : exact amount of cells
 armorvalue   : armor shards (gives green armor if none present)
 armortype    : 1 = random amount of armor shards (uses count)
 exactskin    : 0=Original, 1=green, 2=blue, 3=red, 4=yellow, 5=swamp, 6=white, 7=pale
-upgrade_ssg  : = 1 will only spawn if shotgun upgrade active on server
-upgrade_axe  : = 1 will only spawn if axe upgrade active on server
-upgrade_lg   : = 1 will only spawn if lightning gun upgrade active on server
 noise         : pickup sound (def=items/backpack_ammo.wav)
 respawn_time  : time to wait before respawning (1-x seconds, default varies)
 respawn_count : Total amount of times to respawn (counts down to zero)
@@ -3318,7 +4081,8 @@ void() item_backpack =
 	if (self.noise == "") self.noise = "items/backpack_ammo.wav";
 	precache_sound(self.noise);
 
-	self.classtype = CT_AMMORANDOM;
+	self.flags = FL_ITEM;
+	if (self.classtype <= 0) self.classtype = CT_AMMOITEMPACK;
 	self.classgroup = CG_AMMOITEM;
 	self.bbmins = '-16 -16 -12';
 	self.bbmaxs = '16 16 32';
@@ -3345,28 +4109,28 @@ void() item_backpack =
 //----------------------------------------------------------------------
 void() item_backpack_armour =
 {
-	// Default armour amount is 15
-	
 	if (self.noise == "") self.noise = "items/backpack_armour.wav";
 	precache_sound(self.noise);
+	self.classtype = CT_ARMORITEMPACK;
 
+	// Default armour amount is 15
 	// Check for different armour types
 	if (self.spawnflags & BACKPACK_GRNTYPE) {
 		self.armortype = ARMOR_GRN_TYPE; self.exactskin = 1;
-		if (self.armorvalue < 1) self.armorvalue = 15;
+		if (self.armorvalue < 1) self.armorvalue = BACKARMGRN;
 	}
 	else if (self.spawnflags & BACKPACK_YELTYPE) {
 		self.armortype = ARMOR_YEL_TYPE; self.exactskin = 4;
-		if (self.armorvalue < 1) self.armorvalue = 30;
+		if (self.armorvalue < 1) self.armorvalue = BACKARMYEL;
 	}
 	else if (self.spawnflags & BACKPACK_REDTYPE) {
 		self.armortype = ARMOR_RED_TYPE; self.exactskin = 3;
-		if (self.armorvalue < 1) self.armorvalue = 45;
+		if (self.armorvalue < 1) self.armorvalue = BACKARMRED;
 	}
 	// default = shards, no armour type
 	else {
 		self.armortype = 0; self.exactskin = 4;
-		if (self.armorvalue < 1) self.armorvalue = 15;
+		if (self.armorvalue < 1) self.armorvalue = BACKARMGRN;
 	}
 	
 	// make sure all ammo is removed from backpack
@@ -3378,3 +4142,120 @@ void() item_backpack_armour =
 	// Feed back into backpack function
 	item_backpack();
 };
+
+//----------------------------------------------------------------------
+void() DropHealthpack =
+{
+	local entity item;
+	// No cache no drops!
+	if (healthcache <= 0) return;
+	
+	item = spawn();
+	item.classgroup = CG_HEALTH;
+	item.classname = "item_health";
+	item.origin = self.origin - '0 0 20';
+	item.skin_override = FALSE;
+
+	// Check for regular Health Pack
+	if (self.healamount == HEAL_NORM) {
+		item.classtype = CT_HEALNORM;
+		// Randomize the health pack, defaults are boring!
+		item.healamount = floor((HEAL_NORM/2) + (random()* HEAL_NORM/2));
+		item.noise = SOUND_HEAL25;
+		// Pick new medieval version or original
+		if (item_skintype(item) == SKIN_MEDIEVAL)
+			item.mdl = "progs/health_25.mdl";
+		else item.mdl = "progs/health_25b.mdl";
+	}
+	/* Check for megahealth! - This is crazy!
+	else if (self.healamount == HEAL_MEGA) {
+		item.classtype = CT_HEALMEGA;
+		item.healamount = HEAL_MEGA;
+		item.noise = SOUND_HEAL100;
+		// Pick new medieval version or original
+		if (item_skintype(item) == SKIN_MEDIEVAL)
+			item.mdl = "progs/health_100.mdl";
+		else item.mdl = "progs/health_100b.mdl";
+	} */
+	// Default = rotten Health Pack
+	else {
+		item.classtype = CT_HEALROT;
+		// Randomize the health pack, defaults are boring!
+		item.healamount = floor((HEAL_ROT/2) + (random()* HEAL_ROT/2));
+		item.noise = SOUND_HEAL15;
+		// Pick new medieval version or original
+		if (item_skintype(item) == SKIN_MEDIEVAL)
+			item.mdl = "progs/health_15.mdl";
+		else item.mdl = "progs/health_15b.mdl";
+	}
+	
+	// Give the backpack some random toss!
+	item.velocity_z = 300;
+	item.velocity_x = -100 + (random() * 200);
+	item.velocity_y = -100 + (random() * 200);
+	
+	// Setup item correctly
+	item.flags = FL_ITEM;
+	item.solid = SOLID_TRIGGER;
+	item.movetype = MOVETYPE_TOSS;
+	
+	setmodel (item, item.mdl);
+	item.bbmins = VEC_HEAL_MIN;
+	item.bbmaxs = VEC_HEAL_MAX;
+	setsize(item, item.bbmins, item.bbmaxs);
+	item.touch = item_touch;
+	item.touch2 = health_touch;
+	// Once only
+	item.respawn_time = 0;
+	// Random rotation
+	item.angles_y = rint(random()*359);
+	
+	// Default = remove after 2 minutes, stay if coop active
+	if (coop == 0) item.item_expired = time + 120;
+	else item.item_expired = 0;
+	
+	item.item_flrcheck = fabs(item.mins_z) + 16;
+	item.think = item_thinkloop;		// Check floor
+	item.nextthink = time + 0.3;		// Let item drop first
+};
+
+//----------------------------------------------------------------------
+void() CacheHealthpacks =
+{
+	if (healthcache) return;
+	healthcache = TRUE;
+	// Rotten Health pack
+	precache_model(MODEL_HEAL15);
+	precache_model(MODEL_HEAL15B);
+	precache_sound(SOUND_HEAL15);
+	// Regular Health Pack
+	precache_model(MODEL_HEAL25);
+	precache_model(MODEL_HEAL25B);
+	precache_sound(SOUND_HEAL25);
+	// Mega Health Pack
+	//precache_model(MODEL_HEAL100);
+	//precache_model(MODEL_HEAL100B);
+	//precache_sound(SOUND_HEAL100);
+};
+
+//======================================================================
+// Re-direct items from Quoth
+// Allows for Quoth maps to be loaded into AD (not 100% compatible)
+// 
+//======================================================================
+// Quoth Hammer requests to Shadow Axe!
+void() weapon_hammer = { weapon_upgrade_axe(); };
+
+// Quoth Plasma Gun requests to LG Upgrade!
+void() weapon_plasmagun = { weapon_upgrade_lg(); };
+
+// Quoth coop holdable weapon (removed on spawn)
+void() weapon_bomb = { remove(self); }
+
+// Trinity (3x nail damage) requests to Nail Piecer!
+void() item_artifact_trinity = { item_artifact_nail_piercer(); };
+
+// Cross of Deflection requests to Blast Belt!
+void() item_artifact_cross = { item_artifact_blastbelt(); };
+
+

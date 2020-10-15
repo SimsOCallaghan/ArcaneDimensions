@@ -70,18 +70,19 @@ float(float num) mathlib_sin =
 {
 	local vector ang,vf,vu,vr;
 	
+	// Save V_ variable states
 	vf = v_forward;
 	vu = v_up;
 	vr = v_right;
-	
+	// Use makevectors to get sin
 	ang = '0 1 0' * num;
 	makevectors(ang);
 	num = v_forward_y;
-	
+	// Restore V_ variables
 	v_forward = vf;
 	v_up = vu;
 	v_right = vr;
-	
+	// Return SIN
 	return num;
 };
 
@@ -205,6 +206,75 @@ float (float number, float exp) mathlib_bitshift =
 	}
 	return number;
 };
+
+//----------------------------------------------------------------------
+// Returns power of 10
+//----------------------------------------------------------------------
+float(float pow_loop, float pow_bit) mathlib_powbit =
+{
+	local float pow_num, pow_counter;
+	// Allow for starting range to be different
+	pow_num = pow_bit;
+	pow_counter = 1;
+	if (pow_loop < 1) pow_loop = 1;
+			
+	while (pow_counter < pow_loop) {
+		pow_num = pow_num * pow_bit;
+		pow_counter = pow_counter + 1;
+	}
+	return pow_num;
+}; 
+
+/*----------------------------------------------------------------------
+Return exact division
+----------------------------------------------------------------------*/
+float(float divnum, float divider) mathlib_divisible =
+{
+	local float retval;
+	retval = 0;
+	// Check for leading zero (always return zero)
+	if (divider > divnum) return retval;
+	// Got a number that can be divided
+	while (divnum >= divider) {
+		divnum = divnum - divider;
+		retval = retval + 1;
+	}
+	return retval;
+};
+
+/*----------------------------------------------------------------------
+Return truncated number
+----------------------------------------------------------------------*/
+float(float trnum, float topbit, float botbit) mathlib_truncate =
+{
+	local float tr_pow, tr_counter, tr_result;
+	
+	// Calc Maximum POW above number to truncate
+	tr_counter = 0;
+	tr_pow = mathlib_powbit(topbit,10);
+	while (tr_pow < trnum) {
+		tr_counter = tr_counter + 1;
+		tr_pow = tr_pow * 10;
+	}
+	
+	// Count down the digits to remove
+	while (tr_counter > 0) {
+		// Move down one pow digit
+		tr_pow = tr_pow / 10;
+		// Divide number by pow to get divider
+		tr_result = mathlib_divisible(trnum, tr_pow);
+		trnum = trnum - (tr_result * tr_pow);
+		tr_counter = tr_counter - 1;
+	}
+	
+	// Fix the rounding errors by shifting the number up/down
+	tr_pow = mathlib_powbit(botbit,10);
+	trnum = rint(trnum*tr_pow);
+	trnum = trnum / tr_pow;
+	// Final result
+	return trnum;
+};
+
 /*----------------------------------------------------------------------
 Remainder
 
@@ -216,15 +286,26 @@ float(float a, float b) mod =
 	return a - (floor(a / b) * b);
 };
 
-/*----------------------------------------------------------------------
+/*======================================================================
 mathlib_anglemod 
 
 faster version of id's anglemod
-----------------------------------------------------------------------*/
+======================================================================*/
 float(float v) anglemod =
 {
 	return v - floor(v/360) * 360;
 };
+
+//----------------------------------------------------------------------
+// Vector version of anglemod
+vector(vector targang) vectormod =
+{
+	local vector finang;
+	finang_x = anglemod(targang_x);
+	finang_y = anglemod(targang_y);
+	finang_z = anglemod(targang_z);
+	return finang;
+}
 
 //----------------------------------------------------------------------
 // Original version from ai.qc
@@ -397,6 +478,37 @@ float (float num) rad2deg = { return num*OneEightyOverPi; };
 float (float num) deg2rad = { return num*PiOverOneEighty; };
 
 /*----------------------------------------------------------------------
+ QC Rotation around world co-ord 0,0,0 (2 axis only)
+  - Expecting one axis (XYZ) to always be constant
+----------------------------------------------------------------------*/
+vector(vector targvec, float targang) mathlib_vectorotateX =
+{
+	local vector retvec;
+	retvec_x = targvec_x;
+	retvec_y = (targvec_y * mathlib_cos(targang)) - (targvec_z * mathlib_sin(targang));
+	retvec_z = (targvec_y * mathlib_sin(targang)) + (targvec_z * mathlib_cos(targang));
+	return(retvec);
+};
+//----------------------------------------------------------------------
+vector(vector targvec, float targang) mathlib_vectorotateY =
+{
+	local vector retvec;
+	retvec_x = (targvec_x * mathlib_cos(targang)) + (targvec_z * mathlib_sin(targang));
+	retvec_y = targvec_y;
+	retvec_z = (-targvec_x * mathlib_sin(targang)) + (targvec_z * mathlib_cos(targang));
+	return(retvec);
+};
+//----------------------------------------------------------------------
+vector(vector targvec, float targang) mathlib_vectorotateZ =
+{
+	local vector retvec;
+	retvec_x = (targvec_x * mathlib_cos(targang)) - (targvec_y * mathlib_sin(targang));
+	retvec_y = (targvec_x * mathlib_sin(targang)) + (targvec_y * mathlib_cos(targang));
+	retvec_z = targvec_z;
+	return(retvec);
+};
+
+/*----------------------------------------------------------------------
 TAN
 Changes v_forward, v_right, v_up
 ----------------------------------------------------------------------*/
@@ -418,21 +530,115 @@ float(float y, float x) mathlib_atan2 =
   ang = '0 0 0';
   ang_x = x;
   ang_y = y;
+  //return mathlib_vectoyaw(ang);
   return vectoyaw(ang);
 };
- 
+
+/*----------------------------------------------------------------------
+QC version of engine code vectoyaw function
+ - Used to prevent returning integers (errors) on some engines
+ - Broken and abandoned, don't use!!! (keep for reference)
+ - Found a better solution with angle smoothing code instead
+----------------------------------------------------------------------
+float(vector targvec) mathlib_vectoyaw =
+{
+	local float vecyaw;
+
+	// Conditions below taken from atan2 wiki page
+	if (targvec_x == 0 && targvec_y > 0)
+		vecyaw = pi / 2;
+	
+	else if (targvec_x == 0 && targvec_y < 0)
+		vecyaw = - (pi / 2);
+	
+	else if (targvec_x < 0 && targvec_y >= 0)
+		vecyaw = mathlib_tan(targvec_y / targvec_x) + pi;
+	
+	else if (targvec_x < 0 && targvec_y < 0)
+		vecyaw = mathlib_tan(targvec_y / targvec_x) - pi;
+	
+	else if (targvec_x > 0)
+		vecyaw = mathlib_tan(targvec_y / targvec_x);
+		
+	// default x == 0 && y == 0
+	else vecyaw = 0;
+	
+	if (vecyaw < 0) vecyaw = vecyaw + 360;	// yaw += 360;
+	return vecyaw;
+}; */
+
+/*----------------------------------------------------------------------
+QC version of engine code vectoangles function
+ - Used to prevent returning integers (errors) on some engines
+ - Found a better solution with angle smoothing code instead
+----------------------------------------------------------------------*/
+vector(vector targvec) mathlib_vectoangles =
+{
+	// value1[0] = targvec_x, value1[1] = targvec_y, value1[2] = targvec_z
+	// X=Pitch, Y=Yaw, Z=Forward;
+	local vector ang;
+	ang = '0 0 0';
+	
+	// if (value1[1] == 0 && value1[0] == 0)
+	if (targvec_y == 0 && targvec_x == 0) {
+		ang_y = 0;	// yaw=0
+		// if (value1[2] > 0) pitch = 90;
+		if (targvec_z > 0) ang_x = 90;	// pitch=90
+		else ang_x = 270;				// pitch=270
+	}
+	else {
+		// yaw = (int) (atan2(value1[1], value1[0]) * 180 / M_PI);
+		// mathlib atan2 returns degree's not radian's (don't need *180/PI)
+		ang_y = mathlib_atan2(targvec_y, targvec_x);
+		if (ang_y < 0) ang_y = ang_y + 360;	// yaw += 360;
+		
+		// forward = sqrt (value1[0]*value1[0] + value1[1]*value1[1]);
+		ang_z = mathlib_sqrt(targvec_x * targvec_x + targvec_y * targvec_y);
+
+		// pitch = (int) (atan2(value1[2], forward) * 180 / M_PI);
+		// mathlib atan2 returns degree's not radian's (don't need *180/PI)
+		ang_x = mathlib_atan2(targvec_z, ang_z);
+		if (ang_x < 0) ang_x = ang_x + 360;	// pitch += 360;
+	}
+	
+	// forward (Z) not required, zero instead
+	ang_z = 0;
+	return ang;
+};
+
+/*----------------------------------------------------------------------
+QC version of engine code makevectors function
+----------------------------------------------------------------------*/
+void(vector targang) mathlib_makevectors =
+{
+	local float sr, sp, sy, cr, cp, cy;
+	
+	// targangs X=Pitch, Y=Yaw, Z=Roll
+    sp = mathlib_sin(targang_x);
+    cp = mathlib_cos(targang_x);
+    sy = mathlib_sin(targang_y);
+    cy = mathlib_cos(targang_y);
+    sr = mathlib_sin(targang_z);
+    cr = mathlib_cos(targang_z);
+	
+    v_forward_x = cp*cy;
+    v_forward_y = cp*sy;
+    v_forward_z = -sp;
+    v_right_x = (-1*sr*sp*cy+-1*cr*-sy);
+    v_right_y = (-1*sr*sp*sy+-1*cr*cy);
+    v_right_z = -1*sr*cp;
+    v_up_x = (cr*sp*cy+-sr*-sy);
+    v_up_y = (cr*sp*sy+-sr*cy);
+    v_up_z = cr*cp;
+};
+	
 /* *********************************************************
-
 !!!FTEQCC or FrikQCC only code follows !!!
-
 This code allows the engine to accelerate math functions
-
 If not needed, you can simply delete the rest of the file
 and call the mathlib functions above directly.
-
 It checks for the extensions DP_QC_MINMAXBOUND,
 DP_QC_RANDOMVEC, DP_QC_SINCOSSQRTPOW, EXT_BITSHIFT
-
 ********************************************************* */
 /*
 var float (float num) sqrt;

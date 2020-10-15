@@ -310,11 +310,14 @@ void(vector orgofs) skullw_fire =
 {
 	local vector org, dir;
 
-	ai_face();
+	if (!self.enemy) return;
+	if (self.health < 1) return;
+	
 	self.effects = self.effects | EF_MUZZLEFLASH;
 	if (random() < 0.5) sound (self, CHAN_WEAPON, "skullwiz/skull1.wav", 1, ATTN_NORM);
 	else sound (self, CHAN_WEAPON, "skullwiz/skull2.wav", 1, ATTN_NORM);
 
+	ai_face();
 	makevectors (self.angles);
 	org = self.origin + attack_vector(orgofs);
 	dir = normalize(self.enemy.origin - org);
@@ -731,12 +734,13 @@ void() skullw_die =
 	}
 };
 
-/*======================================================================
-QUAKED monster_skullwiz (0.5 0 1) (-16 -16 -24) (16 16 40)
+//======================================================================
+/*QUAKED monster_skullwiz (0.5 0 1) (-16 -16 -24) (16 16 40)
 ======================================================================*/
 void() monster_skullwiz =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_skullwiz.mdl";
 	precache_model (self.mdl);
@@ -795,9 +799,9 @@ void() monster_skullwiz =
 	// Need extra parameters for their teleporting ability
 	// Can be setup to start phased out and surprise the player
 	self.idlebusy = SKULLW_STAND;
-	if (self.height == 0) self.height = SKULLW_HEIGHT;
-	if (self.distmin == 0) self.distmin = SKULLW_DISTMIN;
-	if (self.distmax == 0) self.distmax = SKULLW_DISTMAX;
+	if (self.height <= 0) self.height = SKULLW_HEIGHT;
+	if (self.distmin <= 0) self.distmin = SKULLW_DISTMIN;
+	if (self.distmax <= 0) self.distmax = SKULLW_DISTMAX;
 	if (!self.bodyphased) self.bodyphased = MONAI_SKULLWSOLID;
 	else self.bodyphased = MONAI_SKULLWINVIS;
 
@@ -849,7 +853,7 @@ void() monster_skullwiz =
 	monster_start();
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED info_skullwiz_destination (0.6 0 0.8) (-16 -16 -24) (16 16 40) x
 Teleport destination for skull wizard ONLY
 -------- KEYS --------

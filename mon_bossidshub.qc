@@ -16,7 +16,6 @@ void() finale_1;
 void() finale_2;
 void() finale_3;
 void() finale_4;
-entity	shub;
 
 //===========================================================================
 void() idshub_idle1 =[ $idle1, idshub_idle2 ] {};
@@ -162,7 +161,7 @@ void() finale_2 =
 void() finale_3 =
 {
 	// start shub thrashing wildly
-	sound (self, CHAN_VOICE, "boss2/death.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.death_sound, 1, ATTN_NORM);
 	lightstyle(0, "abcdefghijklmlkjihgfedcb");	
 	idshub_pain1();
 };
@@ -172,10 +171,29 @@ void() finale_3 =
 //----------------------------------------------------------------------
 void() finale_4 =
 {
+	local entity entlist;
+	
 	// Play exploding sound
-	sound (self, CHAN_VOICE, "boss2/pop2.wav", 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.death_sound2, 1, ATTN_NORM);
 	self.oldorigin = self.origin;
 
+	// Cycle through all monsters and kill them
+	// Start from beginning of entity list, world!
+	entlist = nextent(world);
+	// Keep looping through entity list
+	while (entlist) {
+		// Only interested in monsters, kill them all!
+		if (entlist.flags & FL_MONSTER && entlist.health > 0) {
+			self.view_ofs = self.origin + vecrand(0,64,TRUE);
+			self.view_ofs_z = 50 + random()*200;
+			setorigin(entlist, self.view_ofs);
+			entlist.max_health = MON_GIBFOUNTAIN;
+			monster_remove_kill(entlist, TRUE, TRUE);
+		}
+		// Keep search through ALL of the entity list
+		entlist = nextent(entlist);
+	}
+	
 	// Setup temp entity for directional force for gibs
 	self.movelast = spawn();
 	self.movelast.oldorigin = self.origin - '0 0 -300';
@@ -199,30 +217,62 @@ void() finale_4 =
 
 		self.count = self.count - 1;
 	}
-	// start the end text
-	WriteByte (MSG_ALL, SVC_FINALE);
-	WriteString (MSG_ALL, "Congratulations and well done! You have\nbeaten the hideous Shub-Niggurath, and\nher hundreds of ugly changelings and\nmonsters. You have proven that your\nskill and your cunning are greater than\nall the powers of Quake. You are the\nmaster now. Id Software salutes you.");
+	// Check if skill 4 + Chaos are active?
+	if (Client_QueryEvilmode()) {
+		// start the end text
+		WriteByte (MSG_ALL, SVC_FINALE);
+		WriteString (MSG_ALL, "Congratulations and well done! You have\nbeaten the hideous Shub-Niggurath, and\nher hundreds of ugly changelings and\nmonsters. You have proven that your\nskill and your cunning are greater than\nall the powers of Quake.\n\nThe Arcane Dimensions Team salutes you!");
 
-	// put a player model down
-	self.oldorigin = self.oldorigin - '32 264 0';
-	setorigin (self.movelast, self.oldorigin);
-	setmodel (self.movelast, MODEL_PLAYER);
-	self.movelast.angles = '0 290 0';
-	self.movelast.frame = 1;
+		// Switch in special dancing player model
+		self.oldorigin = self.oldorigin - '32 235 0';
+		setorigin (self.movelast, self.oldorigin);
+		setmodel (self.movelast, MODEL_PLAYER_DANCE);
+		self.movelast.angles = '0 330 0';
+		// Use frame group (constant animation)
+		self.movelast.frame = 0;		
+		// No funky CD music track!
+		WriteByte (MSG_ALL, SVC_CDTRACK);
+		WriteByte (MSG_ALL, 35);
+		WriteByte (MSG_ALL, 35);
+		// Reset light styles
+		lightstyle(0, "m");	
+	}
+	else {
+		// start the end text
+		WriteByte (MSG_ALL, SVC_FINALE);
+		WriteString (MSG_ALL, "Congratulations and well done! You have\nbeaten the hideous Shub-Niggurath, and\nher hundreds of ugly changelings and\nmonsters. You have proven that your\nskill and your cunning are greater than\nall the powers of Quake. You are the\nmaster now. Id Software salutes you!");
 
-	remove(self);
+		// Default player model setup
+		self.oldorigin = self.oldorigin - '32 264 0';
+		setorigin (self.movelast, self.oldorigin);
+		setmodel (self.movelast, MODEL_PLAYER);
+		self.movelast.angles = '0 290 0';
+		self.movelast.frame = 1;
+		// Default end cd track
+		WriteByte (MSG_ALL, SVC_CDTRACK);
+		WriteByte (MSG_ALL, 3);
+		WriteByte (MSG_ALL, 3);
+		// Reset light styles
+		lightstyle(0, "m");	
+	}
 
-	// switch cd track
-	WriteByte (MSG_ALL, SVC_CDTRACK);
-	WriteByte (MSG_ALL, 3);
-	WriteByte (MSG_ALL, 3);
-	lightstyle(0, "m");	
+	// Hide shubshub!
+	entity_hide(self);
 };
 
 //============================================================================
-void (entity inflictor, entity attacker, float damage) idshub_nopain =
+void (entity inflictor, entity attacker, float damage) idshub_pain =
 {
-	self.health = self.max_health;
+	self.health = self.max_health;		// reset health	
+};
+
+//----------------------------------------------------------------------
+void() idshub_die =
+{
+	self.deadflag = DEAD_DEAD;	// Nour bites the dust
+	self.effects = 0;			// Remove effects on death
+	self.max_health = MON_GIBEXPLOSION;
+	finale_1();
 };
 
 /*============================================================================
@@ -230,18 +280,30 @@ void (entity inflictor, entity attacker, float damage) idshub_nopain =
 ============================================================================*/
 void() monster_oldone =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/oldone.mdl";
 	precache_model (self.mdl);
 
 	// idle/sight not used
-	precache_sound ("boss2/idle.wav");
-	precache_sound ("boss2/sight.wav");
+	self.idle_sound = "boss2/idle.wav";
+	precache_sound (self.idle_sound);
+	self.sight_sound = "boss2/sight.wav";
+	precache_sound (self.sight_sound);
+	
+	// No default pain sound
+	self.pain_sound = SOUND_EMPTY;
 	
 	// finale_3/finale_4 stages
-	precache_sound ("boss2/death.wav");
-	precache_sound ("boss2/pop2.wav");
+	self.death_sound = "boss2/death.wav";
+	self.death_sound2 = "boss2/pop2.wav";
+	precache_sound (self.death_sound);
+	precache_sound (self.death_sound2);
+	
+	// Skill 4 + Chaos mode surprise
+	precache_model (MODEL_PLAYER_DANCE);
+	precache_sound ("boss2/funk_crush.wav");
 
 	self.solid = SOLID_NOT;			// No interaction with world
 	self.movetype = MOVETYPE_NONE;	// Static item, no movement
@@ -250,30 +312,47 @@ void() monster_oldone =
 	self.bbmins = '-96 -96 -24';	// has own entity setup
 	self.bbmaxs = '96 96 192';
 	self.bboxtype = BBOX_CUSTOM;	// Custom BBox size
+	self.flags = FL_MONSTER;		// Reset flag (no user settings)
 	self.bossflag = TRUE;			// Boss flag (like FL_MONSTER)
-	self.poisonous = FALSE;			// Cannot be poisonous
-	self.deathstring = " became one with Shub-Niggurath\n";
-
-	setmodel(self, self.mdl);					// Setup model
-	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
-
+	self.health = self.max_health = 40000;	// kill ONLY by telefrag
 	self.no_liquiddmg = TRUE;		// no slime/lava damage
 	self.gibbed = FALSE;			// Still in one piece
+	self.pain_longanim = FALSE;		// No special axe animation
+	self.blockudeath = TRUE;		// no humanoid death sound
+	self.steptype = FS_FLYING;		// Stationary, no feet sound
+	self.poisonous = FALSE;			// Cannot be poisonous
+	self.velocity = '0 0 0';		// Make sure stationary
+	self.lastorigin = self.origin;	// Origin for camera interpolation
+	self.deathstring = " became one with Shub-Niggurath\n";
+	
+	// Check passive system for exceptions
+	setup_passivestate_boss(self);
 	
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 1;
 	self.resist_rockets = self.resist_cells = 1;
+	self.reflectlightning = TRUE;	// Reflect lightning strikes
+	self.reflectplasma = TRUE;		// Reflect plasma projectiles
+	self.reflectnails = TRUE;		// Reflect nail projectiles
+	self.reflectaxe = TRUE;			// Prevent axe damage
+
+	self.th_stand = self.th_walk = self.th_run = idshub_idle1;
+	self.th_pain = idshub_pain;
+	self.th_die = idshub_die;
+	
+	// Manually add monster count
+	total_monsters = total_monsters + 1;
 
 	self.classtype = CT_MONIDSHUB;
 	self.classgroup = CG_BOSS;
-	self.health = self.max_health = 40000;		// kill by telefrag
+	
+	self.solid = SOLID_SLIDEBOX;
+	self.movetype = MOVETYPE_STEP;
+	setmodel(self, self.mdl);					// Setup model
+	setsize (self, self.bbmins, self.bbmaxs);	// Restore BB size
+	self.takedamage = DAMAGE_YES;				// Can be telefragged!
+
 	self.think = idshub_idle1;
 	self.nextthink = time + 0.1;	
-	self.takedamage = DAMAGE_YES;
-	self.th_pain = idshub_nopain;
-	self.th_die = finale_1;
-	shub = self;
-	
-	total_monsters = total_monsters + 1;
 };
 

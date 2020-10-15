@@ -1,6 +1,6 @@
-/*======================================================================
- TRAP SHOOTERS
-======================================================================*/
+//======================================================================
+// TRAP SHOOTERS
+//======================================================================
 float TRAP_SNGSPIKE = 1;		// Large SNG spikes (high damage)
 float TRAP_LASER = 2;			// Enforcer style lasers
 float TRAP_WIZSPIKE = 4;		// Wizard Acid spit spike
@@ -21,7 +21,7 @@ float TRAP_GASSILENT = 16;		// No particle sound effects
 float TRAP_TOGGLE = 32;			// Toggle function with triggered
 float TRAP_TRACKING = 128;		// Keep updating the target position
 
-/*======================================================================
+//======================================================================
 /*QUAKED trap_spikeshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) SNG LASER WIZARD HELLK x TOGGLE x TRACK
 When triggered, fires a SPIKE in the direction determined by angle
 -------- KEYS --------
@@ -44,22 +44,6 @@ When triggered, fires a SPIKE in the direction determined by angle
 Use TOGGLE spawnflag and trigger to enable continuous mode
 
 ======================================================================*/
-void() trap_tracking =
-{
-	if (self.target == "") return;
-	if (!self.movetarget)
-		self.movetarget = find(world, targetname, self.target);
-	
-	if (self.movetarget) {
-		// Check for a Bmodel object (special origin)
-		if (self.movetarget.bsporigin) self.dest1 = bmodel_origin(self.movetarget);
-		else self.dest1 = self.movetarget.origin;
-		// Calculate facing angle towards target
-		self.movedir = normalize(self.dest1 - self.origin);
-	}
-};
-
-//----------------------------------------------------------------------
 void() trap_shooter_fire =
 {
 	local vector lightn_start, lightn_finish;
@@ -69,7 +53,7 @@ void() trap_shooter_fire =
 	if (self.state == STATE_OFF) return;
 
 	// Check for any target entity tracking changes
-	if (self.spawnflags & TRAP_TRACKING) trap_tracking();
+	if (self.spawnflags & TRAP_TRACKING) TargetMovedir(self, TRUE);
 
 	// Fire projectile sound
 	if (self.classtype == CT_LIGHTSHOOTER) {
@@ -223,11 +207,11 @@ void() trap_spikeshooter =
 	}
 	else if (self.spawnflags & TRAP_LASER) {
 		self.mdl = MODEL_PROJ_LASER;
-		self.noise = "enforcer/enfire.wav";
+		self.noise = SOUND_LASER_FIRE;
 		self.classproj = CT_PROJ_LASER;
 		if (!self.speed) self.speed = SPEED_LASER;
 		// Used for impact sound of laser
-		precache_sound ("enforcer/enfstop.wav");
+		precache_sound (SOUND_LASER_HIT);
 	}
 	else if (self.spawnflags & TRAP_WIZSPIKE) {
 		self.mdl = MODEL_PROJ_WIZ;
@@ -268,12 +252,13 @@ void() trap_spikeshooter =
 
 	// If target is setup, calculate new facing angle
 	if (self.target != "") {
+		self.angletarget = self.target;
 		self.nextthink = time + 1 + random();
-		self.think = trap_tracking;
+		self.think = TargetMovedirReturn;
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED trap_grenadeshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LARGE x x x x TOGGLE x TRACK Not_Easy Not_Normal Not_Hard Not_DM
 When triggered, fires a GRENADE in the direction determined by angle
 -------- KEYS --------
@@ -324,12 +309,13 @@ void() trap_grenadeshooter =
 
 	// If target is setup, calculate new facing angle
 	if (self.target != "") {
+		self.angletarget = self.target;
 		self.nextthink = time + 1 + random();
-		self.think = trap_tracking;
+		self.think = TargetMovedirReturn;
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED trap_rocketshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LAVA FIRE JIM x x TOGGLE x TRACK Not_Easy Not_Normal Not_Hard Not_DM
 When triggered, fires a ROCKET in the direction determined by angle
 -------- KEYS --------
@@ -406,12 +392,13 @@ void() trap_rocketshooter =
 
 	// If target is setup, calculate new facing angle
 	if (self.target != "") {
+		self.angletarget = self.target;
 		self.nextthink = time + 1 + random();
-		self.think = trap_tracking;
+		self.think = TargetMovedirReturn;
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED trap_lightningshooter (0 0.5 0.8) (-8 -8 -8) (8 8 8) LARGE x x DUST PART TOGGLE x TRACK
 When triggered, fires a LIGHTNING at the target entity (can be blocked)
 -------- KEYS --------
@@ -472,8 +459,9 @@ void() trap_lightningshooter =
 	self.state = STATE_OFF;
 
 	// Find target once everything has spawned
+	self.angletarget = self.target;
 	self.nextthink = time + 1 + random();
-	self.think = trap_tracking;
+	self.think = TargetMovedirReturn;
 };
 
 //======================================================================
@@ -546,7 +534,7 @@ void() trap_gasshooter_spawn =
 	if (self.state == STATE_OFF) return;
 
 	// Check for any target entity tracking changes
-	if (self.spawnflags & TRAP_TRACKING) trap_tracking();
+	if (self.spawnflags & TRAP_TRACKING) TargetMovedir(self, FALSE);
 	
 	partemit = spawn();
 	partemit.classtype = CT_TEMPSTREAM;
@@ -687,7 +675,8 @@ void() trap_gasshooter =
 
 	// If target is setup, calculate new facing angle
 	if (self.target != "") {
+		self.angletarget = self.target;
 		self.nextthink = time + 1 + random();
-		self.think = trap_tracking;
+		self.think = TargetMovedirReturn;
 	}
 };

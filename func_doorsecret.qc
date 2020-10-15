@@ -1,13 +1,13 @@
-/*======================================================================
- SECRET DOOR FUNCTIONS
-======================================================================*/
+//======================================================================
+// SECRET DOOR FUNCTIONS
+//======================================================================
 float SECRET_OPEN_ONCE = 1;		// stays open
 float SECRET_1ST_LEFT = 2;		// 1st move is left of arrow
 float SECRET_1ST_DOWN = 4;		// 1st move is down from arrow
 float SECRET_NO_SHOOT = 8;		// only opened by trigger
 float SECRET_ALWAYS_SHOOT = 16;	// shootable even if targeted
 
-/*======================================================================
+//======================================================================
 /*QUAKED func_door_secret (0 .5 .8) ? OPEN_ONCE 1ST_LEFT 1ST_DOWN NO_SHOOT ALWAYS_SHOOT x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A Door (bmodel) with 2 states and multiple stages
 -------- KEYS --------
@@ -28,6 +28,7 @@ noise     : custom sound - door locked sound (targetname+message)
 noise1    : custom sound - Open
 noise2    : custom sound - Opening (looping)
 noise3    : custom sound - Closed
+volume    : Volume for all custom sounds played (def=1, range=0-1)
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -58,7 +59,7 @@ void() func_door_secret_touch =
 	
 	if (self.message) {
 		centerprint (other, self.message);
-		sound (other, CHAN_BODY, self.noise, 1, ATTN_NORM);
+		sound (other, CHAN_BODY, self.noise, self.volume, ATTN_NORM);
 	}
 };
 
@@ -71,15 +72,15 @@ void () func_door_secret_done =
 	if (self.estate == ESTATE_OFF) return;
 	// Add back takedamage if door is suppose to be shootable!
 	if (self.spawnflags & SECRET_ALWAYS_SHOOT) self.takedamage = DAMAGE_YES;
-	sound(self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
+	sound(self, CHAN_VOICE, self.noise3, self.volume, ATTN_NORM);
 };
 
 //----------------------------------------------------------------------
 void () func_door_secret_move6 =
 {
 	if (self.estate == ESTATE_OFF) return;
-	sound(self, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
-	SUB_CalcMove(self.dest0, self.yaw_speed, func_door_secret_done);
+	sound(self, CHAN_VOICE, self.noise2, self.volume, ATTN_NORM);
+	SUB_CalcMove(self.dest0, self.speed, func_door_secret_done);
 };
 
 //----------------------------------------------------------------------
@@ -89,7 +90,7 @@ void () func_door_secret_move5 =
 	if (self.estate == ESTATE_OFF) return;
 	self.nextthink = self.ltime + 1.0;
 	self.think = func_door_secret_move6;
-	sound(self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
+	sound(self, CHAN_VOICE, self.noise3, self.volume, ATTN_NORM);
 };
 
 //----------------------------------------------------------------------
@@ -97,7 +98,7 @@ void () func_door_secret_move5 =
 void () func_door_secret_move4 =
 {
 	if (self.estate == ESTATE_OFF) return;
-	sound(self, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
+	sound(self, CHAN_VOICE, self.noise2, self.volume, ATTN_NORM);
 	SUB_CalcMove(self.dest1, self.yaw_speed, func_door_secret_move5);		
 };
 
@@ -106,7 +107,7 @@ void () func_door_secret_move4 =
 void () func_door_secret_move3 =
 {
 	if (self.estate == ESTATE_OFF) return;
-	sound(self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
+	sound(self, CHAN_VOICE, self.noise3, self.volume, ATTN_NORM);
 	if (!(self.spawnflags & SECRET_OPEN_ONCE)) {
 		self.nextthink = self.ltime + self.wait;
 		self.think = func_door_secret_move4;
@@ -118,8 +119,8 @@ void () func_door_secret_move3 =
 void () func_door_secret_move2 =
 {
 	if (self.estate == ESTATE_OFF) return;
-	sound(self, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
-	SUB_CalcMove(self.dest2, self.speed, func_door_secret_move3);
+	sound(self, CHAN_VOICE, self.noise2, self.volume, ATTN_NORM);
+	SUB_CalcMove(self.dest2, self.yaw_speed, func_door_secret_move3);
 };
 
 //----------------------------------------------------------------------
@@ -129,7 +130,7 @@ void () func_door_secret_move1 =
 	if (self.estate == ESTATE_OFF) return;
 	self.nextthink = self.ltime + 1.0;
 	self.think = func_door_secret_move2;
-	sound(self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
+	sound(self, CHAN_VOICE, self.noise3, self.volume, ATTN_NORM);
 };
 
 //----------------------------------------------------------------------
@@ -151,12 +152,12 @@ void () func_door_secret_use =
 		SUB_UseTargets();
 		
 		// Make a sound, wait a little...
-		sound(self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+		sound(self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
 		self.nextthink = self.ltime + 0.1;
 
 		// Start FIRST move (t_width)
 		SUB_CalcMove(self.dest1, self.speed, func_door_secret_move1);
-		sound(self, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
+		sound(self, CHAN_VOICE, self.noise2, self.volume, ATTN_NORM);
 	}
 };
 
@@ -214,7 +215,7 @@ void() func_door_secret_off =
 	self.velocity = '0 0 0';
 	
 	// Reset health, position and frame back to default
-	sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, SOUND_EMPTY, self.volume, ATTN_NORM);
 	self.takedamage = DAMAGE_NO;
 	self.think = SUB_Null;
 	
@@ -297,11 +298,19 @@ void () func_door_secret =
 	if (self.locksounds == 1) self.noise = "doors/rattle1.wav";
 	else if (self.locksounds == 2) self.noise = "doors/rattle2.wav";
 	else if (self.locksounds == 3) self.noise = "doors/rattle6.wav";
+	else if (self.locksounds == 13) self.noise = "misc/trigger1.wav";
+	else if (self.locksounds == 14) self.noise = SOUND_EMPTY; 
+	else if (self.locksounds == 16) self.noise = "misc/secret3.wav";
+	else if (self.locksounds == 21) self.noise = "doors/rattle_tech1.wav";
+	else if (self.locksounds == 22) self.noise = "doors/rattle_tech2.wav";
+	else if (self.locksounds == 23) self.noise = "doors/rattle_tech3.wav";
+	else if (self.locksounds == 24) self.noise = "doors/rattle_tech4.wav";
 
 	precache_sound (self.noise);
 	precache_sound (self.noise1);
 	precache_sound (self.noise2);
 	precache_sound (self.noise3);
+	trigger_bmodel_volume(1);
 
 	self.classtype = CT_FUNCSECDOOR;
 	self.classgroup = CG_FUNCMOVER;
@@ -314,8 +323,11 @@ void () func_door_secret =
 	if (CheckZeroVector(self.angles)) self.angles = '0 360 0';
 	SetMovedir ();	// Setup move direction base on angles
 
-	if(!self.speed)	self.speed = 50;	// Movement speed (per phase)
-	if(!self.yaw_speed) self.yaw_speed = self.speed;
+	// In vanilla quake speed = 50 and e4m2 has rogue speed keys! :P
+	if (world.model == "maps/e4m2.bsp") self.speed = 50;
+	
+	if(self.speed <=0) self.speed = 50;	// Movement speed (per phase)
+	if(self.yaw_speed <=0) self.yaw_speed = self.speed;
 	if (!self.wait) self.wait = 5;		// 5 seconds before closing
 	if (!self.dmg) self.dmg = 2;
 	self.state = STATE_BOTTOM;

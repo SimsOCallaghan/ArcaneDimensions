@@ -79,7 +79,7 @@ void(float side) Demon_Claw =
 	// Moved the check for melee distance to here with takedamage
 	// If the demon is outside of melee range then need miss swipe sound
 	// same goes for enemies that cannot be damaged (world geo mostly)
-	if (!ai_checkmelee(MONAI_MELEEDEMON) || !self.enemy.takedamage) {
+	if (!ai_checkmelee(MONAI_MELEEDEMON,FALSE) || !self.enemy.takedamage) {
 		// Melee claw miss sound
 		if (random() < 0.5) sound (self, CHAN_WEAPON, "weapons/sword1a.wav", 1, ATTN_NORM);
 		else sound (self, CHAN_WEAPON, "weapons/sword1b.wav", 1, ATTN_NORM);
@@ -171,7 +171,7 @@ void()	demon1_jump4	=[	$leap4,		demon1_jump5	] {
 	self.jump_flag = time;	// No jump time limits
 	self.touch = Demon_JumpTouch;
 	makevectors (self.angles);
-	self.velocity = v_forward * 600 + '0 0 250';
+	self.velocity = (v_forward*self.jumpdist_x) + ('0 0 1'*self.jumpdist_z);
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
 	self.oldorigin = self.origin;
 };
@@ -255,7 +255,10 @@ QUAKED monster_demon1 (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 ======================================================================*/
 void() monster_demon1 =
 {
-	if (deathmatch) { remove(self); return; }
+	// Check for any random monster setups
+	if (monster_checkrandomizer() == TRUE) return;
+	// Check all spawn exceptions (monsters.qc)
+	if (monster_checkspawn() == TRUE) return;
 
 	self.mdl = "progs/mon_demon.mdl";
 	self.headmdl = "progs/h_demon.mdl";
@@ -303,10 +306,11 @@ void() monster_demon1 =
 	
 	self.solid = SOLID_NOT;				// No interaction with world
 	self.movetype = MOVETYPE_NONE;		// Static item, no movement
-	self.idmins = VEC_HULL2_MIN;	// -32 -32 -24, 32 32 64
-	self.idmaxs = VEC_HULL2_MAX;
+	// Original ID size -32 -32 -24, 32 32 64
+	if (CheckZeroVector(self.idmins)) self.idmins = VEC_HULL2_MIN;
+	if (CheckZeroVector(self.idmaxs)) self.idmaxs = VEC_HULL2_MAX;
 	if (self.bboxtype < 1) self.bboxtype = BBOX_WIDE;
-	if (self.health < 1) self.health = 300;
+	if (self.health < 1) self.health = HP_MONDEMON1;
 	self.gibhealth = -80;
 	self.gibbed = FALSE;
 	self.pain_flinch = 200;				// takes alot to pain
@@ -316,6 +320,11 @@ void() monster_demon1 =
 	self.blockudeath = TRUE;			// no humanoid death sound
 	self.meleeoffset = '32 0 10';		// Claw attack offset
 	self.deathstring = " was eviscerated by a Fiend\n";
+
+	// Default jump forward/up distance
+	if (CheckZeroVector(self.jumpdist)) self.jumpdist = '600 0 250';
+	if (self.jumprange_x <= 0) self.jumprange_x = MONAI_JUMPDEMONNEAR;
+	if (self.jumprange_y <= self.jumprange_x) self.jumprange_y = MONAI_JUMPDEMONFAR;
 
 	// Always reset Ammo Resistance to be consistent
 	self.resist_shells = self.resist_nails = 0;

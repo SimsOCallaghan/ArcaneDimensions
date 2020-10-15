@@ -19,7 +19,10 @@
 float() SUB_takedEnemyTarget =
 {
 	if (!self.enemy) return -1;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return (self.enemy.enemy.takedamage);
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return (self.enemy.enemy.takedamage);
+		else return (self.enemy.takedamage);
+	}
 	else return (self.enemy.takedamage);
 };
 
@@ -29,7 +32,10 @@ float() SUB_takedEnemyTarget =
 float(float bitflag) SUB_flagsEnemyTarget =
 {
 	if (!self.enemy) return -1;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return (self.enemy.enemy.flags & bitflag);
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return (self.enemy.enemy.flags & bitflag);
+		else return (self.enemy.flags & bitflag);
+	}
 	else return (self.enemy.flags & bitflag);
 };
 
@@ -39,7 +45,10 @@ float(float bitflag) SUB_flagsEnemyTarget =
 vector() SUB_angEnemyTarget =
 {
 	if (!self.enemy) return VEC_ORIGIN;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return self.enemy.enemy.angles;
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return self.enemy.enemy.angles;
+		else return self.enemy.angles;
+	}
 	else return self.enemy.angles;
 };
 
@@ -49,7 +58,10 @@ vector() SUB_angEnemyTarget =
 float() SUB_healthEnemyTarget =
 {
 	if (!self.enemy) return -1;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return self.enemy.enemy.health;
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return self.enemy.enemy.health;
+		else return self.enemy.health;
+	}
 	else return self.enemy.health;
 };
 
@@ -59,7 +71,10 @@ float() SUB_healthEnemyTarget =
 vector() SUB_orgEnemyTarget =
 {
 	if (!self.enemy) return VEC_ORIGIN;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return self.enemy.enemy.origin;
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return self.enemy.enemy.origin;
+		else return self.enemy.origin;
+	}
 	else return self.enemy.origin;
 };
 
@@ -69,7 +84,10 @@ vector() SUB_orgEnemyTarget =
 entity() SUB_entEnemyTarget =
 {
 	if (!self.enemy) return world;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return self.enemy.enemy;
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return self.enemy.enemy;
+		else return self.enemy;
+	}
 	else return self.enemy;
 };
 
@@ -79,7 +97,10 @@ entity() SUB_entEnemyTarget =
 float() SUB_EnemyTarget =
 {
 	if (!self.enemy) return -1;
-	if (self.enemy.classtype == CT_ENEMYTARGET) return TRUE;
+	if (self.enemy.classtype == CT_ENEMYTARGET) {
+		if (self.enemy.state == STATE_ON) return TRUE;
+		else return FALSE;
+	}
 	else return FALSE;
 };
 
@@ -92,18 +113,21 @@ void() SUB_switchEnemyTarget =
 	if (self.enemytarget.classtype != CT_ENEMYTARGET) return;
 	self.enemytarget.state = STATE_OFF;
 	self.enemy = self.enemytarget.enemy;
+	// If switching back to old enemy tracking system then block
+	// enemy targeting for a couple of secounds
+	self.enemytargetlock = time + 2;
 };
 
 //----------------------------------------------------------------------
-// Self = monster; Will remove enemytarget function safely (delete)
+// Will remove any enemytarget functionality safely as possible
 // The enemytarget system should take care of itself and safely delete
 // This is a brute force version that will make sure, "its dead jim!"
-void() SUB_removeEnemyTarget =
+void(entity targ) SUB_removeEnemyTarget =
 {
-	if (self.enemytarget.classtype != CT_ENEMYTARGET) return;
-	self.enemytarget.state = STATE_OFF;
-	self.enemytarget.think = SUB_Remove;
-	self.enemytarget.nextthink = time + 0.1;
+	if (targ.enemytarget.classtype != CT_ENEMYTARGET) return;
+	targ.enemytarget.state = STATE_OFF;
+	targ.enemytarget.think = SUB_Remove;
+	targ.enemytarget.nextthink = time + 0.1;
 };
 
 //----------------------------------------------------------------------
@@ -147,11 +171,21 @@ void() SUB_updateEnemyTarget =
 };
 
 //----------------------------------------------------------------------
-void(entity targ, float zoffset, float rndtimer) SUB_setupEnemyTarget =
+float(entity targ, float zoffset, float rndtimer) SUB_setupEnemyTarget =
 {
 	// Don't try to get higher than other flying units
 	// Two monsters with the same abilty will constantly rise up
-	if (targ.movetype == MOVETYPE_FLY) return;
+	if (targ.movetype == MOVETYPE_FLY) return FALSE;
+	
+	// Is enemy target temporarily locked?
+	if (self.enemytargetlock > time) {
+		// Target system active?
+		if (!self.enemytarget) return FALSE;
+		self.enemytarget.state = STATE_OFF;
+		// Restore any enemy targets
+		self.enemy = self.enemytarget.enemy;
+		return FALSE; 
+	}
 	
 	// Create the enemytarget if one does not exist
 	if (!self.enemytarget) {
@@ -162,6 +196,7 @@ void(entity targ, float zoffset, float rndtimer) SUB_setupEnemyTarget =
 		// Show enemytarget system in devmode ONLY (dev helper)
 		if (developer > 0 && !query_configflag(SVR_DEVHELPER)) {
 			self.enemytarget.mdl = MODEL_BROKEN;
+			self.enemytarget.skin = SPNMARK_PURPLE;
 			setmodel(self.enemytarget, self.enemytarget.mdl);
 		}
 		setsize (self.enemytarget, VEC_ORIGIN, VEC_ORIGIN);
@@ -183,4 +218,5 @@ void(entity targ, float zoffset, float rndtimer) SUB_setupEnemyTarget =
 	self.enemytarget.enemy = targ;
 	self.enemytarget.think = SUB_updateEnemyTarget;
 	self.enemytarget.nextthink = time + 0.1;
+	return TRUE;
 };

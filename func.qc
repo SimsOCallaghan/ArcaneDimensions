@@ -1,23 +1,160 @@
 /*======================================================================
-SIMPLE BMODELS
+BMODELS FUNCTIONS
+
+func_wall        Solid switchable wall/objects
+func_togglewall  Solid invisible switchable wall/object
+func_illusionary Fake switchable walls
+func_episodegate Solid block that disappears when got special runes
+func_bossgate    Solid block that disappears when all runes found
+func_laser       Solid barrier with particle effects
+func_skill       Switch skill level
+func_bob         Floating architecture (misc_bob=model version)
+
 ======================================================================*/
 
 float FUNC_AFRAME = 2;			// Start with A frame (animated textures)
 float FUNC_MODCHECK = 16;		// Will remove this entity if THIS mod is active
 
+float FUNC_TWALLOFF = 1;		// Starts off and waits for trigger
+
 float FUNC_LASERSOLID = 2;		// Func bmodel blocks on all sides
 float FUNC_LASERNODMG = 4;		// Func bmodel does no touch damage
 
 float FUNC_SKILLSTARTOPEN = 1;	// Reverse setup for lighting issues
+float FUNC_SKILLCHOASMODE = 2;	// Check for chaos setup instead of skill
+float FUNC_SKILLSTARTDIS = 32;	// Pillar starts in disabled state
 
 float BOB_COLLISION = 2;		// Collision for misc_bob
 float BOB_NONSOLID = 4;			// Non solid for func_bob
 
-/*======================================================================
+float FUNC_FADEUP = 1;			// Fading up from 0 -> 1 (default)
+float FUNC_FADEDN = -1;			// Fading down from 1 -> 0
+float FUNC_FADEFULL = 1;		// Maximum Alpha
+float FUNC_FADEZERO = 0.01;		// Minimum Alpha
+
+//----------------------------------------------------------------------
+// Fade functionality for func_wall and func_illusionary
+//----------------------------------------------------------------------
+void() func_bmodelfade_think =
+{
+	// How much time has passed? (using ltime because bmodel)
+	self.waitmin2 = time - self.ltime;
+	// Work out alpha = (total_time - time_passed) / total_time
+	self.waitmin3 = (self.waitmin - self.waitmin2)/self.waitmin;
+	// Fading Downward? Reverse alpha (1->0)
+	// Have to add 0.01 because the engine treats 0 as 1 alpha
+	if (self.lip == FUNC_FADEUP) self.waitmin3 = (1 - self.waitmin3) + 0.01;
+	// Detect alpha start between 0 and 1
+	if (self.alphadiff < 1) {
+		// Check for fading direction
+		if (self.lip == FUNC_FADEDN) self.alpha = self.waitmin3 * self.alphadiff;
+		else self.alpha = self.alphastart + (self.waitmin3 * self.alphadiff);
+	}
+	// Default full fade from 0->1 and 1->0
+	else self.alpha = self.waitmin3;
+	
+	// Check for alpha exit conditions
+    if (self.alpha > FUNC_FADEFULL) {
+		self.alpha = FUNC_FADEFULL;
+		// Switch func_wall back to being solid again
+		if (self.classtype == CT_FUNCWALL) {
+			self.movetype = MOVETYPE_PUSH;
+			self.solid = SOLID_BSP;
+			setmodel (self, self.mdl);
+		}
+	}
+	// hide entity, no longer required anymore
+    else if (self.alpha < FUNC_FADEZERO) entity_hide(self);
+	else {
+		// Keep looping through alpha values
+		self.think = func_bmodelfade_think;
+		self.nextthink = time + FADEMODEL_TIME;
+	}
+};
+
+//----------------------------------------------------------------------
+void() func_bmodelfade_use = 
+{
+	// Deal with STARTOFF functionality first
+	if (self.spawnflags & ENT_STARTOFF) self.estate_on();
+	else {
+		// Block USE functionality if state wrong
+		if (self.estate & ESTATE_BLOCK) return;
+		
+		// Only fade this once!
+		if (self.wait < 0) return;
+		self.wait = -1;
+
+		// Switch func_wall to illusionary ready for fade
+		if (self.classtype == CT_FUNCWALL) {
+			self.movetype = MOVETYPE_NONE;
+			self.solid = SOLID_NOT;
+			setmodel (self, self.mdl);
+		}
+
+		// Setup alpha before fading
+		self.alpha = self.alphastart;
+		// Check for any fading delay?
+		if (self.delay > 0) {
+			self.think = func_bmodelfade_think;
+			self.nextthink = time + self.delay;
+			self.ltime = self.nextthink;
+		}
+		else {
+			self.ltime = time;
+			func_bmodelfade_think();
+		}
+	}
+};
+
+//----------------------------------------------------------------------
+float() func_bmodelfade_setup =
+{
+	// Is this bmodel suppose to fade on use?
+	if (self.alphastart > 0) {
+		// Total fade time (in seconds)
+		if (self.waitmin <= 0) self.waitmin = 1;
+		// Alpha direction -1=Down(1<-0), 1=Up(0->1), Def=1
+		if (self.lip >= 0) self.lip = FUNC_FADEUP;
+		else self.lip = FUNC_FADEDN;
+		// Make sure no negative delay
+		if (self.delay <= 0) self.delay = 0;
+		// Only fade this once
+		self.wait = 0;
+		
+		// Make sure alphastart is within range
+		if (self.alphastart < FUNC_FADEZERO) self.alphastart = FUNC_FADEZERO;
+		if (self.alphastart > FUNC_FADEFULL) self.alphastart = FUNC_FADEFULL;
+		// Setup alpha starting position, engine treats 0 as 1
+		self.alpha = self.alphastart;
+		
+		// How much is left of the alpha range to fade?
+		if (self.lip == FUNC_FADEUP) self.alphadiff = 1 - self.alphastart;
+		else self.alphadiff = self.alphastart;
+		
+		// Technically this should test for 0 fade difference, however
+		// < 0.1 is stupid amount to fade and pointless to setup!
+		if (self.alphadiff < 0.1) {
+			dprint("\b[BMODEL_FADE]\b Fade diff (<0.1) too small!\n");
+			self.alphastart = 0;
+			return FALSE;
+		}
+		// Alpha fade ready
+		else return TRUE;
+	}
+	// Carry on as before
+	else return FALSE;
+};
+
+//======================================================================
 /*QUAKED func_wall (0 .5 .8) ? x AFRAME x x MODCHECK STATIC STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A SOLID bmodel with toggled animated texture
 -------- KEYS --------
-targetname : trigger entity (works with entity state system)
+targetname  : trigger entity (works with entity state system)
+alphastart  : Alpha Fade bmodel (range 0.01-1.00) = Starting value
+waitmin     : Alpha Fade Time (def=1s) of bmodel (even if partial)
+lip         : Alpha Fade Direction -1=Down(1->0), 1=Up(0->1), Def=UP
+delay       : Alpha Fade delay to start of fading (def=0)
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -39,9 +176,8 @@ void() func_wall_use =
 	else {
 		// Block USE functionality if state wrong
 		if (self.estate & ESTATE_BLOCK) return;
-
 		// toggle alternate textures
-		else self.frame = 1 - self.frame;
+		self.frame = 1 - self.frame;
 	}
 };
 
@@ -51,17 +187,27 @@ void() func_wall_on =
 	// No longer need this spawnflag, remove it
 	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
 
-	self.estate = ESTATE_ON;
-	self.movetype = MOVETYPE_PUSH;
-	self.solid = SOLID_BSP;
-	setmodel (self, self.mdl);
-
 	// Check for spawning conditions (nightmare, coop)
 	// Needs to exist after entity has been added to work for BSPorigin
 	if (check_nightmare() == TRUE) return;
 	if (check_coop() == TRUE) return;
 
-	if (self.switchshadstyle != 0) lightstyle(self.switchshadstyle, "a");
+	self.estate = ESTATE_ON;
+
+	// Start func_wall like func_illusionary
+	if (self.alphastart > 0 && self.alphastart < 1) {
+		self.movetype = MOVETYPE_NONE;
+		self.solid = SOLID_NOT;
+	}
+	else {
+		// Standard solid bmodel setup
+		self.movetype = MOVETYPE_PUSH;
+		self.solid = SOLID_BSP;
+	}
+	// Make model is linked properly
+	setmodel (self, self.mdl);
+	
+	switch_shadow_on();
 };
 
 //----------------------------------------------------------------------
@@ -72,7 +218,7 @@ void() func_wall_off =
 	self.solid = SOLID_NOT;
 	setmodel (self, "");
 
-	if (self.switchshadstyle != 0) lightstyle(self.switchshadstyle, "m");
+	switch_shadow_off();
 };
 
 //----------------------------------------------------------------------
@@ -88,8 +234,8 @@ void() func_wall =
 	self.angles = '0 0 0';
 	self.mdl = self.model;
 	if (self.spawnflags & FUNC_AFRAME) self.frame = 1;
-	if (self.spawnflags & FUNC_MODCHECK) remove(self);
-
+	if (self.spawnflags & FUNC_MODCHECK) { remove(self); return; }
+	
 	// Check for static entity option first
 	if (self.spawnflags & ENT_SPNSTATIC) {
 		self.movetype = MOVETYPE_PUSH;
@@ -102,18 +248,24 @@ void() func_wall =
 		if (self.targetname != "") self.use = entity_state_use;
 		self.estate_on = func_wall_on;
 		self.estate_off = func_wall_off;
-		self.estate_use = func_wall_use;
+		if (func_bmodelfade_setup()) self.estate_use = func_bmodelfade_use;
+		else self.estate_use = func_wall_use;
 		self.estate_aframe = func_wall_aframe;
 		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 		else self.estate_on();
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED func_illusionary (0 .5 .8) ? x AFRAME x x x STATIC STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A NON SOLID bmodel with texture toggle
 -------- KEYS --------
-targetname : trigger entity (works with entity state system)
+targetname  : trigger entity (works with entity state system)
+targetname  : trigger entity (works with entity state system)
+alphastart  : Alpha Fade bmodel (range 0.01-1.00) = Starting value
+waitmin     : Alpha Fade Time (def=1s) of bmodel (even if partial)
+lip         : Alpha Fade Direction -1=Down(1->0), 1=Up(0->1), Def=UP
+delay       : Alpha Fade delay to start of fading (def=0)
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -132,15 +284,17 @@ void() func_illusionary_on =
 	// No longer need this spawnflag, remove it
 	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
 
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+	
 	self.estate = ESTATE_ON;
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
 	setmodel (self, self.mdl);
 
-	// Check for spawning conditions (nightmare, coop)
-	// Needs to exist after entity has been added to work for BSPorigin
-	if (check_nightmare() == TRUE) return;
-	if (check_coop() == TRUE) return;
+	switch_shadow_on();
 };
 
 //----------------------------------------------------------------------
@@ -169,14 +323,136 @@ void() func_illusionary =
 		if (self.targetname != "") self.use = entity_state_use;
 		self.estate_on = func_illusionary_on;
 		self.estate_off = func_wall_off;
-		self.estate_use = func_wall_use;
 		self.estate_aframe = func_illusionary_aframe;
+
+		if (func_bmodelfade_setup()) self.estate_use = func_bmodelfade_use;
+		else self.estate_use = func_wall_use;
+
 		if (self.spawnflags & ENT_STARTOFF) self.estate_off();
 		else self.estate_on();
 	}
 };
 
-/*======================================================================
+//======================================================================
+/*QUAKED func_togglewall (0 .5 .8) ? STARTOFF x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
+A func_wall that can be toggled on and off
+Originally from hip_part.qc by Hipnotic (Quake expansion pack 1)
+-------- KEYS --------
+targetname  : trigger entity (works with entity state system)
+noise       : Switched OFF sound (def=misc/laseroff.wav)
+noise1      : Switched ON sound (def=misc/laseron.wav)
+noise2      : Touch damage sound (weapons/laser_hit.wav)
+wait        : wait between damage (def=0.5)
+dmg         : Contact damage (def=0)
+_dirt       : -1 = will be excluded from dirtmapping
+_minlight   : Minimum light level for any surface of the brush model
+_mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
+_shadow     : Will cast shadows on other models and itself
+_shadowself : Will cast shadows on itself
+-------- SPAWNFLAGS --------
+STARTOFF  : Starts off and waits for trigger
+-------- NOTES --------
+A func_wall that can be toggled on and off
+
+======================================================================*/
+void() func_togglewall_touch =
+{
+	// Block USE functionality if state wrong
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+	if (other.takedamage == DAMAGE_NO) return;
+
+	self.attack_finished = (time + self.wait);
+	sound(other, CHAN_ITEM, self.noise2, self.volume, ATTN_NORM);
+	if (self.dmg > 0) T_Damage(other, self, self, self.dmg, DAMARMOR);
+};
+
+//----------------------------------------------------------------------
+void() func_togglewall_use = 
+{
+	// Block DISABLE functionality if state wrong
+	if (self.estate & ESTATE_DISABLE) return;
+	// Toggle the model/sound
+	if (self.estate == ESTATE_ON) self.estate_off();
+	else self.estate_on();
+};
+
+//----------------------------------------------------------------------
+void() func_togglewall_on = 
+{
+	// No longer need this spawnflag, remove it
+	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
+
+	self.estate = ESTATE_ON;
+	self.movetype = MOVETYPE_PUSH;
+	self.solid = SOLID_BSP;
+	setmodel (self, self.mdl);
+	// Make bmodel surface invisible
+	self.model = string_null;
+	sound(self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
+};
+
+//----------------------------------------------------------------------
+void() func_togglewall_off = 
+{
+	self.estate = ESTATE_OFF;
+	self.movetype = MOVETYPE_NONE;
+	self.solid = SOLID_NOT;
+	setmodel (self, "");
+	sound(self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
+};
+
+//----------------------------------------------------------------------
+void() func_togglewall =
+{
+	if (check_bmodel_keys()) return;	// Check for bmodel errors
+
+	if (self.noise == "") self.noise = "misc/laseroff.wav";
+	if (self.noise1 == "") self.noise1 = "misc/laseron.wav";
+	if (self.noise2 == "") self.noise2 = "weapons/laser_hit.wav";
+	precache_sound(self.noise);
+	precache_sound(self.noise1);
+	precache_sound(self.noise2);
+	trigger_bmodel_volume(1);
+	
+	self.classtype = CT_FUNCTOGWALL;
+	self.bsporigin = TRUE;
+	self.angles = '0 0 0';
+	self.mdl = self.model;
+
+	// Various Defaults
+	if (self.wait <= 0) self.wait = 0.5;
+	if (self.dmg <= 0) self.dmg = 0;
+	if (!self.alpha) self.alpha = 0.5;	// Wall always transparent
+	self.height = self.alpha;			// Used for think function
+
+	// Add bmodel to world
+	self.movetype = MOVETYPE_PUSH;
+	self.solid = SOLID_BSP;
+	setmodel (self, self.mdl);
+
+	// Shift the 'start off' to the correct spawnflag
+	if (self.spawnflags & FUNC_TWALLOFF) 
+		self.spawnflags = self.spawnflags | ENT_STARTOFF;
+
+	// Check for spawning conditions (nightmare, coop)
+	// Needs to exist after entity has been added to work for BSPorigin
+	if (check_nightmare() == TRUE) return;
+	if (check_coop() == TRUE) return;
+
+	// Touchy feely time!
+	self.touch = func_togglewall_touch;
+	
+	// Setup Entity State functionality
+	if (self.targetname != "") self.use = entity_state_use;
+	self.estate_on = func_togglewall_on;
+	self.estate_off = func_togglewall_off;
+	self.estate_use = func_togglewall_use;
+	if (self.spawnflags & ENT_STARTOFF) self.estate_off();
+	else self.estate_on();
+};
+
+//======================================================================
 /*QUAKED func_episodegate (0 .5 .8) ? E1 E2 E3 E4 x x x x Not_Easy Not_Normal Not_Hard Not_DM
 SOLID bmodel when player has SELECTED rune(s)
 -------- KEYS --------
@@ -195,10 +471,33 @@ E4 : Episode 4
 SOLID bmodel when player has SELECTED rune(s)
 
 ======================================================================*/
+void() func_episodegate_touch =
+{
+	// Block USE functionality if state wrong
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.attack_finished > time) return;
+	if (!(other.flags & FL_CLIENT)) return;
+
+	// Got a message to display with bmodel on?
+	if (self.message != "") {
+		centerprint(other, self.message);
+		// Uses default talktalk sound
+		sound (other, CHAN_AUTO, self.noise, 1, ATTN_NORM);
+		// Slowdown touch functionality
+		self.attack_finished = time + 2;
+	}
+};
+
+//----------------------------------------------------------------------
 void() func_episodegate_use =
 {
 	// The RUNE condition has to be active 
-	if (query_configflag(self.customkey) == self.customkey) self.estate_on();
+	if (query_configflag(self.customkey) == self.customkey) {
+		self.estate_on();
+		// Can be touched for message/sound
+		self.touch = func_episodegate_touch;
+	}
+	// No longer required
 	else self.estate_off();
 };
 
@@ -215,6 +514,10 @@ void() func_episodegate =
 	self.angles = '0 0 0';
 	self.mdl = self.model;
 
+	// Touch sound when bmodel is ON
+	if (self.noise == "") self.noise = SOUND_TALK;
+	precache_sound(self.noise);
+	
 	// Check for spawning conditions (nightmare, coop)
 	// Needs to exist after entity has been added to work for BSPorigin
 	if (check_nightmare() == TRUE) return;
@@ -237,7 +540,7 @@ void() func_episodegate =
 	}
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED func_bossgate (0 .5 .8) ? x x x x x x x x Not_Easy Not_Normal Not_Hard Not_DM
 A NON SOLID bmodel when player has ALL runes
 -------- KEYS --------
@@ -296,9 +599,9 @@ void() func_bossgate =
  - Extended code to have different states and toggle function
  - Added custom/silent sounds for lasers on/off
  - Added on/off message once function
- - Added collision and nodmg spawnflags
+ - Added collision and nodmg spawnflags */
 
-/*======================================================================
+//======================================================================
 /*QUAKED func_laser (0 .5 .8) ? x SOLID NODMG x x x STARTOFF x
 A togglable laser, hurts to touch, can be used to block players
 -------- KEYS --------
@@ -309,8 +612,9 @@ wait        : -1 = will display the switching state messages only once
 dmg         : damage to do on touch. default 1 per 0.1s
 alpha       : alpha value will vary +/- 20% (def=0.5)
 sounds      : 1=laser, 2=power, 4=silent, 5=custom
-noise1      : switched ON sound
-noise2      : switched OFF sound
+noise1      : Custom trigger sound to play when switched ON
+noise2      : Custom trigger sound to play when switched OFF
+volume      : Volume for all custom sounds played (def=1, range=0-1)
 spr_frame   : 1=Yellow, 2=Green, 4=Red, 8=Blue, 16=Purple, 32=Fire, 64=White
 angle       : Direction of particles to move (def=-2 down)
 part_limit  : Maximum active quantity of particles (def=25)
@@ -350,7 +654,9 @@ void() func_laser_think =
 	if (self.estate == ESTATE_BLOCK) return;
 	// Change the density of the alpha to make laser beam flicker
 	self.alpha = self.height*0.8 + (self.alpha * (random()*0.4));
-	self.nextthink = time + 0.05;
+	// Solid type SOLID_BSP has to use local timer (ltime)
+	if (self.spawnflags & FUNC_LASERSOLID) self.nextthink = self.ltime + 0.05;
+	else self.nextthink = time + 0.05;
 };
 
 //----------------------------------------------------------------------
@@ -366,7 +672,7 @@ void() func_laser_on =
 	if (self.waitmin == TRUE) {
 		// Play sound on extra emitter if sounds been defined
 		if (self.sound_emitter && self.noise1 != "")
-			sound (self.sound_emitter, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+			sound (self.sound_emitter, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
 		if (activator.flags & FL_CLIENT && self.message != "")
 			centerprint(activator,self.message);
 		if (self.wait == TRUE) self.message = "";
@@ -378,6 +684,7 @@ void() func_laser_on =
 	if (self.spawnflags & FUNC_LASERSOLID) {
 		self.solid = SOLID_BSP;
 		self.movetype = MOVETYPE_PUSH;
+		self.ltime = time;
 	}
 	else {
 		self.solid = SOLID_TRIGGER;
@@ -411,7 +718,7 @@ void() func_laser_off =
 	if (self.waitmin == TRUE) {
 		// Play sound on extra emitter if sounds been defined
 		if (self.sound_emitter && self.noise2 != "")
-			sound (self.sound_emitter, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
+			sound (self.sound_emitter, CHAN_VOICE, self.noise2, self.volume, ATTN_NORM);
 		if (activator.flags & FL_CLIENT && self.message2 != "")
 			centerprint(activator,self.message2);
 		if (self.wait == TRUE) self.message2 = "";
@@ -426,7 +733,6 @@ void() func_laser_off =
 	setmodel(self, "");
 };
 
-
 //----------------------------------------------------------------------
 void() func_laser =
 {
@@ -434,7 +740,8 @@ void() func_laser =
 
 	self.classtype = CT_FUNCLASER;		// Classtype
 	self.mdl = self.model;				// Save for later (on function)
-	if (self.spr_frame > 0 && CheckZeroVector(self.angles)) self.angles = '0 -2 0';
+	if (self.spr_frame > 0 && CheckZeroVector(self.angles)) 
+		self.angles = '0 -2 0';
 	InitTrigger();						// Add to work and initialize
 
 	if (!self.alpha) self.alpha = 0.5;	// Lasers always transparent
@@ -443,6 +750,7 @@ void() func_laser =
 	if (self.wait < 0) self.wait = TRUE;// Display message once?
 	else self.wait = FALSE;
 	self.waitmin = FALSE;				// Spawning no message check
+	trigger_bmodel_volume(1);
 
 	// Pre-cache sounds and setup sound emitter
 	if (self.sounds > 0 && self.sounds < 3) {
@@ -461,7 +769,7 @@ void() func_laser =
 		self.sound_emitter = spawn();
 		self.sound_emitter.origin = bmodel_origin(self);
 		setorigin(self.sound_emitter, self.sound_emitter.origin);
-		self.classtype = CT_SOUNDEMITTER;	
+		self.sound_emitter.classtype = CT_SOUNDEMITTER;	
 	}
 	
 	// Check for particles emitter type
@@ -485,23 +793,26 @@ void() func_laser =
 	else entity_state_on();
 };
 
-/*======================================================================
-/*QUAKED func_skill (0 .5 .8) ? STARTOPEN x x x x START_OFF x
-This is a special bmodel that changes texture based on current skill level
-Will keep checking skill level until triggered (based on door QC code)
+//======================================================================
+/*QUAKED func_skill (0 .5 .8) ? STARTOPEN CHAOS x x STARTDIS STARTOFF x
+A bmodel that changes texture based on current skill/chaos level
+Will keep checking until triggered (based on door QC code)
 -------- KEYS --------
 targetname  : trigger entity (works with entity state system)
 style       : Skill Level - 0 = easy, 1 = normal, 2 = hard, 3 = nightmare
 message2    : Override message to display when bmodel is touched/damaged
 target      : Particle emitters to switch on/off
 target2     : target(s) to fire when touched/damaged
-health      : Can be damaged instead of touched
+wait        : =-1 cannot be touched or damaged (visual only)
+health      : Can be damaged instead of touched (def=touch)
 angle       : movement direction for trigger event
 speed       : movement speed (100 default)
-lip         : lip remaining at end of move (8 default)
+lip         : lip remaining at end of move (def=8)
+waitmin     : Chaos mode touch slowdown timer (def=1s)
 noise1      : Custom sound - Stop moving (doors/drclos4.wav)
 noise2      : Custom sound - Start/Loop moving (doors/stndr1.wav)
 noise3      : Custom sound - Touching (plats/medplat2.wav)
+volume      : Volume for all custom sounds played (def=1, range=0-1)
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -509,39 +820,113 @@ _shadow     : Will cast shadows on other models and itself
 _shadowself : Will cast shadows on itself
 -------- SPAWNFLAGS --------
 STARTOPEN : bmodel works in reverse state (moved to dest at spawn)
+CHOASMODE : special setup for the random chaos mode (waitmin=touch delay)
+STARTDIS  : Starts disabled and waits for trigger
 STARTOFF  : Starts off and waits for trigger
 -------- NOTES --------
-Visual skill selection/update function
+Visual skill/chaos selection/update function
 
 ======================================================================*/
+void() func_pillar_particles = 
+{
+	// Any particle emitter targetnames?
+	if (self.target != "") {
+		// Find first one in world
+		self.enemy = find(world,targetname,self.target);
+		while (self.enemy) {
+			// Found a particle emitter?
+			if (self.enemy.classtype == CT_PARTICLEEMIT) {
+				// pillar status?  0= +0 (on) 1= +A (off)
+				if (self.frame == 0) misc_particle_on(self.enemy);
+				else misc_particle_off(self.enemy);
+			}
+			// Keep searching for more targets in chain
+			self.enemy = find(self.enemy,targetname,self.target);
+		}
+	}
+};
+
+//----------------------------------------------------------------------
+void() func_chaos_check = 
+{
+	// If blocked by entity state system do nothing
+	if (self.estate & ESTATE_BLOCK) return;
+	if (!(self.spawnflags & FUNC_SKILLCHOASMODE)) return;
+
+	// Read console variable
+	self.randomized = read_randflags();
+	// Has the console variable been changed?
+	if (self.lefty != self.randomized) {
+		// Update current flag (lefty)
+		self.lefty = self.randomized;
+		// Is Chaos mode active?
+		if (self.style == self.randomized) self.frame = 0;	// +0 frame (on)
+		else self.frame = 1;					// A frame (off)
+
+		// Update all particle emitters
+		func_pillar_particles();
+	}
+	// Keep thinking/checking
+	self.nextthink = time + 0.1;
+	self.think = func_chaos_check;
+};
+
+//----------------------------------------------------------------------
+void() func_chaos_touch =
+{
+	// If blocked by entity state system do nothing
+	if (self.estate & ESTATE_BLOCK) return;
+	if (self.spawnflags & ENT_STARTOFF) return;
+	if ( !(other.flags & FL_CLIENT) ) return;
+	if ( other.health < 1 ) return;
+	// Chaos mode only
+	if (!(self.spawnflags & FUNC_SKILLCHOASMODE)) return;
+	// Slowdown touch functionality
+	if (self.pausetime > time) return;
+
+	// Slowdown touch functionality
+	self.pausetime = time + self.waitmin;
+
+	// Read chaos mode flag (scratch3)
+	self.randomized = read_randflags();
+	// Switch chaos mode on/off
+	if (self.randomized == self.style) {
+		disable_randflags();
+	}
+	else {
+		set_randflags(self.style);
+		if (self.message2 != "") centerprint(other, self.message2);
+		else centerprint(other,"Choas mode has been enabled!\n");
+		stuffcmd (other, "bf\n");
+	}
+	
+	// Force quick update
+	func_chaos_check();
+	
+	// Any other targets to fire when touch/damaged
+	if (self.target2 != "") trigger_strs(self.target2, other);
+	// Play touch sound regardless of chaos change
+	sound (self, CHAN_VOICE, self.noise3, self.volume, ATTN_NORM);
+};
+
+//----------------------------------------------------------------------
 void() func_skill_check =
 {
 	// If blocked by entity state system do nothing
 	if (self.estate & ESTATE_BLOCK) return;
+	if (self.spawnflags & FUNC_SKILLCHOASMODE) return;
 
 	// Has the skill level been changed?
-	if (self.attack_finished != skill) {
+	if (self.lefty != skill) {
 		// Stop this entity constantly changing
-		self.attack_finished = skill;
-		
-		if (self.target != "") {
-			self.enemy = find(world,targetname,self.target);
-			while (self.enemy) {
-				// Found a particle emitter?
-				if (self.enemy.classtype == CT_PARTICLEEMIT) {
-					if (self.style == skill) misc_particle_on(self.enemy);
-					else misc_particle_off(self.enemy);
-				}
-					
-				// Keep searching for more targets in chain
-				self.enemy = find(self.enemy,targetname,self.target);
-			}
-		}
-			
+		self.lefty = skill;
 		// Is the current skill level active?
-		if (self.style == skill) self.frame = 0;
-		else self.frame = 1;													// Blank texture (off)
+		if (self.style == skill) self.frame = 0;	// +0 frame (on)
+		else self.frame = 1;						// A frame (off)									// Blank texture (off)
+		// Update any particle emitters
+		func_pillar_particles();
 	}
+	// Keep thinking/checking
 	self.nextthink = time + 0.1;
 	self.think = func_skill_check;
 };
@@ -554,6 +939,7 @@ void() func_skill_touch =
 	if (self.spawnflags & ENT_STARTOFF) return;
 	if ( !(other.flags & FL_CLIENT) ) return;
 	if ( other.health < 1 ) return;
+	if (self.spawnflags & FUNC_SKILLCHOASMODE) return;
 
 	// If skill level is changing, say so on console
 	if (skill != self.style) {
@@ -563,7 +949,8 @@ void() func_skill_touch =
 			if (self.style == SKILL_EASY) sprint(other,"EASY");
 			else if (self.style == SKILL_NORMAL) sprint(other,"NORMAL");
 			else if (self.style == SKILL_HARD) sprint(other,"HARD");
-			else sprint(other,"NIGHTMARE");
+			else if (self.style == SKILL_NIGHTMARE) sprint(other,"NIGHTMARE");
+			else sprint(other,"EVIL");
 			sprint(other," has been selected!");
 		}
 		sprint(other,"\n");
@@ -572,17 +959,20 @@ void() func_skill_touch =
 		// Change skill level
 		cvar_set ("skill", ftos(self.style));
 		skill = self.style;
+		// Make sure skill sets extra variable
+		if (skill == SKILL_EVIL) cvar_set("scratch4", "1");
+		else cvar_set("scratch4", "0");
 		
 		// Force quick update
 		func_skill_check();
 		
 		// Any other targets to fire when touch/damaged
 		if (self.target2 != "") trigger_strs(self.target2, other);
-	}	
+	}		
 	
 	// Play touch sound regardless of skill change
 	if (self.pausetime < time) {
-		sound (self, CHAN_VOICE, self.noise3, 1, ATTN_NORM);
+		sound (self, CHAN_VOICE, self.noise3, self.volume, ATTN_NORM);
 		self.pausetime = time + 1;	// No constant sound
 	}	
 };
@@ -592,60 +982,73 @@ void() func_skill_killed =
 {
 	other = damage_attacker;		// The attacker
 	self.health = self.max_health;	// Reset health to original value
-
 	// All other exceptions are in the touch function
-	func_skill_touch();
+	self.touch2();
 };
 
 //----------------------------------------------------------------------
 void() func_skill_on =
 {
-	// No longer need this spawnflag, remove it
+	// Remove any start off / disable spawnflags
 	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
+	self.spawnflags = self.spawnflags - (self.spawnflags & FUNC_SKILLSTARTDIS);
 	
 	self.estate = ESTATE_ON;
-	func_skill_check();
+	self.solid = SOLID_BSP;
+	self.movetype = MOVETYPE_PUSH;
+	setmodel (self, self.mdl);
+	// Check/Update state
+	self.th_wakeup();
 };
 
 //----------------------------------------------------------------------
-void() func_skill_stop =
+void() func_skill_finishmove =
 {
 	// Stop sound, ON and particles!
-	sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
 	// Need to reset local entity time, otherwise timer is broken
 	// it because of the SUB_CalcMove function changes it
 	self.ltime = time;
-	func_skill_on();
+	self.estate_on();
 };
 
 //----------------------------------------------------------------------
-void() func_skill_use =
+void() func_skill_startmove =
 {
 	// Trigger once functionality
 	self.estate_use = SUB_Null;
-	self.estate = ESTATE_OFF;
-	sound (self, CHAN_VOICE, self.noise2, 1, ATTN_NORM);
-	SUB_CalcMove (self.pos2, self.speed, func_skill_stop);
+	// Remove any start off / disable spawnflags
+	self.spawnflags = self.spawnflags - (self.spawnflags & ENT_STARTOFF);
+	self.spawnflags = self.spawnflags - (self.spawnflags & FUNC_SKILLSTARTDIS);
+	// Play movement sound and move pillar into place
+	sound (self, CHAN_VOICE, self.noise2, self.volume, ATTN_NORM);
+	SUB_CalcMove (self.pos2, self.speed, func_skill_finishmove);
+};
+
+//----------------------------------------------------------------------
+void() func_skill_disable =
+{
+	self.estate = ESTATE_DISABLE;
+	self.solid = SOLID_BSP;
+	self.movetype = MOVETYPE_PUSH;
+	setmodel (self, self.mdl);
+	// Off texture (+A)
+	self.frame = 1;
+	// Frame used to determine particle state
+	func_pillar_particles();
 };
 
 //----------------------------------------------------------------------
 void() func_skill_off =
 {
 	self.estate = ESTATE_OFF;
+	self.movetype = MOVETYPE_NONE;
+	self.solid = SOLID_NOT;
+	setmodel (self, "");
+	// Off texture (+A)
 	self.frame = 1;
-	
-	// Switch off any particle emitters
-	if (self.target != "") {
-		self.enemy = find(world,targetname,self.target);
-		while (self.enemy) {
-			// Found a particle emitter?
-			if (self.enemy.classtype == CT_PARTICLEEMIT) 
-				misc_particle_off(self.enemy);
-				
-			// Keep searching for more targets in chain
-			self.enemy = find(self.enemy,targetname,self.target);
-		}
-	}
+	// Frame used to determine particle state
+	func_pillar_particles();
 };
 
 //----------------------------------------------------------------------
@@ -662,22 +1065,41 @@ void() func_skill =
 	precache_sound(self.noise1);	// stop sound (big clunk sound)
 	precache_sound(self.noise2);	// moving sound (door moving)
 	precache_sound(self.noise3);	// Touch sound
+	trigger_bmodel_volume(1);
 	
-	self.classtype = CT_FUNCSKILL;	// Type
 	self.bsporigin = TRUE;			// Bmodel (0,0,0 origin)
 	self.mdl = self.model;
 	SetMovedir ();
 	
-	if (!self.speed) self.speed = 100;	// Default movement speed
-	if (!self.lip) self.lip = 8;		// End movement distance
+	if (self.speed <= 0) self.speed = 100;	// Default movement speed
+	if (self.lip <= 0) self.lip = 8;		// End movement distance
+	if (self.waitmin <= 0) self.waitmin = 1;// Touch timeout for chaos
 
 	//----------------------------------------------------------------------
-	// Is the skill level within proper range?
-	if (self.style < SKILL_EASY || self.style > SKILL_NIGHTMARE)
-		self.style = 0;					// Default skill = EASY
-	self.attack_finished = -1;			// Always check first time
-	self.lefty = cvar("skill");			// Read current setting
-	if (self.style != self.lefty) self.frame = 1;
+	// New random chaos mode
+	if (self.spawnflags & FUNC_SKILLCHOASMODE) {
+		self.classtype = CT_FUNCCHAOS;
+		self.touch2 = func_chaos_touch;
+		self.th_wakeup = func_chaos_check;
+		// Reset default/override for chaos system
+		if (self.style <= 0) self.style = 0;
+		// Read randomizer (scratch3) flag
+		self.lefty = check_randflags();
+		if (self.lefty == FALSE) self.frame = 1;	// +A (off)
+		else self.frame = 0;						// +0 (on)
+	}
+	else {
+		self.classtype = CT_FUNCSKILL;	// Type
+		self.touch2 = func_skill_touch;
+		self.th_wakeup = func_skill_check;
+		// Check for negative skill values? skill 4+ = Evil Mode
+		if (self.style < SKILL_EASY) self.style = SKILL_EASY;
+		self.lefty = cvar("skill");			// Read current setting
+		if (self.style != self.lefty) self.frame = 1;	// +A (off)
+		else self.frame = 0;							// +0 (on)
+	}
+	// Always check first time
+	self.lefty = -1;
 	
 	//----------------------------------------------------------------------
 	// Add bmodel to world and work out movement positions
@@ -689,9 +1111,8 @@ void() func_skill =
 	self.pos1 = self.origin;
 	self.pos2 = self.pos1 + self.movedir*(fabs(self.movedir*self.size) - self.lip);
 	
-	// Check for spawning conditions (nightmare, coop)
+	// Check for spawning conditions (coop, no NM check)
 	// Needs to exist after entity has been added to work for BSPorigin
-	if (check_nightmare() == TRUE) return;
 	if (check_coop() == TRUE) return;
 
 	//----------------------------------------------------------------------
@@ -701,41 +1122,48 @@ void() func_skill =
 		setorigin (self, self.pos2);
 		self.pos2 = self.pos1;
 		self.pos1 = self.origin;
+		// Start open always starts disabled
+		self.spawnflags = self.spawnflags | FUNC_SKILLSTARTDIS;
+		// Wait for trigger to start moving into place
+		self.use = func_skill_startmove;
 	}
-	
-	// If the skill pillar is setup with a targetname then wait for
-	// a trigger event before becoming active (updates+particles)
-	if (self.targetname != "") {
-		self.spawnflags = self.spawnflags | ENT_STARTOFF;
-		self.estate_use = func_skill_use;
-		self.frame = 1;	// Always starts off
-	}
-	
+	// Default trigger/use (Turn on)
+	else self.use = func_skill_on;
+		
 	// Setup Entity State functionality
-	self.use = entity_state_use;
 	self.estate_on = func_skill_on;
 	self.estate_off = func_skill_off;
-	self.estate = ESTATE_OFF;
+	self.estate_disable = func_skill_disable;
 
-	// Can either be touched or damaged, never both!
-	if (self.health != 0) {
+	// Check for notouch+damage, damage only or touch only
+	// The visual only version has to be checked first
+	if (self.wait < 0) {
+		self.health = self.max_health = 0;
+		self.th_die = SUB_Null;
+		self.takedamage = DAMAGE_NO;
+		self.touch = SUB_Null;
+	}
+	else if (self.health != 0) {
 		self.health = self.max_health = 1;
 		self.th_die = func_skill_killed;
 		self.takedamage = DAMAGE_YES;
 		self.touch = SUB_Null;
 	}
 	else {
-		self.touch = func_skill_touch;
+		self.health = self.max_health = 0;
+		self.th_die = SUB_Null;
 		self.takedamage = DAMAGE_NO;
+		self.touch = self.touch2;
 	}
 
-	// Wait random amount for all entities to spawn
-	self.nextthink = time + 0.1 + random()*0.5;
-	if (self.spawnflags & ENT_STARTOFF) self.think = self.estate_off;
+	// Wait for particle emitter entities to spawn
+	self.nextthink = time + 0.1 + random()*0.2;
+	if (self.spawnflags & FUNC_SKILLSTARTDIS) self.think = self.estate_disable;
+	else if (self.spawnflags & ENT_STARTOFF) self.think = self.estate_off;
 	else self.think = self.estate_on;
 };
 
-/*======================================================================
+//======================================================================
 /*QUAKED func_bob (0 .5 .8) ? x x x x x x STARTOFF x Not_Easy Not_Normal Not_Hard Not_DM
 A SOLID bmodel that gently moves back and forth
 -------- KEYS --------
@@ -825,6 +1253,7 @@ void() func_bob_on =
 		// Check for solid spawnflag
 		if (self.spawnflags & BOB_NONSOLID) {
 			self.movetype = MOVETYPE_PUSH;
+			//self.movetype = MOVETYPE_NOCLIP;
 			self.solid = SOLID_NOT;
 		}
 		else {

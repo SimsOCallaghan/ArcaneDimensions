@@ -1,13 +1,13 @@
-/*======================================================================
- PLATFORM FUNCTIONS
-======================================================================*/
+//======================================================================
+// PLATFORM FUNCTIONS
+//======================================================================
 float PLAT_LOW_TRIGGER = 1;
 float PLAT_MIN_TRIGGER = 4;
 float PLAT_START_LOWER = 8;
 float PLAT_START_OPEN = 16;
 float PLAT_STARTDIS = 32;		// Platform starts in disabled state
 
-/*======================================================================
+//======================================================================
 /*QUAKED func_plat (0 .5 .8) ? LOW_TRIGGER x MIN_TRIGGER START_LOWER START_OPEN x STARTOFF x
 A Platform (bmodel) with 2 states
 -------- KEYS --------
@@ -18,6 +18,7 @@ height : determines the distance to move, instead of bmodel bounds
 sounds : 1=Base, 0 or 2=Medieval (def), 4=Silent, 5=Custom sounds
 noise  : custom sound - moving (looping)
 noise1 : custom sound - Stopped
+volume : Volume for all custom sounds played (def=1, range=0-1)
 _dirt       : -1 = will be excluded from dirtmapping
 _minlight   : Minimum light level for any surface of the brush model
 _mincolor   : Minimum light color for any surface (def='1 1 1' RGB)
@@ -40,7 +41,7 @@ void() func_plat_hit_bottom =
 {
 	if (self.estate == ESTATE_OFF) return;
 	self.state = STATE_BOTTOM;
-	sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
 };
 
 //----------------------------------------------------------------------
@@ -48,7 +49,7 @@ void() func_plat_go_down =
 {
 	if (self.estate == ESTATE_OFF) return;
 	self.state = STATE_DOWN;
-	sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 	SUB_CalcMove (self.pos2, self.speed, func_plat_hit_bottom);
 };
 
@@ -57,7 +58,7 @@ void() func_plat_hit_top =
 {
 	if (self.estate == ESTATE_OFF) return;
 	self.state = STATE_TOP;
-	sound (self, CHAN_VOICE, self.noise1, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.noise1, self.volume, ATTN_NORM);
 	self.think = func_plat_go_down;
 	self.nextthink = self.ltime + 3;
 };
@@ -67,7 +68,7 @@ void() func_plat_go_up =
 {
 	if (self.estate == ESTATE_OFF) return;
 	self.state = STATE_UP;
-	sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, self.noise, self.volume, ATTN_NORM);
 	SUB_CalcMove (self.pos1, self.speed, func_plat_hit_top);
 };
 
@@ -110,7 +111,6 @@ void() func_plat_trigger_spawn =
 	else tmin_z = tmax_z - (self.pos1_z - self.pos2_z + 8);
 
 	if (self.spawnflags & PLAT_LOW_TRIGGER) tmax_z = tmin_z + 8;
-	
 	
 	if (self.size_x <= 50) {
 		tmin_x = (self.mins_x + self.maxs_x) / 2;
@@ -177,7 +177,7 @@ void() func_plat_off =
 	setmodel (self, "");
 	
 	// Stop all movement sounds
-	sound (self, CHAN_VOICE, SOUND_EMPTY, 1, ATTN_NORM);
+	sound (self, CHAN_VOICE, SOUND_EMPTY, self.volume, ATTN_NORM);
 
 	if (self.state != STATE_DISABLED) {
 		// Reset health, position and frame back to default
@@ -226,6 +226,7 @@ void() func_plat =
 	}
 	precache_sound (self.noise);
 	precache_sound (self.noise1);
+	trigger_bmodel_volume(1);
 	
 	self.classtype = CT_FUNCPLAT;
 	self.classgroup = CG_FUNCMOVER;
@@ -248,6 +249,17 @@ void() func_plat =
 	setmodel (self, self.mdl);
 	setsize (self, self.mins , self.maxs);
 
+	// Check for any entity state setups (OFF/DISABLE)
+	// Need targetname defined (can't active bmodel otherwise)
+	if (self.targetname != "" && self.estate > 0) {
+		if (self.estate == ESTATE_OFF) 
+			self.spawnflags = self.spawnflags | ENT_STARTOFF;
+		if (self.estate == ESTATE_DISABLE)
+			self.spawnflags = self.spawnflags | PLAT_STARTDIS;
+	}
+	// Default state
+	else self.estate = ESTATE_ON;
+	
 	// Cannot have a platform start off or disabled
 	// with no targetname, how can it be actived!?!
 	if (self.spawnflags & PLAT_STARTDIS && self.targetname == "") {
